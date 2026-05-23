@@ -1,6 +1,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QSizePolicy>
+#include <QTimer>
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <TopoDS_Shape.hxx>
@@ -24,6 +25,12 @@ MainWindow::MainWindow(QWidget* parent)
     setupLogPanel();
 
     m_logger->info("Application started");
+
+    QTimer::singleShot(0, this, [this]()
+                       {
+                           m_occView->displayTestBox();
+                           m_logger->info("Display test box");
+                       });
 
     runOccRuntimeCheck();
 }
