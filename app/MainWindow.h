@@ -13,6 +13,12 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
+namespace OccQtCore {
+class AppLogger;
+class LogPanel;
+class OccView;
+}
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -33,8 +39,6 @@ private:
 
     OccQtCore::AppLogger* m_logger = nullptr;
     OccQtCore::LogPanel* m_logPanel = nullptr;
-
-    // 後で OccView に置き換える仮ビュー
-    QLabel* m_viewLabel = nullptr;
+    OccQtCore::OccView* m_occView = nullptr;
 };
 #endif // MAINWINDOW_H

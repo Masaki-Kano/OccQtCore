@@ -1,15 +1,16 @@
-#include "MainWindow.h"
-#include "ui_MainWindow.h"
-
-#include "AppLogger.h"
-#include "LogPanel.h"
-
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QSizePolicy>
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <TopoDS_Shape.hxx>
+
+#include "MainWindow.h"
+#include "ui_MainWindow.h"
+
+#include "AppLogger.h"
+#include "LogPanel.h"
+#include "OccView.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -73,13 +74,12 @@ void MainWindow::setupLayout()
 
 void MainWindow::setupViewArea()
 {
-    m_viewLabel = new QLabel("OccView area", this);
-    m_viewLabel->setAlignment(Qt::AlignCenter);
+    m_occView = new OccQtCore::OccView(this);
 
     auto* viewLayout = new QVBoxLayout(ui->viewContainer);
     viewLayout->setContentsMargins(0, 0, 0, 0);
     viewLayout->setSpacing(0);
-    viewLayout->addWidget(m_viewLabel);
+    viewLayout->addWidget(m_occView);
 }
 
 void MainWindow::setupLogPanel()

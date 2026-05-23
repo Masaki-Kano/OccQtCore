@@ -36,12 +36,16 @@ qt_add_executable(OccQtCore
     src/Log/AppLogger.cpp
     src/Log/LogPanel.h
     src/Log/LogPanel.cpp
+
+    src/View/OccView.h
+    src/View/OccView.cpp
 )
 
 target_include_directories(OccQtCore
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/src/Log
+        ${CMAKE_SOURCE_DIR}/src/View
 )
 
 target_link_libraries(OccQtCore
