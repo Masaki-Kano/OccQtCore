@@ -1,0 +1,33 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.ninja
+.ninja_*
+
+# Qt Creator
+*.user
+*.user.*
+*.autosave
+
+# Visual Studio / MSVC
+.vs/
+*.vcxproj.user
+*.suo
+*.pdb
+*.ilk
+*.obj
+*.exe
+*.dll
+*.lib
+*.exp
+
+# OS
+.DS_Store
+Thumbs.db
