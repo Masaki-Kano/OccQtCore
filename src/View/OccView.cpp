@@ -303,11 +303,30 @@ namespace OccQtCore
                 m_shapeDisplayMode,
                 Standard_False);
 
+            applyShapeAppearance(displayObject.object);
+
             m_context->Redisplay(displayObject.object, Standard_False);
         }
 
         m_context->UpdateCurrentViewer();
         redraw();
+    }
+
+    void OccView::applyShapeAppearance(const Handle(AIS_InteractiveObject)& object)
+    {
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        if (object.IsNull())
+        {
+            return;
+        }
+
+        m_context->SetDisplayMode(object, m_shapeDisplayMode, Standard_False);
+        m_context->SetColor(object, m_shapeAppearance.color, Standard_False);
+        m_context->Redisplay(object, Standard_False);
     }
 
     DisplayObjectId OccView::displayObject(
@@ -344,6 +363,8 @@ namespace OccQtCore
         {
             m_context->SetDisplayMode(object, m_shapeDisplayMode, Standard_False);
             m_context->Redisplay(object, Standard_False);
+
+            applyShapeAppearance(object);
         }
 
         m_context->UpdateCurrentViewer();
@@ -513,6 +534,29 @@ namespace OccQtCore
     void OccView::setWireframeMode()
     {
        setShapeDisplayMode(AIS_WireFrame);
+    }
+
+    void OccView::setShapeColor(const Quantity_Color& color)
+    {
+        m_shapeAppearance.color = color;
+
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        for (const DisplayObject& displayObject : m_displayObjects)
+        {
+            if (displayObject.layer != DisplayLayer::Shape)
+            {
+                continue;
+            }
+
+            applyShapeAppearance(displayObject.object);
+        }
+
+        m_context->UpdateCurrentViewer();
+        redraw();
     }
 
     void OccView::redraw()

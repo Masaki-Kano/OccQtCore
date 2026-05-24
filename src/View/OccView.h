@@ -13,6 +13,7 @@
 #include <TopoDS_Shape.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
+#include <Quantity_Color.hxx>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -64,6 +65,7 @@ namespace OccQtCore
 
         void setShadedMode();
         void setWireframeMode();
+        void setShapeColor(const Quantity_Color& color);
 
         void redraw();
 
@@ -92,6 +94,8 @@ namespace OccQtCore
 
         void setShapeDisplayMode(AIS_DisplayMode displayMode);
 
+        void applyShapeAppearance(const Handle(AIS_InteractiveObject)& object);
+
     private:
         // OccView内部だけで使う表示管理情報
         struct DisplayObject
@@ -115,6 +119,11 @@ namespace OccQtCore
             QPoint lastPos;
         };
 
+        struct ShapeAppearance
+        {
+            Quantity_Color color = Quantity_Color(0.75, 0.78, 0.82, Quantity_TOC_RGB);
+        };
+
     private:
         Handle(Aspect_DisplayConnection) m_displayConnection;
         Handle(OpenGl_GraphicDriver) m_graphicDriver;
@@ -128,6 +137,8 @@ namespace OccQtCore
         MouseState m_mouseState;
 
         AIS_DisplayMode m_shapeDisplayMode = AIS_Shaded;
+
+        ShapeAppearance m_shapeAppearance;
 
         bool m_initialized = false;
     };
