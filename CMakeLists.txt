@@ -42,6 +42,8 @@ qt_add_executable(OccQtCore
 
     src/IO/StepLoader.h
     src/IO/StepLoader.cpp
+    src/Core/DocumentData.h
+    src/Core/DocumentData.cpp
 )
 
 target_include_directories(OccQtCore

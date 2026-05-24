@@ -7,6 +7,8 @@
 #include "Log/AppLogger.h"
 #include "Log/LogPanel.h"
 
+#include "Core/DocumentData.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -42,5 +44,7 @@ private:
     OccQtCore::AppLogger* m_logger = nullptr;
     OccQtCore::LogPanel* m_logPanel = nullptr;
     OccQtCore::OccView* m_occView = nullptr;
+
+    OccQtCore::DocumentData m_document;
 };
 #endif // MAINWINDOW_H

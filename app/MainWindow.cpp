@@ -127,6 +127,10 @@ void MainWindow::openStepFile(const QString& filePath)
         return;
     }
 
+    m_document.clear();
+    m_document.setFilePath(filePath);
+    m_document.setShape(result.shape);
+
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(result.shape, OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
