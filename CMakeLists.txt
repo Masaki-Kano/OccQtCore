@@ -16,6 +16,9 @@ include(cmake/OccConfig.cmake)
 include(cmake/DeployHelpers.cmake)
 include(cmake/QtDeploy.cmake)
 
+option(DEPLOY_OCCT_ON_BUILD "Deploy OCCT runtime DLLs after build" OFF)
+option(DEPLOY_QT_ON_BUILD "Deploy Qt runtime DLLs after build" OFF)
+
 
 qt_add_executable(OccQtCore
     WIN32
@@ -42,6 +45,7 @@ qt_add_executable(OccQtCore
 
     src/IO/StepLoader.h
     src/IO/StepLoader.cpp
+
     src/Core/DocumentData.h
     src/Core/DocumentData.cpp
 )
@@ -59,5 +63,12 @@ target_link_libraries(OccQtCore
 )
 
 target_link_occt(OccQtCore)
-target_deploy_occt(OccQtCore)
-target_deploy_qt(OccQtCore)
+
+if(DEPLOY_RUNTIME_ON_BUILD OR DEPLOY_OCCT_ON_BUILD)
+    target_deploy_occt(OccQtCore)
+endif()
+
+if(DEPLOY_RUNTIME_ON_BUILD OR DEPLOY_QT_ON_BUILD)
+    target_deploy_qt(OccQtCore)
+endif()
+

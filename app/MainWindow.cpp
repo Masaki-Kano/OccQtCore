@@ -4,6 +4,7 @@
 #include <QTimer>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QDir>
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <TopoDS_Shape.hxx>
@@ -19,6 +20,7 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_lastOpenDirectory("C:/work/OccQtCore/model")
 {
     ui->setupUi(this);
 
@@ -26,13 +28,9 @@ MainWindow::MainWindow(QWidget* parent)
     setupLayout();
     setupViewArea();
     setupLogPanel();
+    setupConnections();
 
     m_logger->info("Application started");
-
-    QTimer::singleShot(0, this, [this]()
-                       {
-                           openStepFileDialog();
-                       });
 }
 
 MainWindow::~MainWindow()
@@ -102,12 +100,20 @@ void MainWindow::setupLogPanel()
     logLayout->addWidget(m_logPanel);
 }
 
+void MainWindow::setupConnections()
+{
+    connect(ui->actionOpen,
+            &QAction::triggered,
+            this,
+            &MainWindow::openStepFileDialog);
+}
+
 void MainWindow::openStepFileDialog()
 {
     const QString filePath = QFileDialog::getOpenFileName(
         this,
         tr("Open STEP File"),
-        QString(),
+        defaultOpenDirectory(),
         tr("STEP Files (*.step *.stp *.STEP *.STP);;All Files (*.*)"));
 
     if (filePath.isEmpty())
@@ -132,14 +138,36 @@ void MainWindow::openStepFile(const QString& filePath)
     m_document.setFilePath(filePath);
     m_document.setShape(result.shape);
 
+    updateLastOpenDirectory(filePath);
+
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
-    m_occView->displayShape(result.shape, OccQtCore::DisplayLayer::Shape);
+    m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
 
     const QFileInfo fileInfo(m_document.filePath());
     setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));
 
     m_logger->info(QString("STEP file loaded: %1").arg(filePath));
+}
+
+QString MainWindow::defaultOpenDirectory() const
+{
+    if (!m_lastOpenDirectory.isEmpty())
+    {
+        return m_lastOpenDirectory;
+    }
+
+    return QDir::homePath();
+}
+
+void MainWindow::updateLastOpenDirectory(const QString& filePath)
+{
+    const QFileInfo fileInfo(filePath);
+
+    if (fileInfo.exists())
+    {
+        m_lastOpenDirectory = fileInfo.absolutePath();
+    }
 }
 
 

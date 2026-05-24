@@ -34,9 +34,13 @@ private:
     void setupLayout();
     void setupViewArea();
     void setupLogPanel();
+    void setupConnections();
 
     void openStepFileDialog();
     void openStepFile(const QString& filePath);
+
+    QString defaultOpenDirectory() const;
+    void updateLastOpenDirectory(const QString& filePath);
 
 private:
     Ui::MainWindow* ui = nullptr;
@@ -46,5 +50,6 @@ private:
     OccQtCore::OccView* m_occView = nullptr;
 
     OccQtCore::DocumentData m_document;
+    QString m_lastOpenDirectory;
 };
 #endif // MAINWINDOW_H
