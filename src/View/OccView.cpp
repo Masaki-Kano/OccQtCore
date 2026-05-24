@@ -144,6 +144,19 @@ namespace OccQtCore
 
     void OccView::mouseReleaseEvent(QMouseEvent* event)
     {
+        const QPoint pos = event->position().toPoint();
+
+        if (event->button() == Qt::LeftButton)
+        {
+            if (isClickOperation(pos))
+            {
+                pickAt(pos);
+            }
+
+            event->accept();
+            return;
+        }
+
         if (event->button() == Qt::RightButton ||
             event->button() == Qt::MiddleButton)
         {
@@ -329,6 +342,101 @@ namespace OccQtCore
         m_context->Redisplay(object, Standard_False);
     }
 
+    bool OccView::isClickOperation(const QPoint& releasePos) const
+    {
+        constexpr int ClickMoveThreshold = 3;
+
+        const int moveDistance =
+            (releasePos - m_mouseState.pressPos).manhattanLength();
+
+        return moveDistance <= ClickMoveThreshold;
+    }
+
+    PickedShapeType OccView::toPickedShapeType(TopAbs_ShapeEnum shapeType)
+    {
+        switch (shapeType)
+        {
+        case TopAbs_VERTEX:
+            return PickedShapeType::Vertex;
+
+        case TopAbs_EDGE:
+            return PickedShapeType::Edge;
+
+        case TopAbs_FACE:
+            return PickedShapeType::Face;
+
+        case TopAbs_SOLID:
+            return PickedShapeType::Solid;
+
+        default:
+            return PickedShapeType::Unknown;
+        }
+    }
+
+    DisplayObjectId OccView::findDisplayObjectId(
+        const Handle(AIS_InteractiveObject)& object) const
+    {
+        if (object.IsNull())
+        {
+            return -1;
+        }
+
+        for (const DisplayObject& displayObject : m_displayObjects)
+        {
+            if (displayObject.object == object)
+            {
+                return displayObject.id;
+            }
+        }
+
+        return -1;
+    }
+
+    void OccView::pickAt(const QPoint& pos)
+    {
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        PickResult result;
+
+        m_context->MoveTo(pos.x(), pos.y(), m_view, Standard_True);
+
+        if (!m_context->HasDetected())
+        {
+            emit shapePicked(result);
+            return;
+        }
+
+        const Handle(AIS_InteractiveObject) pickedObject =
+            m_context->DetectedInteractive();
+
+        m_context->SelectDetected(AIS_SelectionScheme_Replace);
+        m_context->InitSelected();
+
+        if (!m_context->MoreSelected())
+        {
+            emit shapePicked(result);
+            return;
+        }
+
+        const TopoDS_Shape pickedShape = m_context->SelectedShape();
+
+        if (pickedShape.IsNull())
+        {
+            emit shapePicked(result);
+            return;
+        }
+
+        result.hasShape = true;
+        result.shape = pickedShape;
+        result.type = toPickedShapeType(pickedShape.ShapeType());
+        result.displayObjectId = findDisplayObjectId(pickedObject);
+
+        emit shapePicked(result);
+    }
+
     DisplayObjectId OccView::displayObject(
         const Handle(AIS_InteractiveObject)& object,
         DisplayLayer layer)
@@ -383,7 +491,20 @@ namespace OccQtCore
         }
 
         Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
-        return displayObject(aisShape, layer);
+
+        const DisplayObjectId id = displayObject(aisShape, layer);
+
+        if (layer == DisplayLayer::Shape && isInitialized())
+        {
+            m_context->Activate(aisShape, 0);
+            m_context->Activate(aisShape, AIS_Shape::SelectionMode(TopAbs_FACE));
+            m_context->Activate(aisShape, AIS_Shape::SelectionMode(TopAbs_EDGE));
+            m_context->Activate(aisShape, AIS_Shape::SelectionMode(TopAbs_VERTEX));
+
+            m_context->UpdateCurrentViewer();
+        }
+
+        return id;
     }
 
     void OccView::removeObject(DisplayObjectId id)

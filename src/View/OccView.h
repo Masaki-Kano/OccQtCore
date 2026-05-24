@@ -32,6 +32,23 @@ namespace OccQtCore
         Temporary   // 一時表示
     };
 
+    enum class PickedShapeType
+    {
+        Unknown,
+        Vertex,
+        Edge,
+        Face,
+        Solid
+    };
+
+    struct PickResult
+    {
+        bool hasShape = false;
+        PickedShapeType type = PickedShapeType::Unknown;
+        TopoDS_Shape shape;
+        DisplayObjectId displayObjectId = -1;
+    };
+
     class OccView : public QWidget
     {
         Q_OBJECT
@@ -69,6 +86,9 @@ namespace OccQtCore
 
         void redraw();
 
+    signals:
+        void shapePicked(const OccQtCore::PickResult& result);
+
     protected:
         void showEvent(QShowEvent* event) override;
         void resizeEvent(QResizeEvent* event) override;
@@ -95,6 +115,11 @@ namespace OccQtCore
         void setShapeDisplayMode(AIS_DisplayMode displayMode);
 
         void applyShapeAppearance(const Handle(AIS_InteractiveObject)& object);
+
+        bool isClickOperation(const QPoint& releasePos) const;
+        PickedShapeType toPickedShapeType(TopAbs_ShapeEnum shapeType);
+        DisplayObjectId findDisplayObjectId(const Handle(AIS_InteractiveObject)& object) const;
+        void pickAt(const QPoint& pos);
 
     private:
         // OccView内部だけで使う表示管理情報

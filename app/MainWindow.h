@@ -7,6 +7,8 @@
 #include "Log/AppLogger.h"
 #include "Log/LogPanel.h"
 
+#include "View/OccView.h"
+
 #include "Core/DocumentData.h"
 
 QT_BEGIN_NAMESPACE
@@ -38,6 +40,8 @@ private:
 
     void openStepFileDialog();
     void openStepFile(const QString& filePath);
+
+    void onShapePicked(const OccQtCore::PickResult& result);
 
     QString defaultOpenDirectory() const;
     void updateLastOpenDirectory(const QString& filePath);

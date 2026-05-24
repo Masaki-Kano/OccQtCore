@@ -17,6 +17,27 @@
 #include "Log/LogPanel.h"
 #include "IO/StepLoader.h"
 
+namespace
+{
+    QString pickedShapeTypeToString(OccQtCore::PickedShapeType type)
+    {
+        switch (type)
+        {
+        case OccQtCore::PickedShapeType::Vertex:
+            return "Vertex";
+        case OccQtCore::PickedShapeType::Edge:
+            return "Edge";
+        case OccQtCore::PickedShapeType::Face:
+            return "Face";
+        case OccQtCore::PickedShapeType::Solid:
+            return "Solid";
+        case OccQtCore::PickedShapeType::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
+}
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -144,7 +165,11 @@ void MainWindow::setupConnections()
             m_occView,
             &OccQtCore::OccView::setWireframeMode);
 
-
+    // ピック
+    connect(m_occView,
+            &OccQtCore::OccView::shapePicked,
+            this,
+            &MainWindow::onShapePicked);
 }
 
 void MainWindow::openStepFileDialog()
@@ -187,6 +212,20 @@ void MainWindow::openStepFile(const QString& filePath)
     setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));
 
     m_logger->info(QString("STEP file loaded: %1").arg(filePath));
+}
+
+void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
+{
+    if (!result.hasShape)
+    {
+        m_logger->info("Picked: none");
+        return;
+    }
+
+    m_logger->info(
+        QString("Picked: %1, DisplayObjectId=%2")
+            .arg(pickedShapeTypeToString(result.type))
+            .arg(result.displayObjectId));
 }
 
 QString MainWindow::defaultOpenDirectory() const
