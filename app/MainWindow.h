@@ -4,8 +4,8 @@
 #include <QMainWindow>
 #include <QLabel>
 
-#include "AppLogger.h"
-#include "LogPanel.h"
+#include "Log/AppLogger.h"
+#include "Log/LogPanel.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {

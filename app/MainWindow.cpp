@@ -9,9 +9,10 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 
-#include "AppLogger.h"
-#include "LogPanel.h"
-#include "OccView.h"
+#include "View/OccView.h"
+#include "Log/AppLogger.h"
+#include "Log/LogPanel.h"
+#include "IO/StepLoader.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -28,8 +29,21 @@ MainWindow::MainWindow(QWidget* parent)
 
     QTimer::singleShot(0, this, [this]()
                        {
-                           m_occView->displayTestBox();
-                           m_logger->info("Display test box");
+                           const QString filePath = "C:/work/OccQtCore/model/screw.step";
+
+                           const auto result = OccQtCore::StepLoader::load(filePath);
+
+                           if (!result.success)
+                           {
+                               m_logger->error(result.errorMessage);
+                               return;
+                           }
+
+                           m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
+                           m_occView->displayShape(result.shape, OccQtCore::DisplayLayer::Shape);
+                           m_occView->fitAll();
+
+                           m_logger->info("STEP file loaded");
                        });
 
     runOccRuntimeCheck();

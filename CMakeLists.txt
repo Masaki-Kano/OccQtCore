@@ -39,13 +39,15 @@ qt_add_executable(OccQtCore
 
     src/View/OccView.h
     src/View/OccView.cpp
+
+    src/IO/StepLoader.h
+    src/IO/StepLoader.cpp
 )
 
 target_include_directories(OccQtCore
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/src/Log
-        ${CMAKE_SOURCE_DIR}/src/View
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/app
 )
 
 target_link_libraries(OccQtCore
