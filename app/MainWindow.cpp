@@ -201,16 +201,15 @@ void MainWindow::openStepFile(const QString& filePath)
     m_document.clear();
     m_document.setFilePath(filePath);
     m_document.setShape(result.shape);
-
     updateLastOpenDirectory(filePath);
 
-    m_shapeIndex.build(m_document.shape());
+    const auto& shapeIndex = m_document.shapeIndex();
 
     m_logger->info(
         QString("Shape index built: Faces=%1, Edges=%2, Vertices=%3")
-            .arg(m_shapeIndex.faceCount())
-            .arg(m_shapeIndex.edgeCount())
-            .arg(m_shapeIndex.vertexCount()));
+            .arg(shapeIndex.faceCount())
+            .arg(shapeIndex.edgeCount())
+            .arg(shapeIndex.vertexCount()));
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
@@ -230,20 +229,22 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
         return;
     }
 
-    int shapeIndex = -1;
+    const auto& shapeIndex = m_document.shapeIndex();
+
+    int shapeElementIndex = -1;
 
     switch (result.type)
     {
     case OccQtCore::PickedShapeType::Face:
-        shapeIndex = m_shapeIndex.findFaceIndex(result.shape);
+        shapeElementIndex = shapeIndex.findFaceIndex(result.shape);
         break;
 
     case OccQtCore::PickedShapeType::Edge:
-        shapeIndex = m_shapeIndex.findEdgeIndex(result.shape);
+        shapeElementIndex = shapeIndex.findEdgeIndex(result.shape);
         break;
 
     case OccQtCore::PickedShapeType::Vertex:
-        shapeIndex = m_shapeIndex.findVertexIndex(result.shape);
+        shapeElementIndex = shapeIndex.findVertexIndex(result.shape);
         break;
 
     default:
@@ -253,7 +254,7 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
     m_logger->info(
         QString("Picked: %1, Index=%2, DisplayObjectId=%3")
             .arg(pickedShapeTypeToString(result.type))
-            .arg(shapeIndex)
+            .arg(shapeElementIndex)
             .arg(result.displayObjectId));
 }
 

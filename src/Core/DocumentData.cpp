@@ -6,6 +6,7 @@ namespace OccQtCore
     {
         m_filePath.clear();
         m_shape.Nullify();
+        m_shapeIndex.clear();
     }
 
     bool DocumentData::hasShape() const
@@ -26,11 +27,22 @@ namespace OccQtCore
     void DocumentData::setShape(const TopoDS_Shape& shape)
     {
         m_shape = shape;
+        m_shapeIndex.build(m_shape);
     }
 
     const TopoDS_Shape& DocumentData::shape() const
     {
         return m_shape;
+    }
+
+    const ShapeIndex& DocumentData::shapeIndex() const
+    {
+        return m_shapeIndex;
+    }
+
+    ShapeIndex& DocumentData::shapeIndex()
+    {
+        return m_shapeIndex;
     }
 
 }

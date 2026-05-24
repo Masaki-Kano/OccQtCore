@@ -9,8 +9,6 @@
 
 #include "View/OccView.h"
 
-#include "Geometry/ShapeIndex.h"
-
 #include "Core/DocumentData.h"
 
 QT_BEGIN_NAMESPACE
@@ -54,8 +52,6 @@ private:
     OccQtCore::AppLogger* m_logger = nullptr;
     OccQtCore::LogPanel* m_logPanel = nullptr;
     OccQtCore::OccView* m_occView = nullptr;
-
-    OccQtCore::ShapeIndex m_shapeIndex;
 
     OccQtCore::DocumentData m_document;
     QString m_lastOpenDirectory;
