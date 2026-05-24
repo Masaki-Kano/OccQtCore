@@ -102,10 +102,37 @@ void MainWindow::setupLogPanel()
 
 void MainWindow::setupConnections()
 {
+    // メニュー ファイル
     connect(ui->actionOpen,
             &QAction::triggered,
             this,
             &MainWindow::openStepFileDialog);
+
+    // メニュー 表示
+    connect(ui->actionFitAll,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::fitAll);
+
+    connect(ui->actionViewX,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::viewX);
+
+    connect(ui->actionViewY,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::viewY);
+
+    connect(ui->actionViewZ,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::viewZ);
+
+    connect(ui->actionViewIso,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::viewIso);
 }
 
 void MainWindow::openStepFileDialog()

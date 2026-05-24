@@ -56,6 +56,12 @@ namespace OccQtCore
         void clearAll();
 
         void fitAll();
+
+        void viewX();
+        void viewY();
+        void viewZ();
+        void viewIso();
+
         void redraw();
 
         // 動作確認用

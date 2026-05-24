@@ -16,6 +16,7 @@
 #include <OpenGl_GraphicDriver.hxx>
 #include <Quantity_Color.hxx>
 #include <V3d_View.hxx>
+#include <V3d_TypeOfOrientation.hxx>
 #include <WNT_Window.hxx>
 
 namespace OccQtCore
@@ -419,6 +420,50 @@ namespace OccQtCore
         m_view->FitAll();
         m_view->ZFitAll();
         m_view->Redraw();
+    }
+
+    void OccView::viewX()
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->SetProj(V3d_Xpos);
+        fitAll();
+    }
+
+    void OccView::viewY()
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->SetProj(V3d_Ypos);
+        fitAll();
+    }
+
+    void OccView::viewZ()
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->SetProj(V3d_Zpos);
+        fitAll();
+    }
+
+    void OccView::viewIso()
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->SetProj(V3d_XposYnegZpos);
+        fitAll();
     }
 
     void OccView::redraw()
