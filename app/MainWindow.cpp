@@ -204,6 +204,14 @@ void MainWindow::openStepFile(const QString& filePath)
 
     updateLastOpenDirectory(filePath);
 
+    m_shapeIndex.build(m_document.shape());
+
+    m_logger->info(
+        QString("Shape index built: Faces=%1, Edges=%2, Vertices=%3")
+            .arg(m_shapeIndex.faceCount())
+            .arg(m_shapeIndex.edgeCount())
+            .arg(m_shapeIndex.vertexCount()));
+
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
@@ -222,9 +230,30 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
         return;
     }
 
+    int shapeIndex = -1;
+
+    switch (result.type)
+    {
+    case OccQtCore::PickedShapeType::Face:
+        shapeIndex = m_shapeIndex.findFaceIndex(result.shape);
+        break;
+
+    case OccQtCore::PickedShapeType::Edge:
+        shapeIndex = m_shapeIndex.findEdgeIndex(result.shape);
+        break;
+
+    case OccQtCore::PickedShapeType::Vertex:
+        shapeIndex = m_shapeIndex.findVertexIndex(result.shape);
+        break;
+
+    default:
+        break;
+    }
+
     m_logger->info(
-        QString("Picked: %1, DisplayObjectId=%2")
+        QString("Picked: %1, Index=%2, DisplayObjectId=%3")
             .arg(pickedShapeTypeToString(result.type))
+            .arg(shapeIndex)
             .arg(result.displayObjectId));
 }
 

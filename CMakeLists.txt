@@ -48,6 +48,8 @@ qt_add_executable(OccQtCore
 
     src/Core/DocumentData.h
     src/Core/DocumentData.cpp
+    src/Geometry/ShapeIndex.h
+    src/Geometry/ShapeIndex.cpp
 )
 
 target_include_directories(OccQtCore
