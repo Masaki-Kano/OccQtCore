@@ -6,6 +6,8 @@
 #include <QPaintEvent>
 #include <QResizeEvent>
 #include <QShowEvent>
+#include <QMouseEvent>
+#include <QWheelEvent>
 
 #include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
@@ -18,6 +20,12 @@
 
 namespace OccQtCore
 {
+
+    namespace
+    {
+        constexpr double ZoomStepFactor = 1.1;
+    }
+
     OccView::OccView(QWidget* parent)
         : QWidget(parent)
     {
@@ -25,6 +33,9 @@ namespace OccQtCore
         setAttribute(Qt::WA_PaintOnScreen);
         setAttribute(Qt::WA_NoSystemBackground);
         setAttribute(Qt::WA_OpaquePaintEvent);
+
+        setMouseTracking(true);
+        setFocusPolicy(Qt::StrongFocus);
     }
 
     QPaintEngine* OccView::paintEngine() const
@@ -67,6 +78,103 @@ namespace OccQtCore
         {
             m_view->Redraw();
         }
+    }
+
+    void OccView::mousePressEvent(QMouseEvent* event)
+    {
+        if (!isInitialized())
+        {
+            QWidget::mousePressEvent(event);
+            return;
+        }
+
+        const QPoint pos = event->position().toPoint();
+
+        m_mouseState.pressPos = pos;
+        m_mouseState.lastPos = pos;
+
+        if (event->button() == Qt::RightButton)
+        {
+            beginRotate(pos);
+            event->accept();
+            return;
+        }
+
+        if (event->button() == Qt::MiddleButton)
+        {
+            beginPan(pos);
+            event->accept();
+            return;
+        }
+
+        QWidget::mousePressEvent(event);
+    }
+
+    void OccView::mouseMoveEvent(QMouseEvent* event)
+    {
+        if (!isInitialized())
+        {
+            QWidget::mouseMoveEvent(event);
+            return;
+        }
+
+        const QPoint pos = event->position().toPoint();
+
+        switch (m_mouseState.mode)
+        {
+        case MouseMode::Rotate:
+            updateRotate(pos);
+            event->accept();
+            break;
+
+        case MouseMode::Pan:
+            updatePan(pos);
+            event->accept();
+            break;
+
+        case MouseMode::None:
+        default:
+            QWidget::mouseMoveEvent(event);
+            break;
+        }
+
+        m_mouseState.lastPos = pos;
+    }
+
+    void OccView::mouseReleaseEvent(QMouseEvent* event)
+    {
+        if (event->button() == Qt::RightButton ||
+            event->button() == Qt::MiddleButton)
+        {
+            endMouseOperation();
+            event->accept();
+            return;
+        }
+
+        QWidget::mouseReleaseEvent(event);
+    }
+
+    void OccView::wheelEvent(QWheelEvent* event)
+    {
+        if (!isInitialized())
+        {
+            QWidget::wheelEvent(event);
+            return;
+        }
+
+        const int wheelDelta = event->angleDelta().y();
+
+        if (wheelDelta == 0)
+        {
+            QWidget::wheelEvent(event);
+            return;
+        }
+
+        const double zoomFactor =
+            (wheelDelta > 0) ? ZoomStepFactor : (1.0 / ZoomStepFactor);
+
+        zoomView(zoomFactor);
+
     }
 
     void OccView::initializeOcc()
@@ -113,6 +221,59 @@ namespace OccQtCore
         return m_initialized
                && !m_context.IsNull()
                && !m_view.IsNull();
+    }
+
+    void OccView::beginRotate(const QPoint& pos)
+    {
+        m_mouseState.mode = MouseMode::Rotate;
+        m_view->StartRotation(pos.x(), pos.y());
+    }
+
+    void OccView::beginPan(const QPoint& pos)
+    {
+        Q_UNUSED(pos);
+
+        m_mouseState.mode = MouseMode::Pan;
+    }
+
+    void OccView::updateRotate(const QPoint& pos)
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->Rotation(pos.x(), pos.y());
+        m_view->Redraw();
+    }
+
+    void OccView::updatePan(const QPoint& pos)
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        const QPoint delta = pos - m_mouseState.lastPos;
+
+        m_view->Pan(delta.x(), -delta.y());
+        m_view->Redraw();
+    }
+
+    void OccView::endMouseOperation()
+    {
+        m_mouseState.mode = MouseMode::None;
+    }
+
+    void OccView::zoomView(double factor)
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->SetZoom(factor);
+        m_view->Redraw();
     }
 
     DisplayObjectId OccView::displayObject(

@@ -3,6 +3,7 @@
 #include <QSizePolicy>
 #include <QTimer>
 #include <QFileDialog>
+#include <QFileInfo>
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <TopoDS_Shape.hxx>
@@ -134,6 +135,9 @@ void MainWindow::openStepFile(const QString& filePath)
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(result.shape, OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
+
+    const QFileInfo fileInfo(m_document.filePath());
+    setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));
 
     m_logger->info(QString("STEP file loaded: %1").arg(filePath));
 }

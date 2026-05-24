@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include <QPoint>
 #include <QWidget>
 
 #include <AIS_InteractiveContext.hxx>
@@ -12,6 +13,9 @@
 #include <TopoDS_Shape.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
+
+class QMouseEvent;
+class QWheelEvent;
 
 namespace OccQtCore
 {
@@ -62,9 +66,23 @@ namespace OccQtCore
         void resizeEvent(QResizeEvent* event) override;
         void paintEvent(QPaintEvent* event) override;
 
+        void mousePressEvent(QMouseEvent* event) override;
+        void mouseMoveEvent(QMouseEvent* event) override;
+        void mouseReleaseEvent(QMouseEvent* event) override;
+        void wheelEvent(QWheelEvent* event) override;
+
     private:
         void initializeOcc();
         bool isInitialized() const;
+
+        void beginRotate(const QPoint& pos);
+        void beginPan(const QPoint& pos);
+
+        void updateRotate(const QPoint& pos);
+        void updatePan(const QPoint& pos);
+
+        void endMouseOperation();
+        void zoomView(double factor);
 
     private:
         // OccView内部だけで使う表示管理情報
@@ -73,6 +91,20 @@ namespace OccQtCore
             DisplayObjectId id = -1;
             DisplayLayer layer = DisplayLayer::Shape;
             Handle(AIS_InteractiveObject) object;
+        };
+
+        enum class MouseMode
+        {
+            None,
+            Rotate,
+            Pan
+        };
+
+        struct MouseState
+        {
+            MouseMode mode = MouseMode::None;
+            QPoint pressPos;
+            QPoint lastPos;
         };
 
     private:
@@ -84,6 +116,8 @@ namespace OccQtCore
 
         std::vector<DisplayObject> m_displayObjects;
         DisplayObjectId m_nextDisplayObjectId = 1;
+
+        MouseState m_mouseState;
 
         bool m_initialized = false;
     };
