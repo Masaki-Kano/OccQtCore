@@ -1,10 +1,20 @@
 #include "OccView.h"
 
-#include <AIS_Shape.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <WNT_Window.hxx>
+#include <algorithm>
 
+#include <QPaintEngine>
+#include <QPaintEvent>
 #include <QResizeEvent>
+#include <QShowEvent>
+
+#include <AIS_Shape.hxx>
+#include <Aspect_DisplayConnection.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <Graphic3d_GraphicDriver.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <Quantity_Color.hxx>
+#include <V3d_View.hxx>
+#include <WNT_Window.hxx>
 
 namespace OccQtCore
 {
@@ -15,8 +25,6 @@ namespace OccQtCore
         setAttribute(Qt::WA_PaintOnScreen);
         setAttribute(Qt::WA_NoSystemBackground);
         setAttribute(Qt::WA_OpaquePaintEvent);
-
-        setMouseTracking(true);
     }
 
     QPaintEngine* OccView::paintEngine() const
@@ -24,9 +32,9 @@ namespace OccQtCore
         return nullptr;
     }
 
-    void OccView::resizeEvent(QResizeEvent* event)
+    void OccView::showEvent(QShowEvent* event)
     {
-        QWidget::resizeEvent(event);
+        QWidget::showEvent(event);
 
         if (!m_initialized)
         {
@@ -40,14 +48,20 @@ namespace OccQtCore
         }
     }
 
+    void OccView::resizeEvent(QResizeEvent* event)
+    {
+        QWidget::resizeEvent(event);
+
+        if (!m_view.IsNull())
+        {
+            m_view->MustBeResized();
+            m_view->Redraw();
+        }
+    }
+
     void OccView::paintEvent(QPaintEvent* event)
     {
         Q_UNUSED(event);
-
-        if (!m_initialized)
-        {
-            initializeOcc();
-        }
 
         if (!m_view.IsNull())
         {
@@ -86,39 +100,182 @@ namespace OccQtCore
             Aspect_TOTP_LEFT_LOWER,
             Quantity_NOC_WHITE,
             0.08,
-            V3d_ZBUFFER
-        );
+            V3d_ZBUFFER);
 
         m_view->MustBeResized();
+        m_view->Redraw();
 
         m_initialized = true;
     }
 
-    void OccView::displayTestBox()
+    bool OccView::isInitialized() const
     {
-        if (!m_initialized)
+        return m_initialized
+               && !m_context.IsNull()
+               && !m_view.IsNull();
+    }
+
+    DisplayObjectId OccView::displayObject(
+        const Handle(AIS_InteractiveObject)& object,
+        DisplayLayer layer)
+    {
+        if (object.IsNull())
+        {
+            return -1;
+        }
+
+        if (!isInitialized())
         {
             initializeOcc();
         }
 
-        if (m_context.IsNull())
+        if (!isInitialized())
+        {
+            return -1;
+        }
+
+        const DisplayObjectId id = m_nextDisplayObjectId++;
+
+        DisplayObject displayObject;
+        displayObject.id = id;
+        displayObject.layer = layer;
+        displayObject.object = object;
+
+        m_displayObjects.push_back(displayObject);
+
+        m_context->Display(object, Standard_False);
+        m_context->UpdateCurrentViewer();
+
+        redraw();
+
+        return id;
+    }
+
+    DisplayObjectId OccView::displayShape(
+        const TopoDS_Shape& shape,
+        DisplayLayer layer)
+    {
+        if (shape.IsNull())
+        {
+            return -1;
+        }
+
+        Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+        return displayObject(aisShape, layer);
+    }
+
+    void OccView::removeObject(DisplayObjectId id)
+    {
+        if (!isInitialized())
         {
             return;
         }
 
-        TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 80.0, 60.0).Shape();
-        Handle(AIS_Shape) aisShape = new AIS_Shape(box);
+        auto it = std::find_if(
+            m_displayObjects.begin(),
+            m_displayObjects.end(),
+            [id](const DisplayObject& displayObject)
+            {
+                return displayObject.id == id;
+            });
 
-        m_context->Display(aisShape, Standard_False);
-        m_context->SetDisplayMode(aisShape, AIS_Shaded, Standard_False);
-        m_context->UpdateCurrentViewer();
-
-        if (!m_view.IsNull())
+        if (it == m_displayObjects.end())
         {
-            m_view->MustBeResized();
-            m_view->FitAll();
-            m_view->ZFitAll();
-            m_view->Redraw();
+            return;
         }
+
+        if (!it->object.IsNull())
+        {
+            m_context->Remove(it->object, Standard_False);
+        }
+
+        m_displayObjects.erase(it);
+
+        m_context->UpdateCurrentViewer();
+        redraw();
+    }
+
+    void OccView::clearLayer(DisplayLayer layer)
+    {
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        auto it = m_displayObjects.begin();
+
+        while (it != m_displayObjects.end())
+        {
+            if (it->layer == layer)
+            {
+                if (!it->object.IsNull())
+                {
+                    m_context->Remove(it->object, Standard_False);
+                }
+
+                it = m_displayObjects.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        m_context->UpdateCurrentViewer();
+        redraw();
+    }
+
+    void OccView::clearAll()
+    {
+        if (!isInitialized())
+        {
+            m_displayObjects.clear();
+            return;
+        }
+
+        for (const DisplayObject& displayObject : m_displayObjects)
+        {
+            if (!displayObject.object.IsNull())
+            {
+                m_context->Remove(displayObject.object, Standard_False);
+            }
+        }
+
+        m_displayObjects.clear();
+
+        m_context->UpdateCurrentViewer();
+        redraw();
+    }
+
+    void OccView::fitAll()
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->MustBeResized();
+        m_view->FitAll();
+        m_view->ZFitAll();
+        m_view->Redraw();
+    }
+
+    void OccView::redraw()
+    {
+        if (m_view.IsNull())
+        {
+            return;
+        }
+
+        m_view->Redraw();
+    }
+
+    void OccView::displayTestBox()
+    {
+        TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 80.0, 60.0).Shape();
+
+        displayShape(box, DisplayLayer::Shape);
+
+        fitAll();
     }
 }
