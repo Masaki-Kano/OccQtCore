@@ -50,6 +50,8 @@ qt_add_executable(OccQtCore
     src/Core/DocumentData.cpp
     src/Geometry/ShapeIndex.h
     src/Geometry/ShapeIndex.cpp
+    src/Core/PickResult.h
+    src/Core/SelectionInfo.h
 )
 
 target_include_directories(OccQtCore

@@ -223,39 +223,47 @@ void MainWindow::openStepFile(const QString& filePath)
 
 void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 {
+    m_selectionInfo = OccQtCore::SelectionInfo{};
+
     if (!result.hasShape)
     {
-        m_logger->info("Picked: none");
+        m_logger->info("Selected: none");
         return;
     }
 
     const auto& shapeIndex = m_document.shapeIndex();
 
-    int shapeElementIndex = -1;
+    int elementIndex = -1;
 
     switch (result.type)
     {
     case OccQtCore::PickedShapeType::Face:
-        shapeElementIndex = shapeIndex.findFaceIndex(result.shape);
+        elementIndex = shapeIndex.findFaceIndex(result.shape);
         break;
 
     case OccQtCore::PickedShapeType::Edge:
-        shapeElementIndex = shapeIndex.findEdgeIndex(result.shape);
+        elementIndex = shapeIndex.findEdgeIndex(result.shape);
         break;
 
     case OccQtCore::PickedShapeType::Vertex:
-        shapeElementIndex = shapeIndex.findVertexIndex(result.shape);
+        elementIndex = shapeIndex.findVertexIndex(result.shape);
         break;
 
     default:
         break;
     }
 
+    m_selectionInfo.isValid = true;
+    m_selectionInfo.type = result.type;
+    m_selectionInfo.shape = result.shape;
+    m_selectionInfo.elementIndex = elementIndex;
+    m_selectionInfo.sourceDisplayObjectId = result.sourceDisplayObjectId;
+
     m_logger->info(
-        QString("Picked: %1, Index=%2, DisplayObjectId=%3")
-            .arg(pickedShapeTypeToString(result.type))
-            .arg(shapeElementIndex)
-            .arg(result.displayObjectId));
+        QString("Selected: %1, Index=%2, SourceDisplayObjectId=%3")
+            .arg(pickedShapeTypeToString(m_selectionInfo.type))
+            .arg(m_selectionInfo.elementIndex)
+            .arg(m_selectionInfo.sourceDisplayObjectId));
 }
 
 QString MainWindow::defaultOpenDirectory() const

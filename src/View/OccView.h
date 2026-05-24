@@ -15,6 +15,8 @@
 #include <V3d_Viewer.hxx>
 #include <Quantity_Color.hxx>
 
+#include "Core/PickResult.h"
+
 class QMouseEvent;
 class QWheelEvent;
 
@@ -30,23 +32,6 @@ namespace OccQtCore
         Overlay,    // パス・法線・補助線など
         Highlight,  // ハイライト表示
         Temporary   // 一時表示
-    };
-
-    enum class PickedShapeType
-    {
-        Unknown,
-        Vertex,
-        Edge,
-        Face,
-        Solid
-    };
-
-    struct PickResult
-    {
-        bool hasShape = false;
-        PickedShapeType type = PickedShapeType::Unknown;
-        TopoDS_Shape shape;
-        DisplayObjectId displayObjectId = -1;
     };
 
     class OccView : public QWidget

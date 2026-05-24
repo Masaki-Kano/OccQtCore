@@ -432,7 +432,7 @@ namespace OccQtCore
         result.hasShape = true;
         result.shape = pickedShape;
         result.type = toPickedShapeType(pickedShape.ShapeType());
-        result.displayObjectId = findDisplayObjectId(pickedObject);
+        result.sourceDisplayObjectId = findDisplayObjectId(pickedObject);
 
         emit shapePicked(result);
     }

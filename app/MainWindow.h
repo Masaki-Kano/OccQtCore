@@ -10,6 +10,7 @@
 #include "View/OccView.h"
 
 #include "Core/DocumentData.h"
+#include "Core/SelectionInfo.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -54,6 +55,7 @@ private:
     OccQtCore::OccView* m_occView = nullptr;
 
     OccQtCore::DocumentData m_document;
+    OccQtCore::SelectionInfo m_selectionInfo;
     QString m_lastOpenDirectory;
 };
 #endif // MAINWINDOW_H
