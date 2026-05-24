@@ -32,7 +32,9 @@ private:
     void setupLayout();
     void setupViewArea();
     void setupLogPanel();
-    void runOccRuntimeCheck();
+
+    void openStepFileDialog();
+    void openStepFile(const QString& filePath);
 
 private:
     Ui::MainWindow* ui = nullptr;

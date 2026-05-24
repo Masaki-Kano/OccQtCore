@@ -31,3 +31,10 @@ Makefile
 # OS
 .DS_Store
 Thumbs.db
+
+# Test models
+model/
+*.step
+*.stp
+*.STEP
+*.STP

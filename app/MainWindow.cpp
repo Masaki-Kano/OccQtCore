@@ -2,6 +2,7 @@
 #include <QVBoxLayout>
 #include <QSizePolicy>
 #include <QTimer>
+#include <QFileDialog>
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <TopoDS_Shape.hxx>
@@ -29,24 +30,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     QTimer::singleShot(0, this, [this]()
                        {
-                           const QString filePath = "C:/work/OccQtCore/model/screw.step";
-
-                           const auto result = OccQtCore::StepLoader::load(filePath);
-
-                           if (!result.success)
-                           {
-                               m_logger->error(result.errorMessage);
-                               return;
-                           }
-
-                           m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
-                           m_occView->displayShape(result.shape, OccQtCore::DisplayLayer::Shape);
-                           m_occView->fitAll();
-
-                           m_logger->info("STEP file loaded");
+                           openStepFileDialog();
                        });
-
-    runOccRuntimeCheck();
 }
 
 MainWindow::~MainWindow()
@@ -116,13 +101,37 @@ void MainWindow::setupLogPanel()
     logLayout->addWidget(m_logPanel);
 }
 
-void MainWindow::runOccRuntimeCheck()
+void MainWindow::openStepFileDialog()
 {
-    TopoDS_Shape testShape = BRepPrimAPI_MakeBox(10.0, 20.0, 30.0).Shape();
-    (void)testShape;
+    const QString filePath = QFileDialog::getOpenFileName(
+        this,
+        tr("Open STEP File"),
+        QString(),
+        tr("STEP Files (*.step *.stp *.STEP *.STP);;All Files (*.*)"));
 
-    if (m_logger)
+    if (filePath.isEmpty())
     {
-        m_logger->info("OCC runtime check OK");
+        return;
     }
+
+    openStepFile(filePath);
 }
+
+void MainWindow::openStepFile(const QString& filePath)
+{
+    const auto result = OccQtCore::StepLoader::load(filePath);
+
+    if (!result.success)
+    {
+        m_logger->error(result.errorMessage);
+        return;
+    }
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
+    m_occView->displayShape(result.shape, OccQtCore::DisplayLayer::Shape);
+    m_occView->fitAll();
+
+    m_logger->info(QString("STEP file loaded: %1").arg(filePath));
+}
+
+
