@@ -203,14 +203,71 @@ void MainWindow::openStepFile(const QString& filePath)
     m_document.setShape(result.shape);
     updateLastOpenDirectory(filePath);
 
-    const auto& shapeIndex = m_document.shapeIndex();
+    // 一時デバック
+    const auto& model = m_document.geometryModel();
 
-    m_logger->info(
-        QString("Shape index built: Faces=%1, Edges=%2, Vertices=%3")
-            .arg(shapeIndex.faceCount())
-            .arg(shapeIndex.edgeCount())
-            .arg(shapeIndex.vertexCount()));
+    m_logger->info(QString("GeometryModel built: Faces=%1, Edges=%2, Vertices=%3")
+                       .arg(model.faceCount())
+                       .arg(model.edgeCount())
+                       .arg(model.vertexCount()));
 
+    const int faceLogCount = std::min(model.faceCount(), 5);
+    const int edgeLogCount = std::min(model.edgeCount(), 10);
+
+    for (int i = 0; i < model.faceCount(); ++i)
+    {
+        const auto* face = model.faceAt(i);
+        if (!face)
+        {
+            continue;
+        }
+
+        m_logger->info(QString("Face[%1]: kind=%2, area=%3")
+                           .arg(face->index)
+                           .arg(OccQtCore::surfaceKindDisplayName(face->info.kind))
+                           .arg(face->info.area));
+
+        if (face->info.cylinder)
+        {
+            const auto& axisDir = face->info.cylinder->axis.Direction();
+
+            m_logger->info(QString("  円筒面 半径=%1, 軸方向=(%2, %3, %4)")
+                               .arg(face->info.cylinder->radius)
+                               .arg(axisDir.X())
+                               .arg(axisDir.Y())
+                               .arg(axisDir.Z()));
+        }
+    }
+
+    for (int i = 0; i < model.edgeCount(); ++i)
+    {
+        const auto* edge = model.edgeAt(i);
+        if (!edge)
+        {
+            continue;
+        }
+
+        if (!edge->info.circle)
+        {
+            continue;
+        }
+
+        const auto& center = edge->info.circle->center;
+        const auto& axisDir = edge->info.circle->axis.Direction();
+
+        m_logger->info(QString("Circle Edge[%1]: center=(%2, %3, %4), radius=%5, axis=(%6, %7, %8), length=%9")
+                           .arg(edge->index)
+                           .arg(center.X())
+                           .arg(center.Y())
+                           .arg(center.Z())
+                           .arg(edge->info.circle->radius)
+                           .arg(axisDir.X())
+                           .arg(axisDir.Y())
+                           .arg(axisDir.Z())
+                           .arg(edge->info.length));
+    }
+
+    // ビュー同期
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
@@ -231,27 +288,8 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
         return;
     }
 
-    const auto& shapeIndex = m_document.shapeIndex();
-
-    int elementIndex = -1;
-
-    switch (result.type)
-    {
-    case OccQtCore::PickedShapeType::Face:
-        elementIndex = shapeIndex.findFaceIndex(result.shape);
-        break;
-
-    case OccQtCore::PickedShapeType::Edge:
-        elementIndex = shapeIndex.findEdgeIndex(result.shape);
-        break;
-
-    case OccQtCore::PickedShapeType::Vertex:
-        elementIndex = shapeIndex.findVertexIndex(result.shape);
-        break;
-
-    default:
-        break;
-    }
+    const auto& geometryModel = m_document.geometryModel();
+    const int elementIndex = geometryModel.findElementIndex(result.shape, result.type);
 
     m_selectionInfo.isValid = true;
     m_selectionInfo.type = result.type;

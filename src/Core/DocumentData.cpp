@@ -6,7 +6,7 @@ namespace OccQtCore
     {
         m_filePath.clear();
         m_shape.Nullify();
-        m_shapeIndex.clear();
+        m_geometryModel.clear();
     }
 
     bool DocumentData::hasShape() const
@@ -27,7 +27,7 @@ namespace OccQtCore
     void DocumentData::setShape(const TopoDS_Shape& shape)
     {
         m_shape = shape;
-        m_shapeIndex.build(m_shape);
+        m_geometryModel.build(m_shape);
     }
 
     const TopoDS_Shape& DocumentData::shape() const
@@ -35,14 +35,14 @@ namespace OccQtCore
         return m_shape;
     }
 
-    const ShapeIndex& DocumentData::shapeIndex() const
+    const GeometryModel& DocumentData::geometryModel() const
     {
-        return m_shapeIndex;
+        return m_geometryModel;
     }
 
-    ShapeIndex& DocumentData::shapeIndex()
+    GeometryModel& DocumentData::geometryModel()
     {
-        return m_shapeIndex;
+        return m_geometryModel;
     }
 
 }

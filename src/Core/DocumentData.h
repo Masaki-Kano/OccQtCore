@@ -4,7 +4,7 @@
 #include <QString>
 #include <TopoDS_Shape.hxx>
 
-#include "Geometry/ShapeIndex.h"
+#include "Geometry/GeometryModel.h"
 
 namespace OccQtCore
 {
@@ -21,13 +21,13 @@ namespace OccQtCore
         void setShape(const TopoDS_Shape& shape);
         const TopoDS_Shape& shape() const;
 
-        const ShapeIndex& shapeIndex() const;
-        ShapeIndex& shapeIndex();
+        const GeometryModel& geometryModel() const;
+        GeometryModel& geometryModel();
 
     private:
         QString m_filePath;
         TopoDS_Shape m_shape;
-        ShapeIndex m_shapeIndex;
+        GeometryModel m_geometryModel;
     };
 }
 
