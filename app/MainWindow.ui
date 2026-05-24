@@ -100,7 +100,16 @@
      <addaction name="actionViewZ"/>
      <addaction name="actionViewIso"/>
     </widget>
+    <widget class="QMenu" name="menuViewMode">
+     <property name="title">
+      <string>表示モード</string>
+     </property>
+     <addaction name="actionDisplayShaded"/>
+     <addaction name="actionDisplayWireframe"/>
+    </widget>
     <addaction name="menuViewPoint"/>
+    <addaction name="separator"/>
+    <addaction name="menuViewMode"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -137,6 +146,16 @@
   <action name="actionFitAll">
    <property name="text">
     <string>全体表示</string>
+   </property>
+  </action>
+  <action name="actionDisplayShaded">
+   <property name="text">
+    <string>シェーディング</string>
+   </property>
+  </action>
+  <action name="actionDisplayWireframe">
+   <property name="text">
+    <string>ワイヤーフレーム</string>
    </property>
   </action>
  </widget>

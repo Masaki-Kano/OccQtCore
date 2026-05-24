@@ -62,10 +62,10 @@ namespace OccQtCore
         void viewZ();
         void viewIso();
 
-        void redraw();
+        void setShadedMode();
+        void setWireframeMode();
 
-        // 動作確認用
-        void displayTestBox();
+        void redraw();
 
     protected:
         void showEvent(QShowEvent* event) override;
@@ -89,6 +89,8 @@ namespace OccQtCore
 
         void endMouseOperation();
         void zoomView(double factor);
+
+        void setShapeDisplayMode(AIS_DisplayMode displayMode);
 
     private:
         // OccView内部だけで使う表示管理情報
@@ -124,6 +126,8 @@ namespace OccQtCore
         DisplayObjectId m_nextDisplayObjectId = 1;
 
         MouseState m_mouseState;
+
+        AIS_DisplayMode m_shapeDisplayMode = AIS_Shaded;
 
         bool m_initialized = false;
     };

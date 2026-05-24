@@ -133,6 +133,18 @@ void MainWindow::setupConnections()
             &QAction::triggered,
             m_occView,
             &OccQtCore::OccView::viewIso);
+
+    connect(ui->actionDisplayShaded,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::setShadedMode);
+
+    connect(ui->actionDisplayWireframe,
+            &QAction::triggered,
+            m_occView,
+            &OccQtCore::OccView::setWireframeMode);
+
+
 }
 
 void MainWindow::openStepFileDialog()

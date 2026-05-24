@@ -175,7 +175,7 @@ namespace OccQtCore
             (wheelDelta > 0) ? ZoomStepFactor : (1.0 / ZoomStepFactor);
 
         zoomView(zoomFactor);
-
+        event->accept();
     }
 
     void OccView::initializeOcc()
@@ -277,6 +277,39 @@ namespace OccQtCore
         m_view->Redraw();
     }
 
+    void OccView::setShapeDisplayMode(AIS_DisplayMode displayMode)
+    {
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        m_shapeDisplayMode = displayMode;
+
+        for (const DisplayObject& displayObject : m_displayObjects)
+        {
+            if (displayObject.layer != DisplayLayer::Shape)
+            {
+                continue;
+            }
+
+            if (displayObject.object.IsNull())
+            {
+                continue;
+            }
+
+            m_context->SetDisplayMode(
+                displayObject.object,
+                m_shapeDisplayMode,
+                Standard_False);
+
+            m_context->Redisplay(displayObject.object, Standard_False);
+        }
+
+        m_context->UpdateCurrentViewer();
+        redraw();
+    }
+
     DisplayObjectId OccView::displayObject(
         const Handle(AIS_InteractiveObject)& object,
         DisplayLayer layer)
@@ -306,8 +339,14 @@ namespace OccQtCore
         m_displayObjects.push_back(displayObject);
 
         m_context->Display(object, Standard_False);
-        m_context->UpdateCurrentViewer();
 
+        if (layer == DisplayLayer::Shape)
+        {
+            m_context->SetDisplayMode(object, m_shapeDisplayMode, Standard_False);
+            m_context->Redisplay(object, Standard_False);
+        }
+
+        m_context->UpdateCurrentViewer();
         redraw();
 
         return id;
@@ -466,6 +505,16 @@ namespace OccQtCore
         fitAll();
     }
 
+    void OccView::setShadedMode()
+    {
+        setShapeDisplayMode(AIS_Shaded);
+    }
+
+    void OccView::setWireframeMode()
+    {
+       setShapeDisplayMode(AIS_WireFrame);
+    }
+
     void OccView::redraw()
     {
         if (m_view.IsNull())
@@ -474,14 +523,5 @@ namespace OccQtCore
         }
 
         m_view->Redraw();
-    }
-
-    void OccView::displayTestBox()
-    {
-        TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 80.0, 60.0).Shape();
-
-        displayShape(box, DisplayLayer::Shape);
-
-        fitAll();
     }
 }
