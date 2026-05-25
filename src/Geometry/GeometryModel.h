@@ -4,9 +4,11 @@
 #include <vector>
 
 #include <TopoDS_Shape.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
 
 #include "Core/PickResult.h"
 #include "Geometry/GeometryTypes.h"
+#include "Geometry/GeometryGraph.h"
 
 namespace OccQtCore
 {
@@ -38,10 +40,25 @@ namespace OccQtCore
 
         int findElementIndex(const TopoDS_Shape& shape, PickedShapeType type) const;
 
+        const GeometryGraph& graph() const;
+        GeometryGraph& graph();
+
+    private:
+        void buildFaces(const TopTools_IndexedMapOfShape& faceMap);
+        void buildEdges(const TopTools_IndexedMapOfShape& edgeMap);
+        void buildVertices(const TopTools_IndexedMapOfShape& vertexMap);
+
+        void buildGraph(
+            const TopTools_IndexedMapOfShape& faceMap,
+            const TopTools_IndexedMapOfShape& edgeMap,
+            const TopTools_IndexedMapOfShape& vertexMap);
+
     private:
         std::vector<FaceData> m_faces;
         std::vector<EdgeData> m_edges;
         std::vector<VertexData> m_vertices;
+
+        GeometryGraph m_graph;
     };
 }
 

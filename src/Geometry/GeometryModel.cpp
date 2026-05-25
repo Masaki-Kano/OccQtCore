@@ -1,9 +1,13 @@
 #include "Geometry/GeometryModel.h"
 #include "Geometry/GeometryAnalyzer.h"
 
-#include <TopAbs_ShapeEnum.hxx>
+#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopAbs_ShapeEnum.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Vertex.hxx>
 
 namespace OccQtCore
 {
@@ -12,6 +16,8 @@ namespace OccQtCore
         m_faces.clear();
         m_edges.clear();
         m_vertices.clear();
+
+        m_graph.clear();
     }
 
     void GeometryModel::build(const TopoDS_Shape& rootShape)
@@ -23,38 +29,19 @@ namespace OccQtCore
             return;
         }
 
-        int faceIndex = 0;
-        for (TopExp_Explorer explorer(rootShape, TopAbs_FACE); explorer.More(); explorer.Next())
-        {
-            FaceData data;
-            data.index = faceIndex++;
-            data.shape = TopoDS::Face(explorer.Current());
-            data.info = GeometryAnalyzer::analyzeFace(data.shape);
+        TopTools_IndexedMapOfShape faceMap;
+        TopTools_IndexedMapOfShape edgeMap;
+        TopTools_IndexedMapOfShape vertexMap;
 
-            m_faces.push_back(data);
-        }
+        TopExp::MapShapes(rootShape, TopAbs_FACE, faceMap);
+        TopExp::MapShapes(rootShape, TopAbs_EDGE, edgeMap);
+        TopExp::MapShapes(rootShape, TopAbs_VERTEX, vertexMap);
 
-        int edgeIndex = 0;
-        for (TopExp_Explorer explorer(rootShape, TopAbs_EDGE); explorer.More(); explorer.Next())
-        {
-            EdgeData data;
-            data.index = edgeIndex++;
-            data.shape = TopoDS::Edge(explorer.Current());
-            data.info = GeometryAnalyzer::analyzeEdge(data.shape);
+        buildFaces(faceMap);
+        buildEdges(edgeMap);
+        buildVertices(vertexMap);
 
-            m_edges.push_back(data);
-        }
-
-        int vertexIndex = 0;
-        for (TopExp_Explorer explorer(rootShape, TopAbs_VERTEX); explorer.More(); explorer.Next())
-        {
-            VertexData data;
-            data.index = vertexIndex++;
-            data.shape = TopoDS::Vertex(explorer.Current());
-            data.info = GeometryAnalyzer::analyzeVertex(data.shape);
-
-            m_vertices.push_back(data);
-        }
+        buildGraph(faceMap, edgeMap, vertexMap);
     }
 
     bool GeometryModel::isEmpty() const
@@ -191,6 +178,130 @@ namespace OccQtCore
 
         default:
             return -1;
+        }
+    }
+
+    const GeometryGraph& GeometryModel::graph() const
+    {
+        return m_graph;
+    }
+
+    GeometryGraph& GeometryModel::graph()
+    {
+        return m_graph;
+    }
+
+    void GeometryModel::buildFaces(const TopTools_IndexedMapOfShape& faceMap)
+    {
+        m_faces.reserve(static_cast<std::size_t>(faceMap.Extent()));
+
+        for (int mapIndex = 1; mapIndex <= faceMap.Extent(); ++mapIndex)
+        {
+            const int index = mapIndex - 1;
+            const TopoDS_Face face = TopoDS::Face(faceMap.FindKey(mapIndex));
+
+            FaceData data;
+            data.index = index;
+            data.shape = face;
+
+            data.info = GeometryAnalyzer::analyzeFace(face);
+
+            m_faces.push_back(data);
+        }
+    }
+
+    void GeometryModel::buildEdges(const TopTools_IndexedMapOfShape& edgeMap)
+    {
+        m_edges.reserve(static_cast<std::size_t>(edgeMap.Extent()));
+
+        for (int mapIndex = 1; mapIndex <= edgeMap.Extent(); ++mapIndex)
+        {
+            const int index = mapIndex - 1;
+            const TopoDS_Edge edge = TopoDS::Edge(edgeMap.FindKey(mapIndex));
+
+            EdgeData data;
+            data.index = index;
+            data.shape = edge;
+
+            data.info = GeometryAnalyzer::analyzeEdge(edge);
+
+            m_edges.push_back(data);
+        }
+    }
+
+    void GeometryModel::buildVertices(const TopTools_IndexedMapOfShape& vertexMap)
+    {
+        m_vertices.reserve(static_cast<std::size_t>(vertexMap.Extent()));
+
+        for (int mapIndex = 1; mapIndex <= vertexMap.Extent(); ++mapIndex)
+        {
+            const int index = mapIndex - 1;
+            const TopoDS_Vertex vertex = TopoDS::Vertex(vertexMap.FindKey(mapIndex));
+
+            VertexData data;
+            data.index = index;
+            data.shape = vertex;
+
+            data.info = GeometryAnalyzer::analyzeVertex(vertex);
+
+            m_vertices.push_back(data);
+        }
+    }
+
+    void GeometryModel::buildGraph(
+        const TopTools_IndexedMapOfShape& faceMap,
+        const TopTools_IndexedMapOfShape& edgeMap,
+        const TopTools_IndexedMapOfShape& vertexMap)
+    {
+        m_graph.clear();
+        m_graph.resize(faceCount(), edgeCount(), vertexCount());
+
+        for (int faceMapIndex = 1; faceMapIndex <= faceMap.Extent(); ++faceMapIndex)
+        {
+            const int faceIndex = faceMapIndex - 1;
+            const TopoDS_Face face = TopoDS::Face(faceMap.FindKey(faceMapIndex));
+
+            for (TopExp_Explorer edgeExp(face, TopAbs_EDGE);
+                 edgeExp.More();
+                 edgeExp.Next())
+            {
+                const TopoDS_Edge edge = TopoDS::Edge(edgeExp.Current());
+                const int edgeMapIndex = edgeMap.FindIndex(edge);
+
+                if (edgeMapIndex <= 0)
+                {
+                    continue;
+                }
+
+                const int edgeIndex = edgeMapIndex - 1;
+
+                m_graph.addFaceEdgeRelation(faceIndex, edgeIndex);
+                m_graph.addEdgeFaceRelation(edgeIndex, faceIndex);
+            }
+        }
+
+        for (int edgeMapIndex = 1; edgeMapIndex <= edgeMap.Extent(); ++edgeMapIndex)
+        {
+            const int edgeIndex = edgeMapIndex - 1;
+            const TopoDS_Edge edge = TopoDS::Edge(edgeMap.FindKey(edgeMapIndex));
+
+            for (TopExp_Explorer vertexExp(edge, TopAbs_VERTEX);
+                 vertexExp.More();
+                 vertexExp.Next())
+            {
+                const TopoDS_Vertex vertex = TopoDS::Vertex(vertexExp.Current());
+                const int vertexMapIndex = vertexMap.FindIndex(vertex);
+
+                if (vertexMapIndex <= 0)
+                {
+                    continue;
+                }
+
+                const int vertexIndex = vertexMapIndex - 1;
+
+                m_graph.addEdgeVertexRelation(edgeIndex, vertexIndex);
+                m_graph.addVertexEdgeRelation(vertexIndex, edgeIndex);
+            }
         }
     }
 }

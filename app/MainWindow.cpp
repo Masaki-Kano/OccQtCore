@@ -201,7 +201,6 @@ void MainWindow::openStepFile(const QString& filePath)
     m_document.clear();
     m_document.setFilePath(filePath);
     m_document.setShape(result.shape);
-    updateLastOpenDirectory(filePath);
 
     const auto& model = m_document.geometryModel();
 
@@ -210,53 +209,43 @@ void MainWindow::openStepFile(const QString& filePath)
                        .arg(model.edgeCount())
                        .arg(model.vertexCount()));
 
-    for (int i = 0; i < model.faceCount(); ++i)
+    m_logger->info(QString("GeometryGraph built: Faces=%1, Edges=%2, Vertices=%3")
+                       .arg(model.graph().faceCount())
+                       .arg(model.graph().edgeCount())
+                       .arg(model.graph().vertexCount()));
+
+    if (model.faceCount() > 0)
     {
-        const auto* face = model.faceAt(i);
-        if (!face)
-        {
-            continue;
-        }
-
-        m_logger->info(QString("Face[%1]: kind=%2, area=%3")
-                           .arg(face->index)
-                           .arg(OccQtCore::surfaceKindDisplayName(face->info.kind))
-                           .arg(face->info.area));
-
-        if (face->info.cylinder)
-        {
-            const auto& axisDir = face->info.cylinder->axis.Direction();
-
-            m_logger->info(QString("  円筒面 半径=%1, 軸方向=(%2, %3, %4)")
-                               .arg(face->info.cylinder->radius)
-                               .arg(axisDir.X())
-                               .arg(axisDir.Y())
-                               .arg(axisDir.Z()));
-        }
+        m_logger->info(QString("Graph Face[0]: connected edges=%1")
+                           .arg(model.graph().edgesOfFace(0).size()));
     }
+
+    if (model.edgeCount() > 0)
+    {
+        m_logger->info(QString("Graph Edge[0]: connected faces=%1, vertices=%2")
+                           .arg(model.graph().facesOfEdge(0).size())
+                           .arg(model.graph().verticesOfEdge(0).size()));
+    }
+
+    int zeroEdgeFaceCount = 0;
+    int nonTwoVertexEdgeCount = 0;
 
     for (int i = 0; i < model.edgeCount(); ++i)
     {
-        const auto* edge = model.edgeAt(i);
-        if (!edge || !edge->info.circle)
+        if (model.graph().facesOfEdge(i).empty())
         {
-            continue;
+            ++zeroEdgeFaceCount;
         }
 
-        const auto& center = edge->info.circle->center;
-        const auto& axisDir = edge->info.circle->axis.Direction();
-
-        m_logger->info(QString("Circle Edge[%1]: center=(%2, %3, %4), radius=%5, axis=(%6, %7, %8), length=%9")
-                           .arg(edge->index)
-                           .arg(center.X())
-                           .arg(center.Y())
-                           .arg(center.Z())
-                           .arg(edge->info.circle->radius)
-                           .arg(axisDir.X())
-                           .arg(axisDir.Y())
-                           .arg(axisDir.Z())
-                           .arg(edge->info.length));
+        if (model.graph().verticesOfEdge(i).size() != 2)
+        {
+            ++nonTwoVertexEdgeCount;
+        }
     }
+
+    m_logger->info(QString("Graph check: edges without faces=%1, edges with non-2 vertices=%2")
+                       .arg(zeroEdgeFaceCount)
+                       .arg(nonTwoVertexEdgeCount));
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
@@ -264,6 +253,8 @@ void MainWindow::openStepFile(const QString& filePath)
 
     const QFileInfo fileInfo(m_document.filePath());
     setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));
+
+    updateLastOpenDirectory(filePath);
 
     m_logger->info(QString("STEP file loaded: %1").arg(filePath));
 }
