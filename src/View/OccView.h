@@ -12,10 +12,11 @@
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <TopoDS_Shape.hxx>
-#include <TopoDS_Face.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 #include <Quantity_Color.hxx>
+#include <AIS_DisplayMode.hxx>
+#include <Quantity_NameOfColor.hxx>
 
 #include "Core/PickResult.h"
 
@@ -24,16 +25,22 @@ class QWheelEvent;
 
 namespace OccQtCore
 {
-    // 外部APIでも使う表示オブジェクトID
     using DisplayObjectId = int;
 
-    // 外部から表示レイヤを指定できるように公開
     enum class DisplayLayer
     {
-        Shape,      // 通常形状
-        Overlay,    // パス・法線・補助線など
-        Highlight,  // ハイライト表示
-        Temporary   // 一時表示
+        Shape,          // 通常モデル
+        PickHighlight,  // ピック選択
+        Analysis,       // 穴候補、ポケット候補などの解析結果
+        Helper,         // 法線・座標軸・補助線・パス
+        Temporary       // 一時表示
+    };
+
+    struct DisplayStyle
+    {
+        Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);
+        double transparency = 0.0;
+        AIS_DisplayMode displayMode = AIS_Shaded;
     };
 
     class OccView : public QWidget
@@ -46,15 +53,18 @@ namespace OccQtCore
 
         QPaintEngine* paintEngine() const override;
 
-        // 任意のAISオブジェクトを表示
         DisplayObjectId displayObject(
             const Handle(AIS_InteractiveObject)& object,
             DisplayLayer layer = DisplayLayer::Shape);
 
-        // TopoDS_Shape表示用の便利API
         DisplayObjectId displayShape(
             const TopoDS_Shape& shape,
             DisplayLayer layer = DisplayLayer::Shape);
+
+        DisplayObjectId displayShape(
+            const TopoDS_Shape& shape,
+            DisplayLayer layer,
+            const DisplayStyle& style);
 
         void removeObject(DisplayObjectId id);
         void clearLayer(DisplayLayer layer);
@@ -70,9 +80,6 @@ namespace OccQtCore
         void setShadedMode();
         void setWireframeMode();
         void setShapeColor(const Quantity_Color& color);
-
-        void clearPickHighlights();
-        void showFaceHighlight(const TopoDS_Face& face, const Quantity_Color& color, double transparency);
 
         void redraw();
 
@@ -104,7 +111,9 @@ namespace OccQtCore
 
         void setShapeDisplayMode(AIS_DisplayMode displayMode);
 
-        void applyShapeAppearance(const Handle(AIS_InteractiveObject)& object);
+        void applyDisplayStyle(
+            const Handle(AIS_InteractiveObject)& object,
+            const DisplayStyle& style);
 
         bool isClickOperation(const QPoint& releasePos) const;
         PickedShapeType toPickedShapeType(TopAbs_ShapeEnum shapeType);
@@ -134,11 +143,6 @@ namespace OccQtCore
             QPoint lastPos;
         };
 
-        struct ShapeAppearance
-        {
-            Quantity_Color color = Quantity_Color(0.75, 0.78, 0.82, Quantity_TOC_RGB);
-        };
-
     private:
         Handle(Aspect_DisplayConnection) m_displayConnection;
         Handle(OpenGl_GraphicDriver) m_graphicDriver;
@@ -146,16 +150,16 @@ namespace OccQtCore
         Handle(V3d_View) m_view;
         Handle(AIS_InteractiveContext) m_context;
 
-        std::vector<Handle(AIS_Shape)> m_pickHighlightShapes;
-
         std::vector<DisplayObject> m_displayObjects;
         DisplayObjectId m_nextDisplayObjectId = 1;
 
         MouseState m_mouseState;
 
-        AIS_DisplayMode m_shapeDisplayMode = AIS_Shaded;
-
-        ShapeAppearance m_shapeAppearance;
+        DisplayStyle m_shapeStyle{
+            Quantity_Color(0.75, 0.78, 0.82, Quantity_TOC_RGB),
+            0.0,
+            AIS_Shaded
+        };
 
         bool m_initialized = false;
     };

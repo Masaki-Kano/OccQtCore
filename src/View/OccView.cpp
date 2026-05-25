@@ -297,7 +297,7 @@ namespace OccQtCore
             return;
         }
 
-        m_shapeDisplayMode = displayMode;
+        m_shapeStyle.displayMode = displayMode;
 
         for (const DisplayObject& displayObject : m_displayObjects)
         {
@@ -306,26 +306,16 @@ namespace OccQtCore
                 continue;
             }
 
-            if (displayObject.object.IsNull())
-            {
-                continue;
-            }
-
-            m_context->SetDisplayMode(
-                displayObject.object,
-                m_shapeDisplayMode,
-                Standard_False);
-
-            applyShapeAppearance(displayObject.object);
-
-            m_context->Redisplay(displayObject.object, Standard_False);
+            applyDisplayStyle(displayObject.object, m_shapeStyle);
         }
 
         m_context->UpdateCurrentViewer();
         redraw();
     }
 
-    void OccView::applyShapeAppearance(const Handle(AIS_InteractiveObject)& object)
+    void OccView::applyDisplayStyle(
+        const Handle(AIS_InteractiveObject)& object,
+        const DisplayStyle& style)
     {
         if (!isInitialized())
         {
@@ -337,8 +327,9 @@ namespace OccQtCore
             return;
         }
 
-        m_context->SetDisplayMode(object, m_shapeDisplayMode, Standard_False);
-        m_context->SetColor(object, m_shapeAppearance.color, Standard_False);
+        m_context->SetDisplayMode(object, style.displayMode, Standard_False);
+        m_context->SetColor(object, style.color, Standard_False);
+        m_context->SetTransparency(object, style.transparency, Standard_False);
         m_context->Redisplay(object, Standard_False);
     }
 
@@ -469,10 +460,7 @@ namespace OccQtCore
 
         if (layer == DisplayLayer::Shape)
         {
-            m_context->SetDisplayMode(object, m_shapeDisplayMode, Standard_False);
-            m_context->Redisplay(object, Standard_False);
-
-            applyShapeAppearance(object);
+            applyDisplayStyle(object, m_shapeStyle);
         }
 
         m_context->UpdateCurrentViewer();
@@ -503,6 +491,28 @@ namespace OccQtCore
 
             m_context->UpdateCurrentViewer();
         }
+
+        return id;
+    }
+
+    DisplayObjectId OccView::displayShape(
+        const TopoDS_Shape& shape,
+        DisplayLayer layer,
+        const DisplayStyle& style)
+    {
+        Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+
+        const DisplayObjectId id = displayObject(aisShape, layer);
+
+        if (id < 0 || !isInitialized())
+        {
+            return id;
+        }
+
+        applyDisplayStyle(aisShape, style);
+
+        m_context->UpdateCurrentViewer();
+        redraw();
 
         return id;
     }
@@ -659,7 +669,7 @@ namespace OccQtCore
 
     void OccView::setShapeColor(const Quantity_Color& color)
     {
-        m_shapeAppearance.color = color;
+        m_shapeStyle.color = color;
 
         if (!isInitialized())
         {
@@ -673,57 +683,11 @@ namespace OccQtCore
                 continue;
             }
 
-            applyShapeAppearance(displayObject.object);
+            applyDisplayStyle(displayObject.object, m_shapeStyle);
         }
 
         m_context->UpdateCurrentViewer();
         redraw();
-    }
-
-    void OccView::clearPickHighlights()
-    {
-        if (m_context.IsNull())
-        {
-            m_pickHighlightShapes.clear();
-            return;
-        }
-
-        for (const Handle(AIS_Shape)& highlightShape : m_pickHighlightShapes)
-        {
-            if (!highlightShape.IsNull())
-            {
-                m_context->Remove(highlightShape, Standard_False);
-            }
-        }
-
-        m_pickHighlightShapes.clear();
-
-        m_context->ClearSelected(Standard_False);
-        m_context->UpdateCurrentViewer();
-        redraw();
-    }
-
-    void OccView::showFaceHighlight(
-        const TopoDS_Face& face,
-        const Quantity_Color& color,
-        double transparency)
-    {
-        if (m_context.IsNull() || face.IsNull())
-        {
-            return;
-        }
-
-        Handle(AIS_Shape) highlightShape = new AIS_Shape(face);
-
-        m_context->Display(highlightShape, AIS_Shaded, 0, Standard_False);
-        m_context->SetDisplayMode(highlightShape, AIS_Shaded, Standard_False);
-        m_context->SetColor(highlightShape, color, Standard_False);
-        m_context->SetTransparency(highlightShape, transparency, Standard_False);
-        m_context->Redisplay(highlightShape, Standard_False);
-
-        m_pickHighlightShapes.push_back(highlightShape);
-
-        m_context->UpdateCurrentViewer();
     }
 
     void OccView::redraw()
