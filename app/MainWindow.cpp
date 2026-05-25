@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <vector>
+
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QSizePolicy>
@@ -266,6 +269,7 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
     if (!result.hasShape)
     {
         m_logger->info("Selected: none");
+        m_occView->clearPickHighlights();
         return;
     }
 
@@ -286,15 +290,31 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 
     if (elementIndex < 0)
     {
-        m_logger->warn(QString("Graph log skipped: selected shape index was not found."));
+        m_logger->warn("Graph log skipped: selected shape index was not found.");
+        m_occView->clearPickHighlights();
         return;
     }
+
+    m_occView->clearPickHighlights();
 
     const auto& graph = geometryModel.graph();
 
     if (result.type == OccQtCore::PickedShapeType::Face)
     {
+        constexpr double SelectedFaceTransparency = 0.2;
+        constexpr double AdjacentFaceTransparency = 0.55;
+
+        const Quantity_Color selectedFaceColor(Quantity_NOC_ORANGE);
+        const Quantity_Color adjacentFaceColor(Quantity_NOC_CYAN1);
+
+        m_occView->addFaceHighlight(
+            TopoDS::Face(result.shape),
+            selectedFaceColor,
+            SelectedFaceTransparency);
+
         const auto& edgeIndices = graph.edgesOfFace(elementIndex);
+
+        std::vector<int> neighborFaceIndices;
 
         m_logger->info(
             QString("Graph Face[%1]: connected edges=%2")
@@ -326,6 +346,12 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                     neighborFacesText += ", ";
                 }
                 neighborFacesText += QString::number(faceIndex);
+
+                if (std::find(neighborFaceIndices.begin(), neighborFaceIndices.end(), faceIndex)
+                    == neighborFaceIndices.end())
+                {
+                    neighborFaceIndices.push_back(faceIndex);
+                }
             }
 
             m_logger->info(
@@ -333,6 +359,16 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                     .arg(edgeIndex)
                     .arg(connectedFacesText)
                     .arg(neighborFacesText));
+        }
+
+        for (int neighborFaceIndex : neighborFaceIndices)
+        {
+            const auto& faceData = geometryModel.faces().at(neighborFaceIndex);
+
+            m_occView->addFaceHighlight(
+                TopoDS::Face(faceData.shape),
+                adjacentFaceColor,
+                AdjacentFaceTransparency);
         }
     }
     else if (result.type == OccQtCore::PickedShapeType::Edge)
@@ -345,15 +381,6 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                 .arg(elementIndex)
                 .arg(faceIndices.size())
                 .arg(vertexIndices.size()));
-    }
-
-    if (result.type == OccQtCore::PickedShapeType::Face)
-    {
-        m_occView->showFaceHighlight(TopoDS::Face(result.shape));
-    }
-    else
-    {
-        m_occView->clearPickHighlights();
     }
 }
 

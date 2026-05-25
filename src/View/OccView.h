@@ -72,7 +72,7 @@ namespace OccQtCore
         void setShapeColor(const Quantity_Color& color);
 
         void clearPickHighlights();
-        void showFaceHighlight(const TopoDS_Face& face);
+        void showFaceHighlight(const TopoDS_Face& face, const Quantity_Color& color, double transparency);
 
         void redraw();
 
@@ -146,7 +146,7 @@ namespace OccQtCore
         Handle(V3d_View) m_view;
         Handle(AIS_InteractiveContext) m_context;
 
-        Handle(AIS_Shape) m_pickHighlightShape;
+        std::vector<Handle(AIS_Shape)> m_pickHighlightShapes;
 
         std::vector<DisplayObject> m_displayObjects;
         DisplayObjectId m_nextDisplayObjectId = 1;

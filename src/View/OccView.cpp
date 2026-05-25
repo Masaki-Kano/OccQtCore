@@ -682,50 +682,48 @@ namespace OccQtCore
 
     void OccView::clearPickHighlights()
     {
-        if (!m_context.IsNull() && !m_pickHighlightShape.IsNull())
+        if (m_context.IsNull())
         {
-            m_context->Remove(m_pickHighlightShape, Standard_False);
-            m_pickHighlightShape.Nullify();
+            m_pickHighlightShapes.clear();
+            return;
         }
 
-        if (!m_context.IsNull())
+        for (const Handle(AIS_Shape)& highlightShape : m_pickHighlightShapes)
         {
-            m_context->ClearSelected(Standard_False);
-            m_context->UpdateCurrentViewer();
+            if (!highlightShape.IsNull())
+            {
+                m_context->Remove(highlightShape, Standard_False);
+            }
         }
+
+        m_pickHighlightShapes.clear();
+
+        m_context->ClearSelected(Standard_False);
+        m_context->UpdateCurrentViewer();
+        redraw();
     }
 
-    void OccView::showFaceHighlight(const TopoDS_Face& face)
+    void OccView::showFaceHighlight(
+        const TopoDS_Face& face,
+        const Quantity_Color& color,
+        double transparency)
     {
         if (m_context.IsNull() || face.IsNull())
         {
             return;
         }
 
-        clearPickHighlights();
+        Handle(AIS_Shape) highlightShape = new AIS_Shape(face);
 
-        m_pickHighlightShape = new AIS_Shape(face);
+        m_context->Display(highlightShape, AIS_Shaded, 0, Standard_False);
+        m_context->SetDisplayMode(highlightShape, AIS_Shaded, Standard_False);
+        m_context->SetColor(highlightShape, color, Standard_False);
+        m_context->SetTransparency(highlightShape, transparency, Standard_False);
+        m_context->Redisplay(highlightShape, Standard_False);
 
-        m_context->Display(m_pickHighlightShape, AIS_Shaded, 0, Standard_False);
+        m_pickHighlightShapes.push_back(highlightShape);
 
-        m_context->SetDisplayMode(
-            m_pickHighlightShape,
-            AIS_Shaded,
-            Standard_False);
-
-        m_context->SetColor(
-            m_pickHighlightShape,
-            Quantity_NOC_ORANGE,
-            Standard_False);
-
-        m_context->SetTransparency(
-            m_pickHighlightShape,
-            0.3,
-            Standard_False);
-
-        m_context->Redisplay(m_pickHighlightShape, Standard_False);
         m_context->UpdateCurrentViewer();
-        redraw();
     }
 
     void OccView::redraw()
