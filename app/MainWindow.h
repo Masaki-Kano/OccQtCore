@@ -1,13 +1,10 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
+#include <memory>
+
 #include <QLabel>
-
-#include "Log/AppLogger.h"
-#include "Log/LogPanel.h"
-
-#include "View/OccView.h"
+#include <QMainWindow>
 
 #include "Core/DocumentData.h"
 #include "Core/SelectionInfo.h"
@@ -20,8 +17,10 @@ QT_END_NAMESPACE
 
 namespace OccQtCore {
 class AppLogger;
+class AppLogReporter;
 class LogPanel;
 class OccView;
+struct PickResult;
 }
 
 class MainWindow : public QMainWindow
@@ -51,6 +50,7 @@ private:
     Ui::MainWindow* ui = nullptr;
 
     OccQtCore::AppLogger* m_logger = nullptr;
+    std::unique_ptr<OccQtCore::AppLogReporter> m_logReporter;
     OccQtCore::LogPanel* m_logPanel = nullptr;
     OccQtCore::OccView* m_occView = nullptr;
 

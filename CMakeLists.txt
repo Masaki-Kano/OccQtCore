@@ -59,6 +59,8 @@ qt_add_executable(OccQtCore
     src/Geometry/GeometryAnalyzer.cpp
     src/Geometry/GeometryGraph.h
     src/Geometry/GeometryGraph.cpp
+    src/Log/AppLogReporter.h
+    src/Log/AppLogReporter.cpp
 )
 
 target_include_directories(OccQtCore

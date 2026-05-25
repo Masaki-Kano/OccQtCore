@@ -20,29 +20,9 @@
 
 #include "View/OccView.h"
 #include "Log/AppLogger.h"
+#include "Log/AppLogReporter.h"
 #include "Log/LogPanel.h"
 #include "IO/StepLoader.h"
-
-namespace
-{
-    QString pickedShapeTypeToString(OccQtCore::PickedShapeType type)
-    {
-        switch (type)
-        {
-        case OccQtCore::PickedShapeType::Vertex:
-            return "Vertex";
-        case OccQtCore::PickedShapeType::Edge:
-            return "Edge";
-        case OccQtCore::PickedShapeType::Face:
-            return "Face";
-        case OccQtCore::PickedShapeType::Solid:
-            return "Solid";
-        case OccQtCore::PickedShapeType::Unknown:
-        default:
-            return "Unknown";
-        }
-    }
-}
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -51,13 +31,14 @@ MainWindow::MainWindow(QWidget* parent)
 {
     ui->setupUi(this);
 
+    m_logger = new OccQtCore::AppLogger(this);
+    m_logReporter = std::make_unique<OccQtCore::AppLogReporter>(m_logger);
+
     setupWindow();
     setupLayout();
     setupViewArea();
     setupLogPanel();
     setupConnections();
-
-    m_logger->info("Application started");
 }
 
 MainWindow::~MainWindow()
@@ -116,8 +97,6 @@ void MainWindow::setupViewArea()
 
 void MainWindow::setupLogPanel()
 {
-    m_logger = new OccQtCore::AppLogger(this);
-
     m_logPanel = new OccQtCore::LogPanel(this);
     m_logPanel->setLogger(m_logger);
 
@@ -200,84 +179,49 @@ void MainWindow::openStepFile(const QString& filePath)
 
     if (!result.success)
     {
-        m_logger->error(result.errorMessage);
+        m_logReporter->logStepLoadFailed(result.errorMessage);
         return;
     }
 
+    // ドキュメントに保持
     m_document.clear();
     m_document.setFilePath(filePath);
     m_document.setShape(result.shape);
 
+    // 形状ログを出す
     const auto& model = m_document.geometryModel();
+    m_logReporter->logGeometryModelDiagnostics(model);
 
-    m_logger->info(QString("GeometryModel built: Faces=%1, Edges=%2, Vertices=%3")
-                       .arg(model.faceCount())
-                       .arg(model.edgeCount())
-                       .arg(model.vertexCount()));
-
-    m_logger->info(QString("GeometryGraph built: Faces=%1, Edges=%2, Vertices=%3")
-                       .arg(model.graph().faceCount())
-                       .arg(model.graph().edgeCount())
-                       .arg(model.graph().vertexCount()));
-
-    if (model.faceCount() > 0)
-    {
-        m_logger->info(QString("Graph Face[0]: connected edges=%1")
-                           .arg(model.graph().edgesOfFace(0).size()));
-    }
-
-    if (model.edgeCount() > 0)
-    {
-        m_logger->info(QString("Graph Edge[0]: connected faces=%1, vertices=%2")
-                           .arg(model.graph().facesOfEdge(0).size())
-                           .arg(model.graph().verticesOfEdge(0).size()));
-    }
-
-    int zeroEdgeFaceCount = 0;
-    int nonTwoVertexEdgeCount = 0;
-
-    for (int i = 0; i < model.edgeCount(); ++i)
-    {
-        if (model.graph().facesOfEdge(i).empty())
-        {
-            ++zeroEdgeFaceCount;
-        }
-
-        if (model.graph().verticesOfEdge(i).size() != 2)
-        {
-            ++nonTwoVertexEdgeCount;
-        }
-    }
-
-    m_logger->info(QString("Graph check: edges without faces=%1, edges with non-2 vertices=%2")
-                       .arg(zeroEdgeFaceCount)
-                       .arg(nonTwoVertexEdgeCount));
-
+    // ビュー処理
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
 
+    // ファイルパス保持関連処理
     const QFileInfo fileInfo(m_document.filePath());
     setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));
-
     updateLastOpenDirectory(filePath);
 
-    m_logger->info(QString("STEP file loaded: %1").arg(filePath));
+    // ログ
+    m_logReporter->logStepLoaded(filePath);
 }
 
 void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 {
     m_selectionInfo = OccQtCore::SelectionInfo{};
 
+    m_occView->clearLayer(OccQtCore::DisplayLayer::PickHighlight);
+
     if (!result.hasShape)
     {
-        m_logger->info("Selected: none");
-        m_occView->clearLayer(OccQtCore::DisplayLayer::PickHighlight);
+        m_logReporter->logSelection(m_selectionInfo);
         return;
     }
 
     const auto& geometryModel = m_document.geometryModel();
-    const int elementIndex = geometryModel.findElementIndex(result.shape, result.type);
+
+    const int elementIndex =
+        geometryModel.findElementIndex(result.shape, result.type);
 
     m_selectionInfo.isValid = true;
     m_selectionInfo.type = result.type;
@@ -285,17 +229,10 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
     m_selectionInfo.elementIndex = elementIndex;
     m_selectionInfo.sourceDisplayObjectId = result.sourceDisplayObjectId;
 
-    m_logger->info(
-        QString("Selected: %1, Index=%2, SourceDisplayObjectId=%3")
-            .arg(pickedShapeTypeToString(m_selectionInfo.type))
-            .arg(m_selectionInfo.elementIndex)
-            .arg(m_selectionInfo.sourceDisplayObjectId));
-
-    m_occView->clearLayer(OccQtCore::DisplayLayer::PickHighlight);
+    m_logReporter->logSelection(m_selectionInfo);
 
     if (elementIndex < 0)
     {
-        m_logger->warn("Graph log skipped: selected shape index was not found.");
         return;
     }
 
@@ -320,40 +257,22 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
             OccQtCore::DisplayLayer::PickHighlight,
             selectedFaceStyle);
 
+        m_logReporter->logFaceGraph(graph, elementIndex);
+
         const auto& edgeIndices = graph.edgesOfFace(elementIndex);
 
         std::vector<int> neighborFaceIndices;
-
-        m_logger->info(
-            QString("Graph Face[%1]: connected edges=%2")
-                .arg(elementIndex)
-                .arg(edgeIndices.size()));
 
         for (int edgeIndex : edgeIndices)
         {
             const auto& connectedFaceIndices = graph.facesOfEdge(edgeIndex);
 
-            QString connectedFacesText;
-            QString neighborFacesText;
-
             for (int faceIndex : connectedFaceIndices)
             {
-                if (!connectedFacesText.isEmpty())
-                {
-                    connectedFacesText += ", ";
-                }
-                connectedFacesText += QString::number(faceIndex);
-
                 if (faceIndex == elementIndex)
                 {
                     continue;
                 }
-
-                if (!neighborFacesText.isEmpty())
-                {
-                    neighborFacesText += ", ";
-                }
-                neighborFacesText += QString::number(faceIndex);
 
                 if (std::find(
                         neighborFaceIndices.begin(),
@@ -363,12 +282,6 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                     neighborFaceIndices.push_back(faceIndex);
                 }
             }
-
-            m_logger->info(
-                QString("  Edge[%1]: connected faces=[%2], neighbor faces=[%3]")
-                    .arg(edgeIndex)
-                    .arg(connectedFacesText)
-                    .arg(neighborFacesText));
         }
 
         for (int neighborFaceIndex : neighborFaceIndices)
@@ -380,17 +293,14 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                 OccQtCore::DisplayLayer::PickHighlight,
                 adjacentFaceStyle);
         }
-    }
-    else if (result.type == OccQtCore::PickedShapeType::Edge)
-    {
-        const auto& faceIndices = graph.facesOfEdge(elementIndex);
-        const auto& vertexIndices = graph.verticesOfEdge(elementIndex);
 
-        m_logger->info(
-            QString("Graph Edge[%1]: connected faces=%2, vertices=%3")
-                .arg(elementIndex)
-                .arg(faceIndices.size())
-                .arg(vertexIndices.size()));
+        return;
+    }
+
+    if (result.type == OccQtCore::PickedShapeType::Edge)
+    {
+        m_logReporter->logEdgeGraph(graph, elementIndex);
+        return;
     }
 }
 
