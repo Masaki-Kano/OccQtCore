@@ -203,16 +203,12 @@ void MainWindow::openStepFile(const QString& filePath)
     m_document.setShape(result.shape);
     updateLastOpenDirectory(filePath);
 
-    // 一時デバック
     const auto& model = m_document.geometryModel();
 
     m_logger->info(QString("GeometryModel built: Faces=%1, Edges=%2, Vertices=%3")
                        .arg(model.faceCount())
                        .arg(model.edgeCount())
                        .arg(model.vertexCount()));
-
-    const int faceLogCount = std::min(model.faceCount(), 5);
-    const int edgeLogCount = std::min(model.edgeCount(), 10);
 
     for (int i = 0; i < model.faceCount(); ++i)
     {
@@ -242,12 +238,7 @@ void MainWindow::openStepFile(const QString& filePath)
     for (int i = 0; i < model.edgeCount(); ++i)
     {
         const auto* edge = model.edgeAt(i);
-        if (!edge)
-        {
-            continue;
-        }
-
-        if (!edge->info.circle)
+        if (!edge || !edge->info.circle)
         {
             continue;
         }
@@ -267,7 +258,6 @@ void MainWindow::openStepFile(const QString& filePath)
                            .arg(edge->info.length));
     }
 
-    // ビュー同期
     m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
