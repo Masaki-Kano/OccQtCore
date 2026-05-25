@@ -6,7 +6,7 @@
 #include <QFileInfo>
 #include <QDir>
 
-#include <BRepPrimAPI_MakeBox.hxx>
+#include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
 
 #include "MainWindow.h"
@@ -345,6 +345,15 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                 .arg(elementIndex)
                 .arg(faceIndices.size())
                 .arg(vertexIndices.size()));
+    }
+
+    if (result.type == OccQtCore::PickedShapeType::Face)
+    {
+        m_occView->showFaceHighlight(TopoDS::Face(result.shape));
+    }
+    else
+    {
+        m_occView->clearPickHighlights();
     }
 }
 

@@ -8,9 +8,11 @@
 
 #include <AIS_InteractiveContext.hxx>
 #include <AIS_InteractiveObject.hxx>
+#include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Face.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 #include <Quantity_Color.hxx>
@@ -68,6 +70,9 @@ namespace OccQtCore
         void setShadedMode();
         void setWireframeMode();
         void setShapeColor(const Quantity_Color& color);
+
+        void clearPickHighlights();
+        void showFaceHighlight(const TopoDS_Face& face);
 
         void redraw();
 
@@ -140,6 +145,8 @@ namespace OccQtCore
         Handle(V3d_Viewer) m_viewer;
         Handle(V3d_View) m_view;
         Handle(AIS_InteractiveContext) m_context;
+
+        Handle(AIS_Shape) m_pickHighlightShape;
 
         std::vector<DisplayObject> m_displayObjects;
         DisplayObjectId m_nextDisplayObjectId = 1;

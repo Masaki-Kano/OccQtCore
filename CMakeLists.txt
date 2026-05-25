@@ -75,11 +75,11 @@ target_link_libraries(OccQtCore
 
 target_link_occt(OccQtCore)
 
-if(DEPLOY_RUNTIME_ON_BUILD OR DEPLOY_OCCT_ON_BUILD)
+if(DEPLOY_OCCT_ON_BUILD)
     target_deploy_occt(OccQtCore)
 endif()
 
-if(DEPLOY_RUNTIME_ON_BUILD OR DEPLOY_QT_ON_BUILD)
+if(DEPLOY_QT_ON_BUILD)
     target_deploy_qt(OccQtCore)
 endif()
 

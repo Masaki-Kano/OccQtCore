@@ -680,6 +680,54 @@ namespace OccQtCore
         redraw();
     }
 
+    void OccView::clearPickHighlights()
+    {
+        if (!m_context.IsNull() && !m_pickHighlightShape.IsNull())
+        {
+            m_context->Remove(m_pickHighlightShape, Standard_False);
+            m_pickHighlightShape.Nullify();
+        }
+
+        if (!m_context.IsNull())
+        {
+            m_context->ClearSelected(Standard_False);
+            m_context->UpdateCurrentViewer();
+        }
+    }
+
+    void OccView::showFaceHighlight(const TopoDS_Face& face)
+    {
+        if (m_context.IsNull() || face.IsNull())
+        {
+            return;
+        }
+
+        clearPickHighlights();
+
+        m_pickHighlightShape = new AIS_Shape(face);
+
+        m_context->Display(m_pickHighlightShape, AIS_Shaded, 0, Standard_False);
+
+        m_context->SetDisplayMode(
+            m_pickHighlightShape,
+            AIS_Shaded,
+            Standard_False);
+
+        m_context->SetColor(
+            m_pickHighlightShape,
+            Quantity_NOC_ORANGE,
+            Standard_False);
+
+        m_context->SetTransparency(
+            m_pickHighlightShape,
+            0.3,
+            Standard_False);
+
+        m_context->Redisplay(m_pickHighlightShape, Standard_False);
+        m_context->UpdateCurrentViewer();
+        redraw();
+    }
+
     void OccView::redraw()
     {
         if (m_view.IsNull())
