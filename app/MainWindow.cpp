@@ -283,6 +283,69 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
             .arg(pickedShapeTypeToString(m_selectionInfo.type))
             .arg(m_selectionInfo.elementIndex)
             .arg(m_selectionInfo.sourceDisplayObjectId));
+
+    if (elementIndex < 0)
+    {
+        m_logger->warn(QString("Graph log skipped: selected shape index was not found."));
+        return;
+    }
+
+    const auto& graph = geometryModel.graph();
+
+    if (result.type == OccQtCore::PickedShapeType::Face)
+    {
+        const auto& edgeIndices = graph.edgesOfFace(elementIndex);
+
+        m_logger->info(
+            QString("Graph Face[%1]: connected edges=%2")
+                .arg(elementIndex)
+                .arg(edgeIndices.size()));
+
+        for (int edgeIndex : edgeIndices)
+        {
+            const auto& connectedFaceIndices = graph.facesOfEdge(edgeIndex);
+
+            QString connectedFacesText;
+            QString neighborFacesText;
+
+            for (int faceIndex : connectedFaceIndices)
+            {
+                if (!connectedFacesText.isEmpty())
+                {
+                    connectedFacesText += ", ";
+                }
+                connectedFacesText += QString::number(faceIndex);
+
+                if (faceIndex == elementIndex)
+                {
+                    continue;
+                }
+
+                if (!neighborFacesText.isEmpty())
+                {
+                    neighborFacesText += ", ";
+                }
+                neighborFacesText += QString::number(faceIndex);
+            }
+
+            m_logger->info(
+                QString("  Edge[%1]: connected faces=[%2], neighbor faces=[%3]")
+                    .arg(edgeIndex)
+                    .arg(connectedFacesText)
+                    .arg(neighborFacesText));
+        }
+    }
+    else if (result.type == OccQtCore::PickedShapeType::Edge)
+    {
+        const auto& faceIndices = graph.facesOfEdge(elementIndex);
+        const auto& vertexIndices = graph.verticesOfEdge(elementIndex);
+
+        m_logger->info(
+            QString("Graph Edge[%1]: connected faces=%2, vertices=%3")
+                .arg(elementIndex)
+                .arg(faceIndices.size())
+                .arg(vertexIndices.size()));
+    }
 }
 
 QString MainWindow::defaultOpenDirectory() const
