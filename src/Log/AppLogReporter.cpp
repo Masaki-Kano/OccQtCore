@@ -61,7 +61,7 @@ namespace OccQtCore
     }
 
     void AppLogReporter::logFaceGraph(
-        const GeometryGraph& graph,
+        const GeometryModel& model,
         int faceIndex) const
     {
         if (m_logger == nullptr)
@@ -69,34 +69,32 @@ namespace OccQtCore
             return;
         }
 
-        const auto& edgeIndices = graph.edgesOfFace(faceIndex);
+        const auto& graph = model.graph();
+        const auto& wireIndices = graph.wiresOfFace(faceIndex);
 
         m_logger->info(
-            QString("面[%1]: 接続エッジ数=%2")
+            QString("面[%1]: 接続ワイヤー数=%2")
                 .arg(faceIndex)
-                .arg(edgeIndices.size()));
+                .arg(wireIndices.size()));
 
-        for (int edgeIndex : edgeIndices)
+        for (int wireIndex : wireIndices)
         {
-            const auto& connectedFaceIndices = graph.facesOfEdge(edgeIndex);
+            const auto* wireData = model.wireAt(wireIndex);
+            const auto& edgeIndices = graph.edgesOfWire(wireIndex);
+            const auto& faceIndices = graph.facesOfWire(wireIndex);
 
-            std::vector<int> neighborFaceIndices;
-
-            for (int connectedFaceIndex : connectedFaceIndices)
-            {
-                if (connectedFaceIndex == faceIndex)
-                {
-                    continue;
-                }
-
-                neighborFaceIndices.push_back(connectedFaceIndex);
-            }
+            const bool isOuter = wireData != nullptr && wireData->info.isOuter;
+            const bool isInner = wireData != nullptr && wireData->info.isInner;
+            const bool isClosed = wireData != nullptr && wireData->info.isClosed;
 
             m_logger->info(
-                QString("  エッジ[%1]: 接続面=[%2], 隣接面=[%3]")
-                    .arg(edgeIndex)
-                    .arg(formatIndexList(connectedFaceIndices))
-                    .arg(formatIndexList(neighborFaceIndices)));
+                QString("  ワイヤー[%1]: Outer=%2, Inner=%3, Closed=%4, 接続面=[%5], 接続エッジ=[%6]")
+                    .arg(wireIndex)
+                    .arg(isOuter ? "true" : "false")
+                    .arg(isInner ? "true" : "false")
+                    .arg(isClosed ? "true" : "false")
+                    .arg(formatIndexList(faceIndices))
+                    .arg(formatIndexList(edgeIndices)));
         }
     }
 
@@ -109,12 +107,28 @@ namespace OccQtCore
             return;
         }
 
-        const auto& faceIndices = graph.facesOfEdge(edgeIndex);
+        const auto& wireIndices = graph.wiresOfEdge(edgeIndex);
         const auto& vertexIndices = graph.verticesOfEdge(edgeIndex);
 
+        std::vector<int> faceIndices;
+
+        for (int wireIndex : wireIndices)
+        {
+            const auto& connectedFaceIndices = graph.facesOfWire(wireIndex);
+
+            for (int faceIndex : connectedFaceIndices)
+            {
+                if (std::find(faceIndices.begin(), faceIndices.end(), faceIndex) == faceIndices.end())
+                {
+                    faceIndices.push_back(faceIndex);
+                }
+            }
+        }
+
         m_logger->info(
-            QString("エッジ[%1]: 接続面=[%2], 接続頂点=[%3]")
+            QString("エッジ[%1]: 接続ワイヤー=[%2], 接続面=[%3], 接続頂点=[%4]")
                 .arg(edgeIndex)
+                .arg(formatIndexList(wireIndices))
                 .arg(formatIndexList(faceIndices))
                 .arg(formatIndexList(vertexIndices)));
     }
@@ -149,37 +163,18 @@ namespace OccQtCore
         }
 
         m_logger->info(
-            QString("形状モデル構築: 面=%1, エッジ=%2, 頂点=%3")
+            QString("形状モデル構築: 面=%1, ワイヤー=%2, エッジ=%3, 頂点=%4")
                 .arg(model.faceCount())
+                .arg(model.wireCount())
                 .arg(model.edgeCount())
                 .arg(model.vertexCount()));
 
         m_logger->info(
-            QString("接続グラフ構築: 面=%1, エッジ=%2, 頂点=%3")
+            QString("接続グラフ構築: 面=%1, ワイヤー=%2, エッジ=%3, 頂点=%4")
                 .arg(model.graph().faceCount())
+                .arg(model.graph().wireCount())
                 .arg(model.graph().edgeCount())
                 .arg(model.graph().vertexCount()));
-
-        int zeroEdgeFaceCount = 0;
-        int nonTwoVertexEdgeCount = 0;
-
-        for (int edgeIndex = 0; edgeIndex < model.edgeCount(); ++edgeIndex)
-        {
-            if (model.graph().facesOfEdge(edgeIndex).empty())
-            {
-                ++zeroEdgeFaceCount;
-            }
-
-            if (model.graph().verticesOfEdge(edgeIndex).size() != 2)
-            {
-                ++nonTwoVertexEdgeCount;
-            }
-        }
-
-        m_logger->info(
-            QString("接続グラフ確認: 接続面なしエッジ=%1, 接続頂点数が2以外のエッジ=%2")
-                .arg(zeroEdgeFaceCount)
-                .arg(nonTwoVertexEdgeCount));
     }
 
     QString AppLogReporter::formatIndexList(

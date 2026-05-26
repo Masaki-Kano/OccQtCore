@@ -1,10 +1,12 @@
 #ifndef GEOMETRYTYPES_H
 #define GEOMETRYTYPES_H
 
+#include <vector>
 #include <optional>
 
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Edge.hxx>
+#include <TopoDS_Wire.hxx>
 #include <TopoDS_Vertex.hxx>
 
 #include <gp_Pnt.hxx>
@@ -90,6 +92,24 @@ namespace OccQtCore
         gp_Ax1 axis;
         double majorRadius = 0.0;
         double minorRadius = 0.0;
+    };
+
+    struct WireInfo
+    {
+        bool isClosed = false;
+
+        // Face内での境界種別
+        bool isOuter = false;
+        bool isInner = false;
+
+        int edgeCount = 0;
+    };
+
+    struct WireData
+    {
+        int index = -1;
+        TopoDS_Wire shape;
+        WireInfo info;
     };
 
     struct FaceInfo

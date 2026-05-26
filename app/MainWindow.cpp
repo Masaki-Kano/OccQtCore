@@ -257,39 +257,22 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
             OccQtCore::DisplayLayer::PickHighlight,
             selectedFaceStyle);
 
-        m_logReporter->logFaceGraph(graph, elementIndex);
+        m_logReporter->logFaceGraph(geometryModel, elementIndex);
 
-        const auto& edgeIndices = graph.edgesOfFace(elementIndex);
+        const auto adjacentFaceIndices =
+            graph.adjacentFacesOfFace(elementIndex);
 
-        std::vector<int> neighborFaceIndices;
-
-        for (int edgeIndex : edgeIndices)
+        for (int adjacentFaceIndex : adjacentFaceIndices)
         {
-            const auto& connectedFaceIndices = graph.facesOfEdge(edgeIndex);
+            const auto* faceData = geometryModel.faceAt(adjacentFaceIndex);
 
-            for (int faceIndex : connectedFaceIndices)
+            if (faceData == nullptr)
             {
-                if (faceIndex == elementIndex)
-                {
-                    continue;
-                }
-
-                if (std::find(
-                        neighborFaceIndices.begin(),
-                        neighborFaceIndices.end(),
-                        faceIndex) == neighborFaceIndices.end())
-                {
-                    neighborFaceIndices.push_back(faceIndex);
-                }
+                continue;
             }
-        }
-
-        for (int neighborFaceIndex : neighborFaceIndices)
-        {
-            const auto& faceData = geometryModel.faces().at(neighborFaceIndex);
 
             m_occView->displayShape(
-                TopoDS::Face(faceData.shape),
+                TopoDS::Face(faceData->shape),
                 OccQtCore::DisplayLayer::PickHighlight,
                 adjacentFaceStyle);
         }

@@ -6,28 +6,60 @@ namespace OccQtCore
 {
     void GeometryGraph::clear()
     {
-        m_faceToEdges.clear();
-        m_edgeToFaces.clear();
+        m_faceToWires.clear();
+        m_wireToFaces.clear();
+
+        m_wireToEdges.clear();
+        m_edgeToWires.clear();
+
         m_edgeToVertices.clear();
         m_vertexToEdges.clear();
     }
 
-    void GeometryGraph::resize(int faceCount, int edgeCount, int vertexCount)
+    void GeometryGraph::resize(int faceCount, int wireCount, int edgeCount, int vertexCount)
     {
-        m_faceToEdges.assign(faceCount, {});
-        m_edgeToFaces.assign(edgeCount, {});
-        m_edgeToVertices.assign(edgeCount, {});
-        m_vertexToEdges.assign(vertexCount, {});
+        clear();
+
+        m_faceToWires.assign(static_cast<std::size_t>(faceCount), {});
+        m_wireToFaces.assign(static_cast<std::size_t>(wireCount), {});
+
+        m_wireToEdges.assign(static_cast<std::size_t>(wireCount), {});
+        m_edgeToWires.assign(static_cast<std::size_t>(edgeCount), {});
+
+        m_edgeToVertices.assign(static_cast<std::size_t>(edgeCount), {});
+        m_vertexToEdges.assign(static_cast<std::size_t>(vertexCount), {});
     }
 
-    void GeometryGraph::addFaceEdgeRelation(int faceIndex, int edgeIndex)
+    void GeometryGraph::addFaceWireRelation(int faceIndex, int wireIndex)
     {
-        addRelation(m_faceToEdges, faceIndex, edgeIndex);
+        addRelation(m_faceToWires, faceIndex, wireIndex);
     }
 
-    void GeometryGraph::addEdgeFaceRelation(int edgeIndex, int faceIndex)
+    void GeometryGraph::addWireFaceRelation(int wireIndex, int faceIndex)
     {
-        addRelation(m_edgeToFaces, edgeIndex, faceIndex);
+        addRelation(m_wireToFaces, wireIndex, faceIndex);
+    }
+
+    void GeometryGraph::addWireEdgeRelation(int wireIndex, int edgeIndex)
+    {
+        // Wire -> Edge は輪郭順序が意味をもつ可能性があるため、
+        // addUniqueではなく登録順を保持する
+        if (!isValidIndex(wireIndex, static_cast<int>(m_wireToEdges.size())))
+        {
+            return;
+        }
+
+        if (edgeIndex < 0)
+        {
+            return;
+        }
+
+        m_wireToEdges[static_cast<std::size_t>(wireIndex)].push_back(edgeIndex);
+    }
+
+    void GeometryGraph::addEdgeWireRelation(int edgeIndex, int wireIndex)
+    {
+        addRelation(m_edgeToWires, edgeIndex, wireIndex);
     }
 
     void GeometryGraph::addEdgeVertexRelation(int edgeIndex, int vertexIndex)
@@ -40,14 +72,24 @@ namespace OccQtCore
         addRelation(m_vertexToEdges, vertexIndex, edgeIndex);
     }
 
-    const std::vector<int>& GeometryGraph::edgesOfFace(int faceIndex) const
+    const std::vector<int>& GeometryGraph::wiresOfFace(int faceIndex) const
     {
-        return listOrEmpty(m_faceToEdges, faceIndex);
+        return listOrEmpty(m_faceToWires, faceIndex);
     }
 
-    const std::vector<int>& GeometryGraph::facesOfEdge(int edgeIndex) const
+    const std::vector<int>& GeometryGraph::facesOfWire(int wireIndex) const
     {
-        return listOrEmpty(m_edgeToFaces, edgeIndex);
+        return listOrEmpty(m_wireToFaces, wireIndex);
+    }
+
+    const std::vector<int>& GeometryGraph::edgesOfWire(int wireIndex) const
+    {
+        return listOrEmpty(m_wireToEdges, wireIndex);
+    }
+
+    const std::vector<int>& GeometryGraph::wiresOfEdge(int edgeIndex) const
+    {
+        return listOrEmpty(m_edgeToWires, edgeIndex);
     }
 
     const std::vector<int>& GeometryGraph::verticesOfEdge(int edgeIndex) const
@@ -60,14 +102,59 @@ namespace OccQtCore
         return listOrEmpty(m_vertexToEdges, vertexIndex);
     }
 
+    std::vector<int> GeometryGraph::adjacentFacesOfFace(int faceIndex) const
+    {
+        std::vector<int> adjacentFaceIndices;
+
+        const auto& wireIndices = wiresOfFace(faceIndex);
+
+        for (int wireIndex : wireIndices)
+        {
+            const auto& edgeIndices = edgesOfWire(wireIndex);
+
+            for (int edgeIndex : edgeIndices)
+            {
+                const auto& connectedWireIndices = wiresOfEdge(edgeIndex);
+
+                for (int connectdWireIndex : connectedWireIndices)
+                {
+                    // 共有エッジから自分自身のWireも逆引きされるため除外
+                    if (connectdWireIndex == wireIndex)
+                    {
+                        continue;
+                    }
+
+                    const auto& connectdFaceIndices = facesOfWire(connectdWireIndex);
+
+                    for (int connectdFaceIndex : connectdFaceIndices)
+                    {
+                        if (connectdFaceIndex == faceIndex)
+                        {
+                            continue;
+                        }
+
+                        addUnique(adjacentFaceIndices, connectdFaceIndex);
+                    }
+                }
+            }
+        }
+
+        return adjacentFaceIndices;
+    }
+
     int GeometryGraph::faceCount() const
     {
-        return static_cast<int>(m_faceToEdges.size());
+        return static_cast<int>(m_faceToWires.size());
+    }
+
+    int GeometryGraph::wireCount() const
+    {
+        return static_cast<int>(m_wireToEdges.size());
     }
 
     int GeometryGraph::edgeCount() const
     {
-        return static_cast<int>(m_edgeToFaces.size());
+        return static_cast<int>(m_edgeToVertices.size());
     }
 
     int GeometryGraph::vertexCount() const

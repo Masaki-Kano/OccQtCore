@@ -8,12 +8,16 @@
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
+#include <BRep_Tool.hxx>
+#include <BRepTools.hxx>
 
 namespace OccQtCore
 {
     void GeometryModel::clear()
     {
         m_faces.clear();
+        m_wires.clear();
         m_edges.clear();
         m_vertices.clear();
 
@@ -30,28 +34,36 @@ namespace OccQtCore
         }
 
         TopTools_IndexedMapOfShape faceMap;
+        TopTools_IndexedMapOfShape wireMap;
         TopTools_IndexedMapOfShape edgeMap;
         TopTools_IndexedMapOfShape vertexMap;
 
         TopExp::MapShapes(rootShape, TopAbs_FACE, faceMap);
+        TopExp::MapShapes(rootShape, TopAbs_WIRE, wireMap);
         TopExp::MapShapes(rootShape, TopAbs_EDGE, edgeMap);
         TopExp::MapShapes(rootShape, TopAbs_VERTEX, vertexMap);
 
         buildFaces(faceMap);
+        buildWires(wireMap);
         buildEdges(edgeMap);
         buildVertices(vertexMap);
 
-        buildGraph(faceMap, edgeMap, vertexMap);
+        buildGraph(faceMap, wireMap, edgeMap, vertexMap);
     }
 
     bool GeometryModel::isEmpty() const
     {
-        return m_faces.empty() && m_edges.empty() && m_vertices.empty();
+        return m_faces.empty() && m_wires.empty() && m_edges.empty() && m_vertices.empty();
     }
 
     int GeometryModel::faceCount() const
     {
         return static_cast<int>(m_faces.size());
+    }
+
+    int GeometryModel::wireCount() const
+    {
+        return static_cast<int>(m_wires.size());
     }
 
     int GeometryModel::edgeCount() const
@@ -67,6 +79,11 @@ namespace OccQtCore
     const std::vector<FaceData>& GeometryModel::faces() const
     {
         return m_faces;
+    }
+
+    const std::vector<WireData>& GeometryModel::wires() const
+    {
+        return m_wires;
     }
 
     const std::vector<EdgeData>& GeometryModel::edges() const
@@ -87,6 +104,16 @@ namespace OccQtCore
         }
 
         return &m_faces[static_cast<std::size_t>(index)];
+    }
+
+    const WireData* GeometryModel::wireAt(int index) const
+    {
+        if (index < 0 || index >= wireCount())
+        {
+            return nullptr;
+        }
+
+        return &m_wires[static_cast<std::size_t>(index)];
     }
 
     const EdgeData* GeometryModel::edgeAt(int index) const
@@ -121,6 +148,24 @@ namespace OccQtCore
             if (face.shape.IsSame(shape))
             {
                 return face.index;
+            }
+        }
+
+        return -1;
+    }
+
+    int GeometryModel::findWireIndex(const TopoDS_Shape& shape) const
+    {
+        if (shape.IsNull())
+        {
+            return -1;
+        }
+
+        for (const auto& wire : m_wires)
+        {
+            if (wire.shape.IsSame(shape))
+            {
+                return wire.index;
             }
         }
 
@@ -210,6 +255,25 @@ namespace OccQtCore
         }
     }
 
+    void GeometryModel::buildWires(const TopTools_IndexedMapOfShape& wireMap)
+    {
+        m_wires.reserve(static_cast<std::size_t>(wireMap.Extent()));
+
+        for (int mapIndex = 1; mapIndex <= wireMap.Extent(); ++mapIndex)
+        {
+            const int index = mapIndex - 1;
+            const TopoDS_Wire wire = TopoDS::Wire(wireMap.FindKey(mapIndex));
+
+            WireData data;
+            data.index = index;
+            data.shape = wire;
+
+            data.info.isClosed = BRep_Tool::IsClosed(wire);
+
+            m_wires.push_back(data);
+        }
+    }
+
     void GeometryModel::buildEdges(const TopTools_IndexedMapOfShape& edgeMap)
     {
         m_edges.reserve(static_cast<std::size_t>(edgeMap.Extent()));
@@ -250,33 +314,65 @@ namespace OccQtCore
 
     void GeometryModel::buildGraph(
         const TopTools_IndexedMapOfShape& faceMap,
+        const TopTools_IndexedMapOfShape& wireMap,
         const TopTools_IndexedMapOfShape& edgeMap,
         const TopTools_IndexedMapOfShape& vertexMap)
     {
         m_graph.clear();
-        m_graph.resize(faceCount(), edgeCount(), vertexCount());
+        m_graph.resize(faceCount(), wireCount(), edgeCount(), vertexCount());
 
         for (int faceMapIndex = 1; faceMapIndex <= faceMap.Extent(); ++faceMapIndex)
         {
             const int faceIndex = faceMapIndex - 1;
             const TopoDS_Face face = TopoDS::Face(faceMap.FindKey(faceMapIndex));
 
-            for (TopExp_Explorer edgeExp(face, TopAbs_EDGE);
-                 edgeExp.More();
-                 edgeExp.Next())
-            {
-                const TopoDS_Edge edge = TopoDS::Edge(edgeExp.Current());
-                const int edgeMapIndex = edgeMap.FindIndex(edge);
+            const TopoDS_Wire outerWire = BRepTools::OuterWire(face);
 
-                if (edgeMapIndex <= 0)
+            for (TopExp_Explorer wireExp(face, TopAbs_WIRE);
+                 wireExp.More();
+                 wireExp.Next())
+            {
+                const TopoDS_Wire wire = TopoDS::Wire(wireExp.Current());
+                const bool hasOuterWire = !outerWire.IsNull();
+                const int wireMapIndex = wireMap.FindIndex(wire);
+
+                if (wireMapIndex <= 0)
                 {
                     continue;
                 }
 
-                const int edgeIndex = edgeMapIndex - 1;
+                const int wireIndex = wireMapIndex - 1;
 
-                m_graph.addFaceEdgeRelation(faceIndex, edgeIndex);
-                m_graph.addEdgeFaceRelation(edgeIndex, faceIndex);
+                const bool isOuter = hasOuterWire && wire.IsSame(outerWire);
+                const bool isInner = hasOuterWire && !isOuter;
+
+                if (wireIndex >= 0 && wireIndex < wireCount())
+                {
+                    auto& wireData = m_wires[static_cast<std::size_t>(wireIndex)];
+                    wireData.info.isOuter = isOuter;
+                    wireData.info.isInner = isInner;
+                }
+
+                m_graph.addFaceWireRelation(faceIndex, wireIndex);
+                m_graph.addWireFaceRelation(wireIndex, faceIndex);
+
+                for (TopExp_Explorer edgeExp(wire, TopAbs_EDGE);
+                     edgeExp.More();
+                     edgeExp.Next())
+                {
+                    const TopoDS_Edge edge = TopoDS::Edge(edgeExp.Current());
+                    const int edgeMapIndex = edgeMap.FindIndex(edge);
+
+                    if (edgeMapIndex <= 0)
+                    {
+                        continue;
+                    }
+
+                    const int edgeIndex = edgeMapIndex - 1;
+
+                    m_graph.addWireEdgeRelation(wireIndex, edgeIndex);
+                    m_graph.addEdgeWireRelation(edgeIndex, wireIndex);
+                }
             }
         }
 

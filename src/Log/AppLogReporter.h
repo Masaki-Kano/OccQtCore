@@ -21,7 +21,7 @@ namespace OccQtCore
         void logSelection(const SelectionInfo& selectionInfo) const;
 
         void logFaceGraph(
-            const GeometryGraph& graph,
+            const GeometryModel& model,
             int faceIndex) const;
 
         void logEdgeGraph(
