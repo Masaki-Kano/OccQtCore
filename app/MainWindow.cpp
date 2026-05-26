@@ -194,6 +194,9 @@ void MainWindow::openStepFile(const QString& filePath)
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
 
+    // 穴候補ログ確認
+    m_logReporter->logHoleEndCandidates(model);
+
     // ファイルパス保持関連処理
     const QFileInfo fileInfo(m_document.filePath());
     setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));

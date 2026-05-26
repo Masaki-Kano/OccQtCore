@@ -1,7 +1,12 @@
+#include <BRepAdaptor_Surface.hxx>
+#include <GeomAbs_SurfaceType.hxx>
+
 #include "Log/AppLogReporter.h"
 #include "Log/AppLogger.h"
 
 #include "Geometry/GeometryModel.h"
+
+#include "Feature/HoleFeatureRecognizer.h"
 
 namespace OccQtCore
 {
@@ -26,6 +31,36 @@ namespace OccQtCore
             case OccQtCore::PickedShapeType::Unknown:
             default:
                 return "不明";
+            }
+        }
+
+        QString surfaceTypeToString(GeomAbs_SurfaceType type)
+        {
+            switch (type)
+            {
+            case GeomAbs_Plane:
+                return "Plane";
+            case GeomAbs_Cylinder:
+                return "Cylinder";
+            case GeomAbs_Cone:
+                return "Cone";
+            case GeomAbs_Sphere:
+                return "Sphere";
+            case GeomAbs_Torus:
+                return "Torus";
+            case GeomAbs_BezierSurface:
+                return "Bezier";
+            case GeomAbs_BSplineSurface:
+                return "BSpline";
+            case GeomAbs_SurfaceOfRevolution:
+                return "Revolution";
+            case GeomAbs_SurfaceOfExtrusion:
+                return "Extrusion";
+            case GeomAbs_OffsetSurface:
+                return "Offset";
+            case GeomAbs_OtherSurface:
+            default:
+                return "Other";
             }
         }
     }
@@ -392,6 +427,84 @@ namespace OccQtCore
         }
 
         m_logger->info("===== 全ジオメトリ詳細ログ終了 =====");
+    }
+
+    void AppLogReporter::logHoleEndCandidates(const OccQtCore::GeometryModel& model) const
+    {
+        OccQtCore::Feature::HoleFeatureRecognizer recognizer;
+
+        const auto endCandidates = recognizer.detectEndCandidates(model);
+        const auto& graph = model.graph();
+
+        m_logger->info(QString("穴端候補数: %1").arg(endCandidates.size()));
+
+        for (int i = 0; i < static_cast<int>(endCandidates.size()); ++i)
+        {
+            const auto& candidate = endCandidates[i];
+            const auto edgeIndices = graph.edgesOfWire(candidate.wireIndex);
+
+            m_logger->info(
+                QString("  HoleEndCandidate[%1]: Face=%2, Wire=%3, Edges=%4, Type=Open")
+                    .arg(i)
+                    .arg(candidate.faceIndex)
+                    .arg(candidate.wireIndex)
+                    .arg(edgeIndices.size()));
+        }
+
+        const auto endComponents = recognizer.buildEndComponents(model, endCandidates);
+
+        m_logger->info(QString("穴端コンポーネント数: %1").arg(endComponents.size()));
+
+        const auto& faces = model.faces();
+
+        for (int i = 0; i < static_cast<int>(endComponents.size()); ++i)
+        {
+            const auto& component = endComponents[i];
+
+            QString adjacentFacesText;
+
+            for (int j = 0; j < static_cast<int>(component.adjacentFaceIndices.size()); ++j)
+            {
+                if (j > 0)
+                {
+                    adjacentFacesText += ", ";
+                }
+
+                const int adjacentFaceIndex = component.adjacentFaceIndices[j];
+
+                QString surfaceTypeName = "Invalid";
+
+                if (0 <= adjacentFaceIndex && adjacentFaceIndex < static_cast<int>(faces.size()))
+                {
+                    BRepAdaptor_Surface surface(faces[adjacentFaceIndex].shape);
+                    surfaceTypeName = surfaceTypeToString(surface.GetType());
+                }
+
+                adjacentFacesText += QString("%1:%2")
+                                         .arg(adjacentFaceIndex)
+                                         .arg(surfaceTypeName);
+            }
+
+            const int faceIndex = component.geometryRefs.faceIndices.empty()
+                                      ? -1
+                                      : component.geometryRefs.faceIndices.front();
+
+            const int wireIndex = component.geometryRefs.wireIndices.empty()
+                                      ? -1
+                                      : component.geometryRefs.wireIndices.front();
+
+            m_logger->info(
+                QString("  HoleEndComponent[%1]: Face=%2, Wire=%3, Edges=%4, R=%5, Center=(%6, %7, %8), AdjacentFaces=[%9]")
+                    .arg(i)
+                    .arg(faceIndex)
+                    .arg(wireIndex)
+                    .arg(component.geometryRefs.edgeIndices.size())
+                    .arg(component.radius, 0, 'f', 3)
+                    .arg(component.center.X(), 0, 'f', 3)
+                    .arg(component.center.Y(), 0, 'f', 3)
+                    .arg(component.center.Z(), 0, 'f', 3)
+                    .arg(adjacentFacesText));
+        }
     }
 
     QString AppLogReporter::formatIndexList(

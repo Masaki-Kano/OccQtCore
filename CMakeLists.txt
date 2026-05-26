@@ -61,6 +61,9 @@ qt_add_executable(OccQtCore
     src/Geometry/GeometryGraph.cpp
     src/Log/AppLogReporter.h
     src/Log/AppLogReporter.cpp
+    src/Feature/FeatureTypes.h
+    src/Feature/HoleFeatureRecognizer.h
+    src/Feature/HoleFeatureRecognizer.cpp
 )
 
 target_include_directories(OccQtCore
