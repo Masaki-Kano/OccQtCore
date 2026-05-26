@@ -25,6 +25,8 @@ class QWheelEvent;
 
 namespace OccQtCore
 {
+    class GeometryModel;
+
     using DisplayObjectId = int;
 
     enum class DisplayLayer
@@ -41,6 +43,12 @@ namespace OccQtCore
         Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);
         double transparency = 0.0;
         AIS_DisplayMode displayMode = AIS_Shaded;
+
+        static DisplayStyle defaultShape();
+        static DisplayStyle pickHighlightFace();
+        static DisplayStyle analysisCandidateWire();
+        static DisplayStyle analysisComponentEdge();
+        static DisplayStyle analysisAdjacentFace();
     };
 
     class OccView : public QWidget
@@ -63,6 +71,11 @@ namespace OccQtCore
 
         DisplayObjectId displayShape(
             const TopoDS_Shape& shape,
+            DisplayLayer layer,
+            const DisplayStyle& style);
+
+        std::vector<DisplayObjectId> displayShapes(
+            const std::vector<TopoDS_Shape>& shapes,
             DisplayLayer layer,
             const DisplayStyle& style);
 

@@ -63,6 +63,24 @@ namespace OccQtCore
                 return "Other";
             }
         }
+
+        QString endTypeToString(OccQtCore::Feature::Hole::EndType type)
+        {
+            using OccQtCore::Feature::Hole::EndType;
+
+            switch (type)
+            {
+            case EndType::Open:
+                return "Open";
+            case EndType::Bottom:
+                return "Bottom";
+            case EndType::Step:
+                return "Step";
+            case EndType::Unknown:
+            default:
+                return "Unknown";
+            }
+        }
     }
 
     AppLogReporter::AppLogReporter(AppLogger* logger)
@@ -429,37 +447,40 @@ namespace OccQtCore
         m_logger->info("===== 全ジオメトリ詳細ログ終了 =====");
     }
 
-    void AppLogReporter::logHoleEndCandidates(const OccQtCore::GeometryModel& model) const
+    void AppLogReporter::logHoleEndCandidates(
+        const OccQtCore::GeometryModel& model,
+        const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates) const
     {
-        OccQtCore::Feature::HoleFeatureRecognizer recognizer;
-
-        const auto endCandidates = recognizer.detectEndCandidates(model);
         const auto& graph = model.graph();
 
-        m_logger->info(QString("穴端候補数: %1").arg(endCandidates.size()));
+        m_logger->info(QString("穴端候補数: %1").arg(candidates.size()));
 
-        for (int i = 0; i < static_cast<int>(endCandidates.size()); ++i)
+        for (int i = 0; i < static_cast<int>(candidates.size()); ++i)
         {
-            const auto& candidate = endCandidates[i];
+            const auto& candidate = candidates[i];
             const auto edgeIndices = graph.edgesOfWire(candidate.wireIndex);
 
             m_logger->info(
-                QString("  HoleEndCandidate[%1]: Face=%2, Wire=%3, Edges=%4, Type=Open")
+                QString("  HoleEndCandidate[%1]: Face=%2, Wire=%3, Edges=%4, Type=%5")
                     .arg(i)
                     .arg(candidate.faceIndex)
                     .arg(candidate.wireIndex)
-                    .arg(edgeIndices.size()));
+                    .arg(edgeIndices.size())
+                    .arg(endTypeToString(candidate.endType)));
         }
+    }
 
-        const auto endComponents = recognizer.buildEndComponents(model, endCandidates);
-
-        m_logger->info(QString("穴端コンポーネント数: %1").arg(endComponents.size()));
+    void AppLogReporter::logHoleEndComponents(
+        const OccQtCore::GeometryModel& model,
+        const std::vector<OccQtCore::Feature::HoleEndComponent>& components) const
+    {
+        m_logger->info(QString("穴端コンポーネント数: %1").arg(components.size()));
 
         const auto& faces = model.faces();
 
-        for (int i = 0; i < static_cast<int>(endComponents.size()); ++i)
+        for (int i = 0; i < static_cast<int>(components.size()); ++i)
         {
-            const auto& component = endComponents[i];
+            const auto& component = components[i];
 
             QString adjacentFacesText;
 

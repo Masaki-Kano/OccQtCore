@@ -7,6 +7,9 @@
 
 #include "Core/SelectionInfo.h"
 
+// 一時デバック用
+#include "Feature/HoleFeatureRecognizer.h"
+
 namespace OccQtCore
 {
     class AppLogger;
@@ -32,7 +35,13 @@ namespace OccQtCore
         void logAllGeometryDetails(const GeometryModel& model) const;
 
         // 穴フィーチャ認識関連ログ(一時デバック用あとでいい感じにする)
-        void logHoleEndCandidates(const OccQtCore::GeometryModel& model) const;
+    void logHoleEndCandidates(
+        const OccQtCore::GeometryModel& model,
+        const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates) const;
+
+        void logHoleEndComponents(
+            const OccQtCore::GeometryModel& model,
+            const std::vector<OccQtCore::Feature::HoleEndComponent>& components) const;
 
     private:
         QString formatIndexList(const std::vector<int>& indices) const;

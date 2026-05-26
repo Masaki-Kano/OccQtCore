@@ -19,12 +19,59 @@
 #include <V3d_TypeOfOrientation.hxx>
 #include <WNT_Window.hxx>
 
+#include "Geometry/GeometryModel.h"
+
 namespace OccQtCore
 {
 
     namespace
     {
         constexpr double ZoomStepFactor = 1.1;
+    }
+
+    DisplayStyle DisplayStyle::defaultShape()
+    {
+        DisplayStyle style;
+        style.color = Quantity_Color(0.75, 0.78, 0.82, Quantity_TOC_RGB);
+        style.transparency = 0.0;
+        style.displayMode = AIS_Shaded;
+        return style;
+    }
+
+    DisplayStyle DisplayStyle::pickHighlightFace()
+    {
+        DisplayStyle style;
+        style.color = Quantity_Color(Quantity_NOC_CYAN);
+        style.transparency = 0.45;
+        style.displayMode = AIS_Shaded;
+        return style;
+    }
+
+    DisplayStyle DisplayStyle::analysisCandidateWire()
+    {
+        DisplayStyle style;
+        style.color = Quantity_Color(Quantity_NOC_CYAN);
+        style.transparency = 0.0;
+        style.displayMode = AIS_WireFrame;
+        return style;
+    }
+
+    DisplayStyle DisplayStyle::analysisComponentEdge()
+    {
+        DisplayStyle style;
+        style.color = Quantity_Color(Quantity_NOC_YELLOW);
+        style.transparency = 0.0;
+        style.displayMode = AIS_WireFrame;
+        return style;
+    }
+
+    DisplayStyle DisplayStyle::analysisAdjacentFace()
+    {
+        DisplayStyle style;
+        style.color = Quantity_Color(Quantity_NOC_ORANGE);
+        style.transparency = 0.55;
+        style.displayMode = AIS_Shaded;
+        return style;
     }
 
     OccView::OccView(QWidget* parent)
@@ -515,6 +562,32 @@ namespace OccQtCore
         redraw();
 
         return id;
+    }
+
+    std::vector<DisplayObjectId> OccView::displayShapes(
+        const std::vector<TopoDS_Shape>& shapes,
+        DisplayLayer layer,
+        const DisplayStyle& style)
+    {
+        std::vector<DisplayObjectId> ids;
+        ids.reserve(shapes.size());
+
+        for (const auto& shape : shapes)
+        {
+            if (shape.IsNull())
+                continue;
+
+            const DisplayObjectId id = displayShape(shape, layer, style);
+
+            if (id >= 0)
+            {
+                ids.push_back(id);
+            }
+        }
+
+        redraw();
+
+        return ids;
     }
 
     void OccView::removeObject(DisplayObjectId id)

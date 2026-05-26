@@ -21,6 +21,8 @@
 #include "Log/LogPanel.h"
 #include "IO/StepLoader.h"
 
+#include "Feature/HoleFeatureRecognizer.h"
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -194,13 +196,8 @@ void MainWindow::openStepFile(const QString& filePath)
     m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
     m_occView->fitAll();
 
-    // 穴候補ログ確認
-    m_logReporter->logHoleEndCandidates(model);
-
-    // ファイルパス保持関連処理
-    const QFileInfo fileInfo(m_document.filePath());
-    setWindowTitle(QString("OccQtCore - %1").arg(fileInfo.fileName()));
-    updateLastOpenDirectory(filePath);
+    // 穴候補確認
+    analyzeHoleEnds();
 
     // ログ
     m_logReporter->logStepLoaded(filePath);
@@ -240,42 +237,14 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 
     if (result.type == OccQtCore::PickedShapeType::Face)
     {
-        const OccQtCore::DisplayStyle selectedFaceStyle{
-            Quantity_Color(Quantity_NOC_ORANGE),
-            0.2,
-            AIS_Shaded
-        };
-
-        const OccQtCore::DisplayStyle adjacentFaceStyle{
-            Quantity_Color(Quantity_NOC_CYAN1),
-            0.55,
-            AIS_Shaded
-        };
+        m_occView->clearLayer(OccQtCore::DisplayLayer::PickHighlight);
 
         m_occView->displayShape(
             TopoDS::Face(result.shape),
             OccQtCore::DisplayLayer::PickHighlight,
-            selectedFaceStyle);
+            OccQtCore::DisplayStyle::pickHighlightFace());
 
         m_logReporter->logPickedFaceDetails(geometryModel, elementIndex);
-
-        const auto adjacentFaceIndices =
-            graph.adjacentFacesOfFace(elementIndex);
-
-        for (int adjacentFaceIndex : adjacentFaceIndices)
-        {
-            const auto* faceData = geometryModel.faceAt(adjacentFaceIndex);
-
-            if (faceData == nullptr)
-            {
-                continue;
-            }
-
-            m_occView->displayShape(
-                TopoDS::Face(faceData->shape),
-                OccQtCore::DisplayLayer::PickHighlight,
-                adjacentFaceStyle);
-        }
     }
 
     return;
@@ -299,6 +268,90 @@ void MainWindow::updateLastOpenDirectory(const QString& filePath)
     {
         m_lastOpenDirectory = fileInfo.absolutePath();
     }
+}
+
+void MainWindow::analyzeHoleEnds()
+{
+    const auto& model = m_document.geometryModel();
+
+    OccQtCore::Feature::HoleFeatureRecognizer recognizer;
+
+    const auto endCandidates = recognizer.detectEndCandidates(model);
+    const auto endComponents = recognizer.buildEndComponents(model, endCandidates);
+
+    // 既存ログがあるならこれを使う
+    if (m_logReporter)
+    {
+        m_logReporter->logHoleEndCandidates(model, endCandidates);
+        m_logReporter->logHoleEndComponents(model, endComponents);
+    }
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::Analysis);
+
+    //showHoleEndCandidates(endCandidates);
+    showHoleEndComponents(endComponents);
+}
+
+void MainWindow::showHoleEndCandidates(
+    const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates)
+{
+    const auto& model = m_document.geometryModel();
+
+    std::vector<TopoDS_Shape> wireShapes;
+    wireShapes.reserve(candidates.size());
+
+    for (const auto& candidate : candidates)
+    {
+        const int wireIndex = candidate.wireIndex;
+
+        if (wireIndex < 0 || wireIndex >= static_cast<int>(model.wires().size()))
+            continue;
+
+        wireShapes.push_back(model.wires()[wireIndex].shape);
+    }
+
+    m_occView->displayShapes(
+        wireShapes,
+        OccQtCore::DisplayLayer::Analysis,
+        OccQtCore::DisplayStyle::analysisCandidateWire());
+}
+
+void MainWindow::showHoleEndComponents(
+    const std::vector<OccQtCore::Feature::HoleEndComponent>& components)
+{
+    const auto& model = m_document.geometryModel();
+
+    std::vector<TopoDS_Shape> edgeShapes;
+    std::vector<TopoDS_Shape> adjacentFaceShapes;
+
+    for (const auto& component : components)
+    {
+        for (int edgeIndex : component.geometryRefs.edgeIndices)
+        {
+            if (edgeIndex < 0 || edgeIndex >= static_cast<int>(model.edges().size()))
+                continue;
+
+            edgeShapes.push_back(model.edges()[edgeIndex].shape);
+        }
+
+        for (int faceIndex : component.adjacentFaceIndices)
+        {
+            if (faceIndex < 0 || faceIndex >= static_cast<int>(model.faces().size()))
+                continue;
+
+            adjacentFaceShapes.push_back(model.faces()[faceIndex].shape);
+        }
+    }
+
+    m_occView->displayShapes(
+        edgeShapes,
+        OccQtCore::DisplayLayer::Analysis,
+        OccQtCore::DisplayStyle::analysisComponentEdge());
+
+    m_occView->displayShapes(
+        adjacentFaceShapes,
+        OccQtCore::DisplayLayer::Analysis,
+        OccQtCore::DisplayStyle::analysisAdjacentFace());
 }
 
 
