@@ -1,6 +1,3 @@
-#include <algorithm>
-#include <vector>
-
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QSizePolicy>
@@ -257,7 +254,7 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
             OccQtCore::DisplayLayer::PickHighlight,
             selectedFaceStyle);
 
-        m_logReporter->logFaceGraph(geometryModel, elementIndex);
+        m_logReporter->logPickedFaceDetails(geometryModel, elementIndex);
 
         const auto adjacentFaceIndices =
             graph.adjacentFacesOfFace(elementIndex);
@@ -276,15 +273,9 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
                 OccQtCore::DisplayLayer::PickHighlight,
                 adjacentFaceStyle);
         }
-
-        return;
     }
 
-    if (result.type == OccQtCore::PickedShapeType::Edge)
-    {
-        m_logReporter->logEdgeGraph(graph, elementIndex);
-        return;
-    }
+    return;
 }
 
 QString MainWindow::defaultOpenDirectory() const

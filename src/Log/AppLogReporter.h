@@ -6,7 +6,6 @@
 #include <QString>
 
 #include "Core/SelectionInfo.h"
-#include "Geometry/GeometryGraph.h"
 
 namespace OccQtCore
 {
@@ -20,19 +19,16 @@ namespace OccQtCore
 
         void logSelection(const SelectionInfo& selectionInfo) const;
 
-        void logFaceGraph(
-            const GeometryModel& model,
-            int faceIndex) const;
-
-        void logEdgeGraph(
-            const GeometryGraph& graph,
-            int edgeIndex) const;
-
         void logStepLoadFailed(const QString& errorMessage) const;
         void logStepLoaded(const QString& filePath) const;
 
-        void logGeometryModelDiagnostics(
-            const GeometryModel& model) const;
+        void logGeometryModelDiagnostics(const GeometryModel& model) const;
+
+        void logPickedFaceDetails(const GeometryModel& model, int faceIndex) const;
+        void logPickedEdgeDetails(const GeometryModel& model, int edgeIndex) const;
+        void logPickedVertexDetails(const GeometryModel& model, int vertexIndex) const;
+
+        void logAllGeometryDetails(const GeometryModel& model) const;
 
     private:
         QString formatIndexList(const std::vector<int>& indices) const;
