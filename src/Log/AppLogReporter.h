@@ -7,7 +7,6 @@
 
 #include "Core/SelectionInfo.h"
 
-// 一時デバック用
 #include "Feature/HoleFeatureRecognizer.h"
 
 namespace OccQtCore
@@ -20,31 +19,89 @@ namespace OccQtCore
     public:
         explicit AppLogReporter(AppLogger* logger);
 
-        // ピックログ
+        // ============================================================
+        // Operation logs
+        // 操作・イベントログ
+        // ============================================================
         void logSelection(const SelectionInfo& selectionInfo) const;
-
-        // ファイル読み込みログ
-        void logStepLoadFailed(const QString& errorMessage) const;
         void logStepLoaded(const QString& filePath) const;
+        void logStepLoadFailed(const QString& errorMessage) const;
 
-        // ジオメトリ関連ログ
-        void logGeometryModelDiagnostics(const GeometryModel& model) const;
-        void logPickedFaceDetails(const GeometryModel& model, int faceIndex) const;
-        void logPickedEdgeDetails(const GeometryModel& model, int edgeIndex) const;
-        void logPickedVertexDetails(const GeometryModel& model, int vertexIndex) const;
-        void logAllGeometryDetails(const GeometryModel& model) const;
+        void logActionStarted(const QString& acitonName) const;
+        void logActionFinished(const QString& actionName) const;
+        void logActionFailed(const QString& actionName, const QString& reason) const;
 
-        // 穴フィーチャ認識関連ログ(一時デバック用あとでいい感じにする)
-    void logHoleEndCandidates(
-        const OccQtCore::GeometryModel& model,
-        const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates) const;
+        // ============================================================
+        // Geometry logs
+        // 読み込んだ形状データそのもののログ
+        // ============================================================
+        void logGeometryAnalysisReport(const GeometryModel& model) const;
+        void logGeometryDetailDiagnostics(const GeometryModel& model) const;
+
+        void logGeometrySummary(const GeometryModel& model) const;
+        void logGeometryTopologySummary(const GeometryModel& model) const;
+        void logComplexGeometrySummary(const GeometryModel& model) const;
+        void logCircleGroupSummary(const GeometryModel& model) const;
+
+        void logSelectionGeometryDetails(
+            const GeometryModel& model,
+            const SelectionInfo& selectionInfo) const;
+
+        // 単体詳細：ピック向け
+        void logFaceDetails(const GeometryModel& model, int faceIndex) const;
+        void logWireDetails(const GeometryModel& model, int wireIndex) const;
+        void logEdgeDetails(const GeometryModel& model, int edgeIndex) const;
+        void logVertexDetails(const GeometryModel& model, int vertexIndex) const;
+
+        // 階層詳細：診断向け
+        void logFaceTreeDetails(const GeometryModel& model, int faceIndex) const;
+        void logWireTreeDetails(const GeometryModel& model, int wireIndex) const;
+
+        // ============================================================
+        // Feature logs
+        // 加工フィーチャとして意味づけした情報のログ
+        // ============================================================
+        void logHoleRecognitionReport(
+            const GeometryModel& model,
+            const std::vector<Feature::HoleEndCandidate>& endCandidates,
+            const std::vector<Feature::HoleEndComponent>& endComponents) const;
+
+        void logHoleEndCandidates(
+            const GeometryModel& model,
+            const std::vector<Feature::HoleEndCandidate>& candidates) const;
+
+        void logHoleWallCandidates(
+            const GeometryModel& model,
+            const std::vector<Feature::HoleWallCandidate>& candidates) const;
 
         void logHoleEndComponents(
-            const OccQtCore::GeometryModel& model,
-            const std::vector<OccQtCore::Feature::HoleEndComponent>& components) const;
+            const GeometryModel& model,
+            const std::vector<Feature::HoleEndComponent>& components) const;
+
+        void logHoleWallComponents(
+            const GeometryModel& model,
+            const std::vector<Feature::HoleWallComponent>& components) const;
+
+
 
     private:
         QString formatIndexList(const std::vector<int>& indices) const;
+        QString formatFaceIndexList(
+            const GeometryModel& model,
+            const std::vector<int>& faceIndices) const;
+        QString formatEdgeIndexList(
+            const GeometryModel& model,
+            const std::vector<int>& edgeIndices) const;
+        QString formatWireIndexList(
+            const GeometryModel& model,
+            const std::vector<int>& wireIndices) const;
+        QString formatFaceIndex(
+            const GeometryModel& model,
+            int faceIndex) const;
+        QString formatWireIndex(
+            const GeometryModel& model,
+            int faceIndex) const;
+
 
     private:
         AppLogger* m_logger = nullptr;

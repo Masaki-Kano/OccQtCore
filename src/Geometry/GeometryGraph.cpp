@@ -116,30 +116,48 @@ namespace OccQtCore
             {
                 const auto& connectedWireIndices = wiresOfEdge(edgeIndex);
 
-                for (int connectdWireIndex : connectedWireIndices)
+                for (int connectedWireIndex : connectedWireIndices)
                 {
-                    // 共有エッジから自分自身のWireも逆引きされるため除外
-                    if (connectdWireIndex == wireIndex)
+                    if (connectedWireIndex == wireIndex)
                     {
                         continue;
                     }
 
-                    const auto& connectdFaceIndices = facesOfWire(connectdWireIndex);
+                    const auto& connectedFaceIndices = facesOfWire(connectedWireIndex);
 
-                    for (int connectdFaceIndex : connectdFaceIndices)
+                    for (int connectedFaceIndex : connectedFaceIndices)
                     {
-                        if (connectdFaceIndex == faceIndex)
+                        if (connectedFaceIndex == faceIndex)
                         {
                             continue;
                         }
 
-                        addUnique(adjacentFaceIndices, connectdFaceIndex);
+                        addUnique(adjacentFaceIndices, connectedFaceIndex);
                     }
                 }
             }
         }
 
         return adjacentFaceIndices;
+    }
+
+    std::vector<int> GeometryGraph::facesOfEdge(int edgeIndex) const
+    {
+        std::vector<int> faceIndices;
+
+        const auto& wireIndices = wiresOfEdge(edgeIndex);
+
+        for (int wireIndex : wireIndices)
+        {
+            const auto& connectedFaceIndices = facesOfWire(wireIndex);
+
+            for (int faceIndex : connectedFaceIndices)
+            {
+                addUnique(faceIndices, faceIndex);
+            }
+        }
+
+        return faceIndices;
     }
 
     int GeometryGraph::faceCount() const

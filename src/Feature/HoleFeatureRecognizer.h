@@ -68,8 +68,6 @@ namespace OccQtCore::Feature
         gp_Dir normalDirection;
 
         double radius = 0.0;
-
-        std::vector<int> adjacentFaceIndices;
     };
 
     /**
@@ -138,8 +136,10 @@ namespace OccQtCore::Feature
         std::vector<Hole::Data> recognize(const GeometryModel& model) const;
 
         std::vector<HoleEndCandidate> detectEndCandidates(const GeometryModel& model) const;
+        std::vector<HoleWallCandidate> detectWallCandidates(const GeometryModel& model) const;
 
         std::vector<HoleEndComponent> buildEndComponents(const GeometryModel& model, const std::vector<HoleEndCandidate>& endCandidates) const;
+        std::vector<HoleWallComponent> buildWallComponents(const GeometryModel& model, const std::vector<HoleWallCandidate>& wallCandidates) const;
 
     };
 }

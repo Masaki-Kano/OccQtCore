@@ -113,6 +113,16 @@ namespace OccQtCore
         }
     }
 
+    void AppLogReporter::logStepLoaded(const QString& filePath) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info(QString("STEPファイルを読み込みました: %1").arg(filePath));
+    }
+
     void AppLogReporter::logStepLoadFailed(const QString& errorMessage) const
     {
         if (m_logger == nullptr)
@@ -124,74 +134,171 @@ namespace OccQtCore
                             .arg(errorMessage));
     }
 
-    void AppLogReporter::logStepLoaded(const QString& filePath) const
+    void AppLogReporter::logActionStarted(const QString& actionName) const
     {
         if (m_logger == nullptr)
         {
             return;
         }
 
-        m_logger->info(QString("STEPファイルを読み込みました: %1").arg(filePath));
+        m_logger->info(QString("操作開始: %1").arg(actionName));
     }
 
-    void AppLogReporter::logGeometryModelDiagnostics(const GeometryModel& model) const
+    void AppLogReporter::logActionFinished(const QString& actionName) const
     {
         if (m_logger == nullptr)
         {
             return;
         }
 
-        const auto graph = model.graph();
+        m_logger->info(QString("操作完了: %1").arg(actionName));
+    }
+
+    void AppLogReporter::logActionFailed(
+        const QString& actionName,
+        const QString& reason) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->error(
+            QString("操作失敗: %1, 理由=%2")
+            .arg(actionName)
+                .arg(reason));
+    }
+
+    void AppLogReporter::logGeometryAnalysisReport(const GeometryModel& model) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("===== 形状解析ログ開始 =====");
+
+        logGeometrySummary(model);
+        logGeometryTopologySummary(model);
+        logComplexGeometrySummary(model);
+        logCircleGroupSummary(model);
+
+        m_logger->info("===== 形状解析ログ終了 =====");
+    }
+
+    void AppLogReporter::logGeometryDetailDiagnostics(const GeometryModel& model) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("===== 形状詳細診断ログ開始 =====");
+
+        m_logger->info("----- Face階層詳細 -----");
+        for (int faceIndex = 0; faceIndex < model.faceCount(); ++faceIndex)
+        {
+            logFaceTreeDetails(model, faceIndex);
+        }
+
+        m_logger->info("===== 形状詳細診断ログ終了 =====");
+    }
+
+    void AppLogReporter::logGeometrySummary(const GeometryModel& model) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("----- 形状概要 -----");
 
         m_logger->info(
-            QString("形状モデル構築: 面=%1, ワイヤー=%2, エッジ=%3, 頂点=%4")
+            QString("要素数: Face=%1, Wire=%2, Edge=%3, Vertex=%4")
                 .arg(model.faceCount())
                 .arg(model.wireCount())
                 .arg(model.edgeCount())
                 .arg(model.vertexCount()));
-
-        m_logger->info(
-            QString("接続グラフ構築: 面=%1, ワイヤー=%2, エッジ=%3, 頂点=%4")
-                .arg(model.graph().faceCount())
-                .arg(model.graph().wireCount())
-                .arg(model.graph().edgeCount())
-                .arg(model.graph().vertexCount()));
-
-        int zeroWireFaceCount = 0;
-        int zeroFaceWireCount = 0;
-        int zeroEdgeWireCount = 0;
-        int zeroWireEdgeCount = 0;
-
-        for (int faceIndex = 0; faceIndex < model.faceCount(); ++faceIndex)
-        {
-            if (graph.wiresOfFace(faceIndex).empty())
-            {
-                ++zeroWireFaceCount;
-            }
-        }
-
-        for (int wireIndex = 0; wireIndex < model.wireCount(); ++wireIndex)
-        {
-            if (graph.facesOfWire(wireIndex).empty())
-            {
-                ++zeroFaceWireCount;
-            }
-
-            if (graph.edgesOfWire(wireIndex).empty())
-            {
-                ++zeroEdgeWireCount;
-            }
-        }
-
-        m_logger->info(
-            QString("接続グラフ確認: 接続ワイヤーなし面=%1, 接続面なしワイヤー=%2, 接続エッジなしワイヤー=%3, 接続ワイヤーなしエッジ=%4, 接続頂点数が2以外のエッジ=%5")
-                .arg(zeroWireFaceCount)
-                .arg(zeroFaceWireCount)
-                .arg(zeroEdgeWireCount)
-                .arg(zeroWireEdgeCount));
     }
 
-    void AppLogReporter::logPickedFaceDetails(const GeometryModel& model, int faceIndex) const
+    void AppLogReporter::logGeometryTopologySummary(const GeometryModel& model) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("----- トポロジー概要 -----");
+
+        // 次で実装する。
+    }
+
+    void AppLogReporter::logComplexGeometrySummary(const GeometryModel& model) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("----- 複雑形状サマリ -----");
+
+        // 次で実装する。
+    }
+
+    void AppLogReporter::logCircleGroupSummary(const GeometryModel& model) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("----- CircleGroupサマリ -----");
+
+        // 次で実装する。
+    }
+
+    void AppLogReporter::logSelectionGeometryDetails(
+        const GeometryModel& model,
+        const SelectionInfo& selectionInfo) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        if (!selectionInfo.isValid)
+        {
+            return;
+        }
+
+        if (selectionInfo.elementIndex < 0)
+        {
+            m_logger->warn("選択形状のインデックスが取得できないため、形状詳細ログを出力しません。");
+            return;
+        }
+
+        switch (selectionInfo.type)
+        {
+        case PickedShapeType::Face:
+            logFaceDetails(model, selectionInfo.elementIndex);
+            break;
+
+        case PickedShapeType::Edge:
+            logEdgeDetails(model, selectionInfo.elementIndex);
+            break;
+
+        case PickedShapeType::Vertex:
+            logVertexDetails(model, selectionInfo.elementIndex);
+            break;
+
+        case PickedShapeType::Solid:
+        case PickedShapeType::Unknown:
+        default:
+            break;
+        }
+    }
+
+    void AppLogReporter::logFaceDetails(const GeometryModel& model, int faceIndex) const
     {
         if (m_logger == nullptr)
         {
@@ -207,15 +314,17 @@ namespace OccQtCore
         }
 
         const auto& graph = model.graph();
-        const auto& wireIndices = graph.wiresOfFace(faceIndex);
+        const auto wireIndices = graph.wiresOfFace(faceIndex);
+        const auto adjacentFaceIndices = graph.adjacentFacesOfFace(faceIndex);
 
         m_logger->info(
-            QString("Face[%1]: 種別=%2, 面積=%3, Wire数=%4, Wires=[%5]")
+            QString("Face[%1]: 種別=%2, 面積=%3, Wire数=%4, Wires=[%5], 隣接Face=[%6]")
                 .arg(faceIndex)
                 .arg(surfaceKindDisplayName(faceData->info.kind))
                 .arg(faceData->info.area, 0, 'f', 3)
                 .arg(wireIndices.size())
-                .arg(formatIndexList(wireIndices)));
+                .arg(formatWireIndexList(model, wireIndices))
+                .arg(formatFaceIndexList(model, adjacentFaceIndices)));
 
         if (faceData->info.plane.has_value())
         {
@@ -245,68 +354,38 @@ namespace OccQtCore
                     .arg(cylinder.axis.Direction().Y(), 0, 'f', 3)
                     .arg(cylinder.axis.Direction().Z(), 0, 'f', 3));
         }
-
-        for (int wireIndex : wireIndices)
-        {
-            const auto* wireData = model.wireAt(wireIndex);
-            const auto& faceIndices = graph.facesOfWire(wireIndex);
-            const auto& edgeIndices = graph.edgesOfWire(wireIndex);
-
-            const bool isOuter = wireData != nullptr && wireData->info.isOuter;
-            const bool isInner = wireData != nullptr && wireData->info.isInner;
-            const bool isClosed = wireData != nullptr && wireData->info.isClosed;
-
-            m_logger->info(
-                QString("  Wire[%1]: Outer=%2, Inner=%3, Closed=%4, Faces=[%5], Edges=[%6]")
-                    .arg(wireIndex)
-                    .arg(isOuter ? "true" : "false")
-                    .arg(isInner ? "true" : "false")
-                    .arg(isClosed ? "true" : "false")
-                    .arg(formatIndexList(faceIndices))
-                    .arg(formatIndexList(edgeIndices)));
-
-            for (int edgeIndex : edgeIndices)
-            {
-                const auto* edgeData = model.edgeAt(edgeIndex);
-
-                if (edgeData == nullptr)
-                {
-                    continue;
-                }
-
-                m_logger->info(
-                    QString("    Edge[%1]: 種別=%2, 長さ=%3, Vertices=[%4]")
-                        .arg(edgeIndex)
-                        .arg(curveKindDisplayName(edgeData->info.kind))
-                        .arg(edgeData->info.length, 0, 'f', 3)
-                        .arg(formatIndexList(graph.verticesOfEdge(edgeIndex))));
-
-                if (edgeData->info.circle.has_value())
-                {
-                    const auto& circle = edgeData->info.circle.value();
-
-                    m_logger->info(
-                        QString("      Circle: Radius=%1, Center=(%2, %3, %4), AxisDir=(%5, %6, %7)")
-                            .arg(circle.radius, 0, 'f', 3)
-                            .arg(circle.center.X(), 0, 'f', 3)
-                            .arg(circle.center.Y(), 0, 'f', 3)
-                            .arg(circle.center.Z(), 0, 'f', 3)
-                            .arg(circle.axis.Direction().X(), 0, 'f', 3)
-                            .arg(circle.axis.Direction().Y(), 0, 'f', 3)
-                            .arg(circle.axis.Direction().Z(), 0, 'f', 3));
-                }
-            }
-        }
-
-        const auto adjacentFaceIndices = graph.adjacentFacesOfFace(faceIndex);
-
-        m_logger->info(
-            QString("Face[%1]: 隣接Face=[%2]")
-                .arg(faceIndex)
-                .arg(formatIndexList(adjacentFaceIndices)));
     }
 
-    void AppLogReporter::logPickedEdgeDetails(const GeometryModel& model, int edgeIndex) const
+    void AppLogReporter::logWireDetails(const GeometryModel& model, int wireIndex) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        const auto* wireData = model.wireAt(wireIndex);
+
+        if (wireData == nullptr)
+        {
+            m_logger->warn(QString("Wire[%1]: 詳細情報を取得できません。").arg(wireIndex));
+            return;
+        }
+
+        const auto& graph = model.graph();
+        const auto faceIndices = graph.facesOfWire(wireIndex);
+        const auto edgeIndices = graph.edgesOfWire(wireIndex);
+
+        m_logger->info(
+            QString("  Wire[%1]: Outer=%2, Inner=%3, Closed=%4, Faces=[%5], Edges=[%6]")
+                .arg(wireIndex)
+                .arg(wireData->info.isOuter ? "true" : "false")
+                .arg(wireData->info.isInner ? "true" : "false")
+                .arg(wireData->info.isClosed ? "true" : "false")
+                .arg(formatFaceIndexList(model, faceIndices))
+                .arg(formatEdgeIndexList(model, edgeIndices)));
+    }
+
+    void AppLogReporter::logEdgeDetails(const GeometryModel& model, int edgeIndex) const
     {
         if (m_logger == nullptr)
         {
@@ -322,13 +401,15 @@ namespace OccQtCore
         }
 
         const auto& graph = model.graph();
+        const auto faceIndices = graph.facesOfEdge(edgeIndex);
 
         m_logger->info(
-            QString("Edge[%1]: 種別=%2, 長さ=%3, Wires=[%4], Vertices=[%5], Param=(%6, %7)")
+            QString("    Edge[%1]: 種別=%2, 長さ=%3, Faces=[%4], Wires=[%5], Vertices=[%6], Param=(%7, %8)")
                 .arg(edgeIndex)
                 .arg(curveKindDisplayName(edgeData->info.kind))
                 .arg(edgeData->info.length, 0, 'f', 3)
-                .arg(formatIndexList(graph.wiresOfEdge(edgeIndex)))
+                .arg(formatFaceIndexList(model, faceIndices))
+                .arg(formatWireIndexList(model, graph.wiresOfEdge(edgeIndex)))
                 .arg(formatIndexList(graph.verticesOfEdge(edgeIndex)))
                 .arg(edgeData->info.firstParameter, 0, 'f', 3)
                 .arg(edgeData->info.lastParameter, 0, 'f', 3));
@@ -338,7 +419,7 @@ namespace OccQtCore
             const auto& line = edgeData->info.line.value();
 
             m_logger->info(
-                QString("  Line: Origin=(%1, %2, %3), Dir=(%4, %5, %6)")
+                QString("      Line: Origin=(%1, %2, %3), Dir=(%4, %5, %6)")
                     .arg(line.origin.X(), 0, 'f', 3)
                     .arg(line.origin.Y(), 0, 'f', 3)
                     .arg(line.origin.Z(), 0, 'f', 3)
@@ -352,7 +433,7 @@ namespace OccQtCore
             const auto& circle = edgeData->info.circle.value();
 
             m_logger->info(
-                QString("  Circle: Radius=%1, Center=(%2, %3, %4), AxisDir=(%5, %6, %7)")
+                QString("      Circle: Radius=%1, Center=(%2, %3, %4), AxisDir=(%5, %6, %7)")
                     .arg(circle.radius, 0, 'f', 3)
                     .arg(circle.center.X(), 0, 'f', 3)
                     .arg(circle.center.Y(), 0, 'f', 3)
@@ -367,7 +448,7 @@ namespace OccQtCore
             const auto& ellipse = edgeData->info.ellipse.value();
 
             m_logger->info(
-                QString("  Ellipse: MajorR=%1, MinorR=%2, Center=(%3, %4, %5), AxisDir=(%6, %7, %8)")
+                QString("      Ellipse: MajorR=%1, MinorR=%2, Center=(%3, %4, %5), AxisDir=(%6, %7, %8)")
                     .arg(ellipse.majorRadius, 0, 'f', 3)
                     .arg(ellipse.minorRadius, 0, 'f', 3)
                     .arg(ellipse.center.X(), 0, 'f', 3)
@@ -379,7 +460,7 @@ namespace OccQtCore
         }
     }
 
-    void AppLogReporter::logPickedVertexDetails(const GeometryModel& model, int vertexIndex) const
+    void AppLogReporter::logVertexDetails(const GeometryModel& model, int vertexIndex) const
     {
         if (m_logger == nullptr)
         {
@@ -417,34 +498,58 @@ namespace OccQtCore
         }
     }
 
-    void AppLogReporter::logAllGeometryDetails(const GeometryModel& model) const
+    void AppLogReporter::logFaceTreeDetails(const GeometryModel& model, int faceIndex) const
     {
         if (m_logger == nullptr)
         {
             return;
         }
 
-        m_logger->info("===== 全ジオメトリ詳細ログ開始 =====");
+        logFaceDetails(model, faceIndex);
 
-        m_logger->info("----- Face詳細 -----");
-        for (int faceIndex = 0; faceIndex < model.faceCount(); ++faceIndex)
+        const auto& graph = model.graph();
+        const auto wireIndices = graph.wiresOfFace(faceIndex);
+
+        for (int wireIndex : wireIndices)
         {
-            logPickedFaceDetails(model, faceIndex);
+            logWireTreeDetails(model, wireIndex);
+        }
+    }
+
+    void AppLogReporter::logWireTreeDetails(const GeometryModel& model, int wireIndex) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
         }
 
-        m_logger->info("----- Edge詳細 -----");
-        for (int edgeIndex = 0; edgeIndex < model.edgeCount(); ++edgeIndex)
+        logWireDetails(model, wireIndex);
+
+        const auto& graph = model.graph();
+        const auto edgeIndices = graph.edgesOfWire(wireIndex);
+
+        for (int edgeIndex : edgeIndices)
         {
-            logPickedEdgeDetails(model, edgeIndex);
+            logEdgeDetails(model, edgeIndex);
+        }
+    }
+
+    void AppLogReporter::logHoleRecognitionReport(
+        const GeometryModel& model,
+        const std::vector<Feature::HoleEndCandidate>& endCandidates,
+        const std::vector<Feature::HoleEndComponent>& endComponents) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
         }
 
-        m_logger->info("----- Vertex詳細 -----");
-        for (int vertexIndex = 0; vertexIndex < model.vertexCount(); ++vertexIndex)
-        {
-            logPickedVertexDetails(model, vertexIndex);
-        }
+        m_logger->info("===== 穴フィーチャ認識ログ開始 =====");
 
-        m_logger->info("===== 全ジオメトリ詳細ログ終了 =====");
+        logHoleEndCandidates(model, endCandidates);
+        logHoleEndComponents(model, endComponents);
+
+        m_logger->info("===== 穴フィーチャ認識ログ終了 =====");
     }
 
     void AppLogReporter::logHoleEndCandidates(
@@ -470,61 +575,126 @@ namespace OccQtCore
         }
     }
 
+    void AppLogReporter::logHoleWallCandidates(
+        const GeometryModel& model,
+        const std::vector<Feature::HoleWallCandidate>& candidates) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info(QString("穴壁候補数: %1").arg(candidates.size()));
+
+        for (int i = 0; i < static_cast<int>(candidates.size()); ++i)
+        {
+            const auto& candidate = candidates[i];
+
+            m_logger->info(
+                QString("  HoleWallCandidate[%1]: Face=%2, R=%3, AxisOrigin=(%4, %5, %6), AxisDir=(%7, %8, %9)")
+                    .arg(i)
+                    .arg(formatFaceIndex(model, candidate.faceIndex))
+                    .arg(candidate.radius, 0, 'f', 3)
+                    .arg(candidate.center.X(), 0, 'f', 3)
+                    .arg(candidate.center.Y(), 0, 'f', 3)
+                    .arg(candidate.center.Z(), 0, 'f', 3)
+                    .arg(candidate.axisDirection.X(), 0, 'f', 3)
+                    .arg(candidate.axisDirection.Y(), 0, 'f', 3)
+                    .arg(candidate.axisDirection.Z(), 0, 'f', 3));
+        }
+    }
+
     void AppLogReporter::logHoleEndComponents(
         const OccQtCore::GeometryModel& model,
         const std::vector<OccQtCore::Feature::HoleEndComponent>& components) const
     {
-        m_logger->info(QString("穴端コンポーネント数: %1").arg(components.size()));
+        if (m_logger == nullptr)
+        {
+            return;
+        }
 
-        const auto& faces = model.faces();
+        const auto& graph = model.graph();
+
+        m_logger->info(QString("穴端コンポーネント数: %1").arg(components.size()));
 
         for (int i = 0; i < static_cast<int>(components.size()); ++i)
         {
             const auto& component = components[i];
-
-            QString adjacentFacesText;
-
-            for (int j = 0; j < static_cast<int>(component.adjacentFaceIndices.size()); ++j)
-            {
-                if (j > 0)
-                {
-                    adjacentFacesText += ", ";
-                }
-
-                const int adjacentFaceIndex = component.adjacentFaceIndices[j];
-
-                QString surfaceTypeName = "Invalid";
-
-                if (0 <= adjacentFaceIndex && adjacentFaceIndex < static_cast<int>(faces.size()))
-                {
-                    BRepAdaptor_Surface surface(faces[adjacentFaceIndex].shape);
-                    surfaceTypeName = surfaceTypeToString(surface.GetType());
-                }
-
-                adjacentFacesText += QString("%1:%2")
-                                         .arg(adjacentFaceIndex)
-                                         .arg(surfaceTypeName);
-            }
-
-            const int faceIndex = component.geometryRefs.faceIndices.empty()
-                                      ? -1
-                                      : component.geometryRefs.faceIndices.front();
 
             const int wireIndex = component.geometryRefs.wireIndices.empty()
                                       ? -1
                                       : component.geometryRefs.wireIndices.front();
 
             m_logger->info(
-                QString("  HoleEndComponent[%1]: Face=%2, Wire=%3, Edges=%4, R=%5, Center=(%6, %7, %8), AdjacentFaces=[%9]")
+                QString("  HoleEndComponent[%1]: Faces=[%2], Wire=%3, Edges=[%4], R=%5, Center=(%6, %7, %8), AxisDir=(%9, %10, %11), NormalDir=(%12, %13, %14)")
                     .arg(i)
-                    .arg(faceIndex)
-                    .arg(wireIndex)
-                    .arg(component.geometryRefs.edgeIndices.size())
+                    .arg(formatFaceIndexList(model, component.geometryRefs.faceIndices))
+                    .arg(formatWireIndex(model, wireIndex))
+                    .arg(formatEdgeIndexList(model, component.geometryRefs.edgeIndices))
                     .arg(component.radius, 0, 'f', 3)
                     .arg(component.center.X(), 0, 'f', 3)
                     .arg(component.center.Y(), 0, 'f', 3)
                     .arg(component.center.Z(), 0, 'f', 3)
-                    .arg(adjacentFacesText));
+                    .arg(component.axisDirection.X(), 0, 'f', 3)
+                    .arg(component.axisDirection.Y(), 0, 'f', 3)
+                    .arg(component.axisDirection.Z(), 0, 'f', 3)
+                    .arg(component.normalDirection.X(), 0, 'f', 3)
+                    .arg(component.normalDirection.Y(), 0, 'f', 3)
+                    .arg(component.normalDirection.Z(), 0, 'f', 3));
+
+            for (int edgeIndex : component.geometryRefs.edgeIndices)
+            {
+                const auto connectedFaceIndices = graph.facesOfEdge(edgeIndex);
+
+                m_logger->info(
+                    QString("    Edge[%1]: ConnectedFaces=[%2], Wires=[%3], Vertices=[%4]")
+                        .arg(edgeIndex)
+                        .arg(formatFaceIndexList(model, connectedFaceIndices))
+                        .arg(formatWireIndexList(model, graph.wiresOfEdge(edgeIndex)))
+                        .arg(formatIndexList(graph.verticesOfEdge(edgeIndex))));
+            }
+        }
+    }
+
+    void AppLogReporter::logHoleWallComponents(
+        const GeometryModel& model,
+        const std::vector<Feature::HoleWallComponent>& components) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        const auto& graph = model.graph();
+
+        m_logger->info(QString("穴壁コンポーネント数: %1").arg(components.size()));
+
+        for (int i = 0; i < static_cast<int>(components.size()); ++i)
+        {
+            const auto& component = components[i];
+
+            m_logger->info(
+                QString("  HoleWallComponent[%1]: Faces=[%2], R=%3, AxisOrigin=(%4, %5, %6), AxisDir=(%7, %8, %9), Depth=%10")
+                    .arg(i)
+                    .arg(formatFaceIndexList(model, component.geometryRefs.faceIndices))
+                    .arg(component.radius, 0, 'f', 3)
+                    .arg(component.center.X(), 0, 'f', 3)
+                    .arg(component.center.Y(), 0, 'f', 3)
+                    .arg(component.center.Z(), 0, 'f', 3)
+                    .arg(component.axisDirection.X(), 0, 'f', 3)
+                    .arg(component.axisDirection.Y(), 0, 'f', 3)
+                    .arg(component.axisDirection.Z(), 0, 'f', 3)
+                    .arg(component.depth, 0, 'f', 3));
+
+            for (int faceIndex : component.geometryRefs.faceIndices)
+            {
+                const auto wireIndices = graph.wiresOfFace(faceIndex);
+
+                m_logger->info(
+                    QString("    Face[%1]: Wires=[%2]")
+                        .arg(faceIndex)
+                        .arg(formatWireIndexList(model, wireIndices)));
+            }
         }
     }
 
@@ -544,5 +714,161 @@ namespace OccQtCore
         }
 
         return text;
+    }
+
+    QString AppLogReporter::formatFaceIndexList(
+        const GeometryModel& model,
+        const std::vector<int>& faceIndices) const
+    {
+        QString text;
+
+        for (int faceIndex : faceIndices)
+        {
+            if (!text.isEmpty())
+            {
+                text += ", ";
+            }
+
+            QString kindText = "Invalid";
+
+            const auto* faceData = model.faceAt(faceIndex);
+            if (faceData != nullptr)
+            {
+                kindText = surfaceKindDisplayName(faceData->info.kind);
+            }
+
+            text += QString("%1:%2")
+                        .arg(faceIndex)
+                        .arg(kindText);
+        }
+
+        return text;
+    }
+
+    QString AppLogReporter::formatEdgeIndexList(
+        const GeometryModel& model,
+        const std::vector<int>& edgeIndices) const
+    {
+        QString text;
+
+        for (int edgeIndex : edgeIndices)
+        {
+            if (!text.isEmpty())
+            {
+                text += ", ";
+            }
+
+            QString kindText = "Invalid";
+
+            const auto* edgeData = model.edgeAt(edgeIndex);
+            if (edgeData != nullptr)
+            {
+                kindText = curveKindDisplayName(edgeData->info.kind);
+            }
+
+            text += QString("%1:%2")
+                        .arg(edgeIndex)
+                        .arg(kindText);
+        }
+
+        return text;
+    }
+
+    QString AppLogReporter::formatWireIndexList(
+        const GeometryModel& model,
+        const std::vector<int>& wireIndices) const
+    {
+        QString text;
+
+        for (int wireIndex : wireIndices)
+        {
+            if (!text.isEmpty())
+            {
+                text += ", ";
+            }
+
+            QString kindText = "Invalid";
+
+            const auto* wireData = model.wireAt(wireIndex);
+            if (wireData != nullptr)
+            {
+                if (wireData->info.isOuter)
+                {
+                    kindText = "Outer";
+                }
+                else if (wireData->info.isInner)
+                {
+                    kindText = "Inner";
+                }
+                else
+                {
+                    kindText = "Unknown";
+                }
+
+                if (wireData->info.isClosed)
+                {
+                    kindText += "/Closed";
+                }
+                else
+                {
+                    kindText += "/Open";
+                }
+            }
+
+            text += QString("%1:%2")
+                        .arg(wireIndex)
+                        .arg(kindText);
+        }
+
+        return text;
+    }
+
+    QString AppLogReporter::formatFaceIndex(
+        const GeometryModel& model,
+        int faceIndex) const
+    {
+        const auto* faceData = model.faceAt(faceIndex);
+
+        if (faceData == nullptr)
+        {
+            return QString("%1:Invalid").arg(faceIndex);
+        }
+
+        return QString("%1:%2")
+            .arg(faceIndex)
+            .arg(surfaceKindDisplayName(faceData->info.kind));
+    }
+
+    QString AppLogReporter::formatWireIndex(
+        const GeometryModel& model,
+        int wireIndex) const
+    {
+        const auto* wireData = model.wireAt(wireIndex);
+
+        if (wireData == nullptr)
+        {
+            return QString("%1:Invalid").arg(wireIndex);
+        }
+
+        QString typeText;
+
+        if (wireData->info.isOuter)
+        {
+            typeText = "Outer";
+        }
+        else if (wireData->info.isInner)
+        {
+            typeText = "Inner";
+        }
+        else
+        {
+            typeText = "Unknown";
+        }
+
+        typeText += wireData->info.isClosed ? "/Closed" : "/Open";
+
+        return QString("%1:%2")
+            .arg(wireIndex)
+            .arg(typeText);
     }
 }

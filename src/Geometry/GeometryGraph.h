@@ -30,6 +30,7 @@ namespace OccQtCore
         const std::vector<int>& edgesOfVertex(int vertexIndex) const;
 
         std::vector<int> adjacentFacesOfFace(int faceIndex) const;
+        std::vector<int> facesOfEdge(int edgeIndex) const;
 
         int faceCount() const;
         int wireCount() const;

@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <vector>
 #include <memory>
 
 #include <QLabel>
@@ -49,12 +50,20 @@ private:
     QString defaultOpenDirectory() const;
     void updateLastOpenDirectory(const QString& filePath);
 
+    void dumpGeometryAnalysisLog();
+    void dumpGeometryDetailDiagnosticsLog();
+
     // 穴関連一時デバック関数群
-    void analyzeHoleEnds();
-    void showHoleEndCandidates(
-        const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates);
-    void showHoleEndComponents(
-        const std::vector<OccQtCore::Feature::HoleEndComponent>& components);
+    void detectHoleEndCandidates();
+    void detectHoleWallCandidates();
+    void buildHoleEndComponents();
+    void buildHoleWallComponents();
+
+    // 穴関連一時表示デバック
+    void displayHoleEndCandidates(const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates);
+    void displayHoleWallCandidates(const std::vector<OccQtCore::Feature::HoleWallCandidate>& candidates);
+    void displayHoleEndComponents(const std::vector<OccQtCore::Feature::HoleEndComponent>& components);
+    void displayHoleWallComponents(const std::vector<OccQtCore::Feature::HoleWallComponent>& components);
 
 private:
     Ui::MainWindow* ui = nullptr;
