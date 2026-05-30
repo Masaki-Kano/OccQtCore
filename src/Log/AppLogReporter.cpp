@@ -5,6 +5,7 @@
 #include "Log/AppLogger.h"
 
 #include "Geometry/GeometryModel.h"
+#include "Geometry/TopologyQuery.h"
 
 #include "Feature/HoleFeatureRecognizer.h"
 
@@ -315,7 +316,8 @@ namespace OccQtCore
 
         const auto& graph = model.graph();
         const auto wireIndices = graph.wiresOfFace(faceIndex);
-        const auto adjacentFaceIndices = graph.adjacentFacesOfFace(faceIndex);
+        const auto adjacentFaceIndices =
+            TopologyQuery::adjacentFacesOfFace(model, faceIndex);
 
         m_logger->info(
             QString("Face[%1]: 種別=%2, 面積=%3, Wire数=%4, Wires=[%5], 隣接Face=[%6]")
@@ -401,7 +403,8 @@ namespace OccQtCore
         }
 
         const auto& graph = model.graph();
-        const auto faceIndices = graph.facesOfEdge(edgeIndex);
+        const auto faceIndices =
+            TopologyQuery::facesOfEdge(model, edgeIndex);
 
         m_logger->info(
             QString("    Edge[%1]: 種別=%2, 長さ=%3, Faces=[%4], Wires=[%5], Vertices=[%6], Param=(%7, %8)")

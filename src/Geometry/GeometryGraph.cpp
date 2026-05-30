@@ -1,6 +1,47 @@
 #include "Geometry/GeometryGraph.h"
+#include "Core/CollectionUtil.h"
 
-#include <algorithm>
+namespace
+{
+    bool isValidIndex(int index, int count)
+    {
+        return index >= 0 && index < count;
+    }
+
+    const std::vector<int>& emptyList()
+    {
+        static const std::vector<int> empty;
+        return empty;
+    }
+
+    const std::vector<int>& listOrEmpty(
+        const std::vector<std::vector<int>>& lists,
+        int index)
+    {
+        if (!isValidIndex(index, static_cast<int>(lists.size())))
+        {
+            return emptyList();
+        }
+
+        return lists[static_cast<std::size_t>(index)];
+    }
+
+    void addRelation(
+        std::vector<std::vector<int>>& relations,
+        int fromIndex,
+        int toIndex)
+    {
+        if (!isValidIndex(fromIndex, static_cast<int>(relations.size())))
+        {
+            return;
+        }
+
+        OccQtCore::CollectionUtil::addUnique(
+            relations[fromIndex],
+            toIndex);
+    }
+}
+
 
 namespace OccQtCore
 {
@@ -102,64 +143,6 @@ namespace OccQtCore
         return listOrEmpty(m_vertexToEdges, vertexIndex);
     }
 
-    std::vector<int> GeometryGraph::adjacentFacesOfFace(int faceIndex) const
-    {
-        std::vector<int> adjacentFaceIndices;
-
-        const auto& wireIndices = wiresOfFace(faceIndex);
-
-        for (int wireIndex : wireIndices)
-        {
-            const auto& edgeIndices = edgesOfWire(wireIndex);
-
-            for (int edgeIndex : edgeIndices)
-            {
-                const auto& connectedWireIndices = wiresOfEdge(edgeIndex);
-
-                for (int connectedWireIndex : connectedWireIndices)
-                {
-                    if (connectedWireIndex == wireIndex)
-                    {
-                        continue;
-                    }
-
-                    const auto& connectedFaceIndices = facesOfWire(connectedWireIndex);
-
-                    for (int connectedFaceIndex : connectedFaceIndices)
-                    {
-                        if (connectedFaceIndex == faceIndex)
-                        {
-                            continue;
-                        }
-
-                        addUnique(adjacentFaceIndices, connectedFaceIndex);
-                    }
-                }
-            }
-        }
-
-        return adjacentFaceIndices;
-    }
-
-    std::vector<int> GeometryGraph::facesOfEdge(int edgeIndex) const
-    {
-        std::vector<int> faceIndices;
-
-        const auto& wireIndices = wiresOfEdge(edgeIndex);
-
-        for (int wireIndex : wireIndices)
-        {
-            const auto& connectedFaceIndices = facesOfWire(wireIndex);
-
-            for (int faceIndex : connectedFaceIndices)
-            {
-                addUnique(faceIndices, faceIndex);
-            }
-        }
-
-        return faceIndices;
-    }
-
     int GeometryGraph::faceCount() const
     {
         return static_cast<int>(m_faceToWires.size());
@@ -178,56 +161,5 @@ namespace OccQtCore
     int GeometryGraph::vertexCount() const
     {
         return static_cast<int>(m_vertexToEdges.size());
-    }
-
-    bool GeometryGraph::isValidIndex(int index, int count)
-    {
-        return index >= 0 && index < count;
-    }
-
-    const std::vector<int>& GeometryGraph::listOrEmpty(
-        const std::vector<std::vector<int>>& lists,
-        int index)
-    {
-        if (!isValidIndex(index, static_cast<int>(lists.size())))
-        {
-            return emptyList();
-        }
-
-        return lists[static_cast<std::size_t>(index)];
-    }
-
-    void GeometryGraph::addRelation(
-        std::vector<std::vector<int>>& relations,
-        int fromIndex,
-        int toIndex)
-    {
-        if (!isValidIndex(fromIndex, static_cast<int>(relations.size())))
-        {
-            return;
-        }
-
-        addUnique(relations[static_cast<std::size_t>(fromIndex)], toIndex);
-    }
-
-    void GeometryGraph::addUnique(std::vector<int>& values, int value)
-    {
-        if (value < 0)
-        {
-            return;
-        }
-
-        if (std::find(values.begin(), values.end(), value) != values.end())
-        {
-            return;
-        }
-
-        values.push_back(value);
-    }
-
-    const std::vector<int>& GeometryGraph::emptyList()
-    {
-        static const std::vector<int> empty;
-        return empty;
     }
 }

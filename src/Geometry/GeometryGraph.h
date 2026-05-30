@@ -29,9 +29,6 @@ namespace OccQtCore
         const std::vector<int>& verticesOfEdge(int edgeIndex) const;
         const std::vector<int>& edgesOfVertex(int vertexIndex) const;
 
-        std::vector<int> adjacentFacesOfFace(int faceIndex) const;
-        std::vector<int> facesOfEdge(int edgeIndex) const;
-
         int faceCount() const;
         int wireCount() const;
         int edgeCount() const;
@@ -46,21 +43,6 @@ namespace OccQtCore
 
         std::vector<std::vector<int>> m_edgeToVertices;
         std::vector<std::vector<int>> m_vertexToEdges;
-
-        static bool isValidIndex(int index, int count);
-
-        static const std::vector<int>& listOrEmpty(
-            const std::vector<std::vector<int>>& lists,
-            int index);
-
-        static void addRelation(
-            std::vector<std::vector<int>>& relations,
-            int fromIndex,
-            int toIndex);
-
-        static void addUnique(std::vector<int>& values, int value);
-
-        static const std::vector<int>& emptyList();
     };
 }
 
