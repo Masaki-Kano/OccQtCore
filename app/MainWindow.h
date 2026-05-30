@@ -54,16 +54,25 @@ private:
     void dumpGeometryDetailDiagnosticsLog();
 
     // 穴関連一時デバック関数群
-    void detectHoleEndCandidates();
     void detectHoleWallCandidates();
-    void buildHoleEndComponents();
     void buildHoleWallComponents();
+    void buildHoleEndComponentsFromWallComponents();
+    void buildHoleElements();
 
     // 穴関連一時表示デバック
-    void displayHoleEndCandidates(const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates);
-    void displayHoleWallCandidates(const std::vector<OccQtCore::Feature::HoleWallCandidate>& candidates);
-    void displayHoleEndComponents(const std::vector<OccQtCore::Feature::HoleEndComponent>& components);
-    void displayHoleWallComponents(const std::vector<OccQtCore::Feature::HoleWallComponent>& components);
+    void displayHoleWallCandidates(
+        const std::vector<OccQtCore::Feature::HoleWallCandidate>& candidates);
+
+    void displayHoleWallComponents(
+        const std::vector<OccQtCore::Feature::HoleWallComponent>& components);
+
+    void displayHoleEndComponents(
+        const std::vector<OccQtCore::Feature::HoleEndComponent>& components);
+
+    void displayHoleElements(
+        const std::vector<OccQtCore::Feature::HoleElement>& elements,
+        const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
+        const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents);
 
 private:
     Ui::MainWindow* ui = nullptr;

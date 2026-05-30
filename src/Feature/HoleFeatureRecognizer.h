@@ -15,23 +15,6 @@ namespace OccQtCore
 
 namespace OccQtCore::Feature
 {
-
-    /**
-     * @brief 穴端候補
-     *
-     * ジオメトリ条件だけで抽出した穴端候補。
-     *
-     * 現時点では、平面Face上の円形InnerWireをOpenとして扱う。
-     * この段階では、穴壁とトポロジー接続しているかはまだ見ない
-     */
-    struct HoleEndCandidate
-    {
-        int faceIndex = -1;
-        int wireIndex = -1;
-
-        Hole::EndType endType = Hole::EndType::Unknown;
-    };
-
     /**
      * @brief 穴壁候補
      *
@@ -43,29 +26,11 @@ namespace OccQtCore::Feature
      */
     struct HoleWallCandidate
     {
+        int index = -1;
         int faceIndex = -1;
 
         gp_Pnt center;
         gp_Dir axisDirection;
-
-        double radius = 0.0;
-    };
-
-    /**
-     * @brief 穴端コンポーネント
-     *
-     * HoleEndCandidate を、トポロジー接続や構成ジオメトリを確認したうえで
-     * 穴端として意味を持つ単位に昇格したもの。
-     */
-    struct HoleEndComponent
-    {
-        GeometryRefs geometryRefs;
-
-        Hole::EndType endType = Hole::EndType::Unknown;
-
-        gp_Pnt center;
-        gp_Dir axisDirection;
-        gp_Dir normalDirection;
 
         double radius = 0.0;
     };
@@ -78,6 +43,8 @@ namespace OccQtCore::Feature
      */
     struct HoleWallComponent
     {
+        int index = -1;
+
         GeometryRefs geometryRefs;
 
         gp_Pnt center;
@@ -88,32 +55,96 @@ namespace OccQtCore::Feature
     };
 
     /**
-     * @brief 穴要素候補
+     * @brief 穴端コンポーネント
      *
-     * 単一径の穴区間候補。
+     * HoleWallComponentの端Edgeからたどって直接生成される穴端。
      *
-     * WallComponent 群と EndComponent 群のトポロジー接続を確認し、
-     * 穴要素として成立しそうなまとまりを表す。
-     *
-     * この段階ではまだ確定Elementではない。
+     * EndComponentはWallComponent由来で生成するため、
+     * Wallとの接続関係は生成時点で担保される
      */
-    struct HoleElementCandidate
+    struct HoleEndComponent
     {
-        std::vector<HoleWallComponent> walls;
-        std::vector<HoleEndComponent> ends;
+        int index = -1;
+
+        /**
+         * @brief 端を構成するジオメトリ参照
+         *
+         * Open:
+         *   外部Face / 接続Edge など
+         *
+         * Bottom:
+         *   底Face / 壁との接続Edge など
+         *
+         * Step:
+         *   段差Face / 接続Edge など
+         */
+        GeometryRefs geometryRefs;
+
+        /**
+         * @brief この端の由来WallComponent
+         *
+         * 基本的に EndComponent は1つの WallComponent の端から生成される。
+         * HoleElementCandidate を作るときは、この index で集約する。
+         */
+        int wallComponentIndex = -1;
+
+        /**
+         * @brief 穴端種別
+         *
+         * Open:
+         *   外部に開いた端
+         *
+         * Bottom:
+         *   止まり穴の底
+         *
+         * Step:
+         *   段付き穴・座ぐり穴などの段差端
+         */
+        Hole::EndType endType = Hole::EndType::Unknown;
+
+        gp_Pnt center;
+        gp_Dir axisDirection;
+        gp_Dir normalDirection;
+
+        double radius = 0.0;
+    };
+
+    /**
+     * @brief 穴要素
+     *
+     * 単一径の穴区間。
+     *
+     * 1つの HoleWallComponent と、
+     * その Wall 由来の HoleEndComponent 群から構成される。
+     *
+     * FeatureTypes.h の Hole::Element は最終出力用。
+     * こちらは認識途中で index 参照を持つ内部表現。
+     */
+    struct HoleElement
+    {
+        int index = -1;
+
+        int wallComponentIndex = -1;
+        std::vector<int> endComponentIndices;
+
+        Hole::Type type = Hole::Type::Unknown;
     };
 
     /**
      * @brief 穴フィーチャ候補
      *
-     * 穴要素候補をまとめた穴候補。
+     * 複数の HoleElement をまとめた穴候補。
      *
-     * 単純穴なら elements は1つ。
-     * 段付き穴・座ぐり穴などでは、同軸方向に複数の elements が連なる。
+     * 単純穴なら elementIndices は1つ。
+     * 段付き穴・座ぐり穴などでは、同軸方向に複数の HoleElement が連なる。
      */
     struct HoleCandidate
     {
-        std::vector<HoleElementCandidate> elements;
+        int index = -1;
+
+        std::vector<int> elementIndices;
+
+        Hole::Type type = Hole::Type::Unknown;
     };
 
     /**
@@ -121,11 +152,12 @@ namespace OccQtCore::Feature
      *
      * 認識処理の段階:
      *
-     * 1. ジオメトリ条件だけで End / Wall の Candidate を生成する
-     * 2. Candidate をトポロジー接続で検証・統合し Component に昇格する
-     * 3. EndComponent と WallComponent から HoleElementCandidate を作る
-     * 4. HoleElementCandidate をまとめて HoleCandidate を作る
-     * 5. HoleCandidate を Hole::Data に確定する
+     * 1. Cylinder Face から HoleWallCandidate を生成する
+     * 2. HoleWallCandidate を検証・統合し HoleWallComponent に昇格する
+     * 3. HoleWallComponent の端Edgeをたどり、HoleEndComponent を直接生成する
+     * 4. HoleWallComponent と HoleEndComponent 群から HoleElementCandidate を作る
+     * 5. HoleElementCandidate をまとめて HoleCandidate を作る
+     * 6. HoleCandidate を Hole::Data に確定する
      */
     class HoleFeatureRecognizer
     {
@@ -135,11 +167,10 @@ namespace OccQtCore::Feature
          */
         std::vector<Hole::Data> recognize(const GeometryModel& model) const;
 
-        std::vector<HoleEndCandidate> detectEndCandidates(const GeometryModel& model) const;
         std::vector<HoleWallCandidate> detectWallCandidates(const GeometryModel& model) const;
-
-        std::vector<HoleEndComponent> buildEndComponents(const GeometryModel& model, const std::vector<HoleEndCandidate>& endCandidates) const;
         std::vector<HoleWallComponent> buildWallComponents(const GeometryModel& model, const std::vector<HoleWallCandidate>& wallCandidates) const;
+        std::vector<HoleEndComponent> buildEndComponentsFromWallComponents(const GeometryModel& model, const std::vector<HoleWallComponent>& wallComponents) const;
+        std::vector<HoleElement> buildHoleElements(const GeometryModel& model, const std::vector<HoleWallComponent>& wallComponents, const std::vector<HoleEndComponent>& endComponents) const;
 
     };
 }

@@ -63,26 +63,26 @@ namespace OccQtCore
         // ============================================================
         void logHoleRecognitionReport(
             const GeometryModel& model,
-            const std::vector<Feature::HoleEndCandidate>& endCandidates,
+            const std::vector<Feature::HoleWallCandidate>& wallCandidates,
+            const std::vector<Feature::HoleWallComponent>& wallComponents,
             const std::vector<Feature::HoleEndComponent>& endComponents) const;
-
-        void logHoleEndCandidates(
-            const GeometryModel& model,
-            const std::vector<Feature::HoleEndCandidate>& candidates) const;
 
         void logHoleWallCandidates(
             const GeometryModel& model,
             const std::vector<Feature::HoleWallCandidate>& candidates) const;
 
-        void logHoleEndComponents(
-            const GeometryModel& model,
-            const std::vector<Feature::HoleEndComponent>& components) const;
-
         void logHoleWallComponents(
             const GeometryModel& model,
             const std::vector<Feature::HoleWallComponent>& components) const;
 
+        void logHoleEndComponents(
+            const GeometryModel& model,
+            const std::vector<Feature::HoleEndComponent>& components) const;
 
+        void logHoleElements(
+            const GeometryModel& model,
+            const std::vector<Feature::HoleElement>& elements,
+            const std::vector<Feature::HoleEndComponent>& endComponents) const;
 
     private:
         QString formatIndexList(const std::vector<int>& indices) const;
@@ -100,7 +100,7 @@ namespace OccQtCore
             int faceIndex) const;
         QString formatWireIndex(
             const GeometryModel& model,
-            int faceIndex) const;
+            int wireIndex) const;
 
 
     private:

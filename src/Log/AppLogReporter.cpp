@@ -536,123 +536,51 @@ namespace OccQtCore
 
     void AppLogReporter::logHoleRecognitionReport(
         const GeometryModel& model,
-        const std::vector<Feature::HoleEndCandidate>& endCandidates,
+        const std::vector<Feature::HoleWallCandidate>& wallCandidates,
+        const std::vector<Feature::HoleWallComponent>& wallComponents,
         const std::vector<Feature::HoleEndComponent>& endComponents) const
     {
+        Q_UNUSED(model);
+
         if (m_logger == nullptr)
         {
             return;
         }
 
-        m_logger->info("===== 穴フィーチャ認識ログ開始 =====");
-
-        logHoleEndCandidates(model, endCandidates);
-        logHoleEndComponents(model, endComponents);
-
-        m_logger->info("===== 穴フィーチャ認識ログ終了 =====");
-    }
-
-    void AppLogReporter::logHoleEndCandidates(
-        const OccQtCore::GeometryModel& model,
-        const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates) const
-    {
-        const auto& graph = model.graph();
-
-        m_logger->info(QString("穴端候補数: %1").arg(candidates.size()));
-
-        for (int i = 0; i < static_cast<int>(candidates.size()); ++i)
-        {
-            const auto& candidate = candidates[i];
-            const auto edgeIndices = graph.edgesOfWire(candidate.wireIndex);
-
-            m_logger->info(
-                QString("  HoleEndCandidate[%1]: Face=%2, Wire=%3, Edges=%4, Type=%5")
-                    .arg(i)
-                    .arg(candidate.faceIndex)
-                    .arg(candidate.wireIndex)
-                    .arg(edgeIndices.size())
-                    .arg(endTypeToString(candidate.endType)));
-        }
+        m_logger->info("========== 穴フィーチャ認識レポート ==========");
+        m_logger->info(QString("穴壁候補数: %1").arg(wallCandidates.size()));
+        m_logger->info(QString("穴壁コンポーネント数: %1").arg(wallComponents.size()));
+        m_logger->info(QString("穴端コンポーネント数: %1").arg(endComponents.size()));
+        m_logger->info("============================================");
     }
 
     void AppLogReporter::logHoleWallCandidates(
         const GeometryModel& model,
         const std::vector<Feature::HoleWallCandidate>& candidates) const
     {
+        Q_UNUSED(model);
+
         if (m_logger == nullptr)
         {
             return;
         }
 
-        m_logger->info(QString("穴壁候補数: %1").arg(candidates.size()));
+        m_logger->info("========== 穴壁候補 ==========");
+        m_logger->info(QString("候補数: %1").arg(candidates.size()));
 
-        for (int i = 0; i < static_cast<int>(candidates.size()); ++i)
+        for (const auto& candidate : candidates)
         {
-            const auto& candidate = candidates[i];
-
             m_logger->info(
-                QString("  HoleWallCandidate[%1]: Face=%2, R=%3, AxisOrigin=(%4, %5, %6), AxisDir=(%7, %8, %9)")
-                    .arg(i)
-                    .arg(formatFaceIndex(model, candidate.faceIndex))
-                    .arg(candidate.radius, 0, 'f', 3)
+                QString("WallCandidate[%1]: Face=%2, Center=(%3, %4, %5), Axis=(%6, %7, %8), Radius=%9")
+                    .arg(candidate.index)
+                    .arg(candidate.faceIndex)
                     .arg(candidate.center.X(), 0, 'f', 3)
                     .arg(candidate.center.Y(), 0, 'f', 3)
                     .arg(candidate.center.Z(), 0, 'f', 3)
                     .arg(candidate.axisDirection.X(), 0, 'f', 3)
                     .arg(candidate.axisDirection.Y(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.Z(), 0, 'f', 3));
-        }
-    }
-
-    void AppLogReporter::logHoleEndComponents(
-        const OccQtCore::GeometryModel& model,
-        const std::vector<OccQtCore::Feature::HoleEndComponent>& components) const
-    {
-        if (m_logger == nullptr)
-        {
-            return;
-        }
-
-        const auto& graph = model.graph();
-
-        m_logger->info(QString("穴端コンポーネント数: %1").arg(components.size()));
-
-        for (int i = 0; i < static_cast<int>(components.size()); ++i)
-        {
-            const auto& component = components[i];
-
-            const int wireIndex = component.geometryRefs.wireIndices.empty()
-                                      ? -1
-                                      : component.geometryRefs.wireIndices.front();
-
-            m_logger->info(
-                QString("  HoleEndComponent[%1]: Faces=[%2], Wire=%3, Edges=[%4], R=%5, Center=(%6, %7, %8), AxisDir=(%9, %10, %11), NormalDir=(%12, %13, %14)")
-                    .arg(i)
-                    .arg(formatFaceIndexList(model, component.geometryRefs.faceIndices))
-                    .arg(formatWireIndex(model, wireIndex))
-                    .arg(formatEdgeIndexList(model, component.geometryRefs.edgeIndices))
-                    .arg(component.radius, 0, 'f', 3)
-                    .arg(component.center.X(), 0, 'f', 3)
-                    .arg(component.center.Y(), 0, 'f', 3)
-                    .arg(component.center.Z(), 0, 'f', 3)
-                    .arg(component.axisDirection.X(), 0, 'f', 3)
-                    .arg(component.axisDirection.Y(), 0, 'f', 3)
-                    .arg(component.axisDirection.Z(), 0, 'f', 3)
-                    .arg(component.normalDirection.X(), 0, 'f', 3)
-                    .arg(component.normalDirection.Y(), 0, 'f', 3)
-                    .arg(component.normalDirection.Z(), 0, 'f', 3));
-
-            for (int edgeIndex : component.geometryRefs.edgeIndices)
-            {
-                const auto connectedFaceIndices = graph.facesOfEdge(edgeIndex);
-
-                m_logger->info(
-                    QString("    Edge[%1]: ConnectedFaces=[%2], Wires=[%3], Vertices=[%4]")
-                        .arg(edgeIndex)
-                        .arg(formatFaceIndexList(model, connectedFaceIndices))
-                        .arg(formatWireIndexList(model, graph.wiresOfEdge(edgeIndex)))
-                        .arg(formatIndexList(graph.verticesOfEdge(edgeIndex))));
-            }
+                    .arg(candidate.axisDirection.Z(), 0, 'f', 3)
+                    .arg(candidate.radius, 0, 'f', 3));
         }
     }
 
@@ -665,36 +593,165 @@ namespace OccQtCore
             return;
         }
 
-        const auto& graph = model.graph();
+        m_logger->info("========== 穴壁コンポーネント ==========");
+        m_logger->info(QString("コンポーネント数: %1").arg(components.size()));
 
-        m_logger->info(QString("穴壁コンポーネント数: %1").arg(components.size()));
-
-        for (int i = 0; i < static_cast<int>(components.size()); ++i)
+        for (const auto& component : components)
         {
-            const auto& component = components[i];
-
             m_logger->info(
-                QString("  HoleWallComponent[%1]: Faces=[%2], R=%3, AxisOrigin=(%4, %5, %6), AxisDir=(%7, %8, %9), Depth=%10")
-                    .arg(i)
+                QString("WallComponent[%1]: Faces=%2, Center=(%3, %4, %5), Axis=(%6, %7, %8), Radius=%9, Depth=%10")
+                    .arg(component.index)
                     .arg(formatFaceIndexList(model, component.geometryRefs.faceIndices))
-                    .arg(component.radius, 0, 'f', 3)
                     .arg(component.center.X(), 0, 'f', 3)
                     .arg(component.center.Y(), 0, 'f', 3)
                     .arg(component.center.Z(), 0, 'f', 3)
                     .arg(component.axisDirection.X(), 0, 'f', 3)
                     .arg(component.axisDirection.Y(), 0, 'f', 3)
                     .arg(component.axisDirection.Z(), 0, 'f', 3)
+                    .arg(component.radius, 0, 'f', 3)
                     .arg(component.depth, 0, 'f', 3));
+        }
+    }
 
-            for (int faceIndex : component.geometryRefs.faceIndices)
+    void AppLogReporter::logHoleEndComponents(
+        const GeometryModel& model,
+        const std::vector<Feature::HoleEndComponent>& components) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("========== 穴端コンポーネント ==========");
+        m_logger->info(QString("コンポーネント数: %1").arg(components.size()));
+
+        for (const auto& component : components)
+        {
+            QString endTypeText = "Unknown";
+
+            switch (component.endType)
             {
-                const auto wireIndices = graph.wiresOfFace(faceIndex);
+            case Feature::Hole::EndType::Open:
+                endTypeText = "Open";
+                break;
 
-                m_logger->info(
-                    QString("    Face[%1]: Wires=[%2]")
-                        .arg(faceIndex)
-                        .arg(formatWireIndexList(model, wireIndices)));
+            case Feature::Hole::EndType::Bottom:
+                endTypeText = "Bottom";
+                break;
+
+            case Feature::Hole::EndType::Step:
+                endTypeText = "Step";
+                break;
+
+            default:
+                break;
             }
+
+            m_logger->info(
+                QString("EndComponent[%1]: Type=%2, Wall=%3, Faces=%4, Edges=%5, Center=(%6, %7, %8), Axis=(%9, %10, %11), Radius=%12")
+                    .arg(component.index)
+                    .arg(endTypeText)
+                    .arg(component.wallComponentIndex)
+                    .arg(formatFaceIndexList(model, component.geometryRefs.faceIndices))
+                    .arg(formatEdgeIndexList(model, component.geometryRefs.edgeIndices))
+                    .arg(component.center.X(), 0, 'f', 3)
+                    .arg(component.center.Y(), 0, 'f', 3)
+                    .arg(component.center.Z(), 0, 'f', 3)
+                    .arg(component.axisDirection.X(), 0, 'f', 3)
+                    .arg(component.axisDirection.Y(), 0, 'f', 3)
+                    .arg(component.axisDirection.Z(), 0, 'f', 3)
+                    .arg(component.radius, 0, 'f', 3));
+        }
+    }
+
+    void AppLogReporter::logHoleElements(
+        const GeometryModel& model,
+        const std::vector<Feature::HoleElement>& elements,
+        const std::vector<Feature::HoleEndComponent>& endComponents) const
+    {
+        Q_UNUSED(model);
+
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("========== 穴要素 ==========");
+        m_logger->info(QString("要素数: %1").arg(elements.size()));
+
+        for (const auto& element : elements)
+        {
+            QString typeText = "Unknown";
+
+            switch (element.type)
+            {
+            case Feature::Hole::Type::SimpleBlind:
+                typeText = "SimpleBlind";
+                break;
+
+            case Feature::Hole::Type::SimpleThrough:
+                typeText = "SimpleThrough";
+                break;
+
+            case Feature::Hole::Type::SteppedBlind:
+                typeText = "SteppedBlind";
+                break;
+
+            case Feature::Hole::Type::SteppedThrough:
+                typeText = "SteppedThrough";
+                break;
+
+            case Feature::Hole::Type::ConterBore:
+                typeText = "CounterBore";
+                break;
+
+            case Feature::Hole::Type::CounterSink:
+                typeText = "CounterSink";
+                break;
+
+            default:
+                break;
+            }
+
+            QStringList endTexts;
+
+            for (int endIndex : element.endComponentIndices)
+            {
+                QString endTypeText = "Unknown";
+
+                if (endIndex >= 0 && endIndex < static_cast<int>(endComponents.size()))
+                {
+                    const auto& end = endComponents[endIndex];
+
+                    switch (end.endType)
+                    {
+                    case Feature::Hole::EndType::Open:
+                        endTypeText = "Open";
+                        break;
+
+                    case Feature::Hole::EndType::Bottom:
+                        endTypeText = "Bottom";
+                        break;
+
+                    case Feature::Hole::EndType::Step:
+                        endTypeText = "Step";
+                        break;
+
+                    default:
+                        break;
+                    }
+                }
+
+                endTexts.push_back(
+                    QString("%1:%2").arg(endIndex).arg(endTypeText));
+            }
+
+            m_logger->info(
+                QString("HoleElement[%1]: Type=%2, Wall=%3, Ends=[%4]")
+                    .arg(element.index)
+                    .arg(typeText)
+                    .arg(element.wallComponentIndex)
+                    .arg(endTexts.join(", ")));
         }
     }
 

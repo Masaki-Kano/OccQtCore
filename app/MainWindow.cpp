@@ -148,16 +148,6 @@ void MainWindow::setupConnections()
             &OccQtCore::OccView::setWireframeMode);
 
     // メニュー フィーチャ認識 > 穴
-    connect(ui->actionDetectHoleEndCandidates,
-            &QAction::triggered,
-            this,
-            &MainWindow::detectHoleEndCandidates);
-
-    connect(ui->actionBuildHoleEndComponents,
-            &QAction::triggered,
-            this,
-            &MainWindow::buildHoleEndComponents);
-
     connect(ui->actionDetectHoleWallCandidates,
             &QAction::triggered,
             this,
@@ -167,6 +157,16 @@ void MainWindow::setupConnections()
             &QAction::triggered,
             this,
             &MainWindow::buildHoleWallComponents);
+
+    connect(ui->actionBuildHoleEndComponents,
+            &QAction::triggered,
+            this,
+            &MainWindow::buildHoleEndComponentsFromWallComponents);
+
+    connect(ui->actionBuildHoleElements,
+            &QAction::triggered,
+            this,
+            &MainWindow::buildHoleElements);
 
     // メニュー解析
     connect(ui->actionDumpGeometryAnalysisLog,
@@ -298,25 +298,6 @@ void MainWindow::dumpGeometryDetailDiagnosticsLog()
     m_logReporter->logActionFinished("形状詳細診断ログ出力");
 }
 
-void MainWindow::detectHoleEndCandidates()
-{
-    const auto& model = m_document.geometryModel();
-
-    m_logReporter->logActionStarted("穴端候補生成");
-
-    OccQtCore::Feature::HoleFeatureRecognizer recognizer;
-    const auto candidates = recognizer.detectEndCandidates(model);
-
-    // Feature Log
-    m_logReporter->logHoleEndCandidates(model, candidates);
-
-    // 3D Display
-    m_occView->clearLayer(OccQtCore::DisplayLayer::Analysis);
-    displayHoleEndCandidates(candidates);
-
-    m_logReporter->logActionFinished("穴端候補生成");
-}
-
 void MainWindow::detectHoleWallCandidates()
 {
     const auto& model = m_document.geometryModel();
@@ -334,7 +315,7 @@ void MainWindow::detectHoleWallCandidates()
     m_logReporter->logActionFinished("穴壁候補生成");
 }
 
-void MainWindow::buildHoleEndComponents()
+void MainWindow::buildHoleEndComponentsFromWallComponents()
 {
     if (!m_logReporter)
     {
@@ -347,10 +328,13 @@ void MainWindow::buildHoleEndComponents()
 
     OccQtCore::Feature::HoleFeatureRecognizer recognizer;
 
-    const auto endCandidates = recognizer.detectEndCandidates(model);
-    const auto endComponents = recognizer.buildEndComponents(model, endCandidates);
+    const auto wallCandidates = recognizer.detectWallCandidates(model);
+    const auto wallComponents = recognizer.buildWallComponents(model, wallCandidates);
+    const auto endComponents =
+        recognizer.buildEndComponentsFromWallComponents(model, wallComponents);
 
-    m_logReporter->logHoleEndCandidates(model, endCandidates);
+    m_logReporter->logHoleWallCandidates(model, wallCandidates);
+    m_logReporter->logHoleWallComponents(model, wallComponents);
     m_logReporter->logHoleEndComponents(model, endComponents);
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::Analysis);
@@ -379,39 +363,35 @@ void MainWindow::buildHoleWallComponents()
     m_logReporter->logActionFinished("穴壁コンポーネント生成");
 }
 
-void MainWindow::displayHoleEndCandidates(
-    const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates)
+void MainWindow::buildHoleElements()
 {
-    const auto& model = m_document.geometryModel();
-    const auto& graph = model.graph();
-
-    std::vector<TopoDS_Shape> edgeShapes;
-
-    for (const auto& candidate : candidates)
-    {
-        const auto edgeIndices = graph.edgesOfWire(candidate.wireIndex);
-
-        for (int edgeIndex : edgeIndices)
-        {
-            const auto* edgeData = model.edgeAt(edgeIndex);
-            if (edgeData == nullptr)
-            {
-                continue;
-            }
-
-            edgeShapes.push_back(edgeData->shape);
-        }
-    }
-
-    if (edgeShapes.empty())
+    if (!m_logReporter)
     {
         return;
     }
 
-    m_occView->displayShapes(
-        edgeShapes,
-        OccQtCore::DisplayLayer::Analysis,
-        OccQtCore::DisplayStyle::analysisCandidateWire());
+    const auto& model = m_document.geometryModel();
+
+    m_logReporter->logActionStarted("穴要素生成");
+
+    OccQtCore::Feature::HoleFeatureRecognizer recognizer;
+
+    const auto wallCandidates = recognizer.detectWallCandidates(model);
+    const auto wallComponents = recognizer.buildWallComponents(model, wallCandidates);
+    const auto endComponents =
+        recognizer.buildEndComponentsFromWallComponents(model, wallComponents);
+    const auto holeElements =
+        recognizer.buildHoleElements(model, wallComponents, endComponents);
+
+    m_logReporter->logHoleWallCandidates(model, wallCandidates);
+    m_logReporter->logHoleWallComponents(model, wallComponents);
+    m_logReporter->logHoleEndComponents(model, endComponents);
+    m_logReporter->logHoleElements(model, holeElements, endComponents);
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::Analysis);
+    displayHoleElements(holeElements, wallComponents, endComponents);
+
+    m_logReporter->logActionFinished("穴要素生成");
 }
 
 void MainWindow::displayHoleWallCandidates(
@@ -464,16 +444,8 @@ void MainWindow::displayHoleEndComponents(
             edgeShapes.push_back(edgeData->shape);
         }
 
-        for (int i = 0; i < static_cast<int>(component.geometryRefs.faceIndices.size()); ++i)
+        for (int faceIndex : component.geometryRefs.faceIndices)
         {
-            // 先頭は親Faceとして扱うので表示しない
-            if (i == 0)
-            {
-                continue;
-            }
-
-            const int faceIndex = component.geometryRefs.faceIndices[i];
-
             const auto* faceData = model.faceAt(faceIndex);
             if (faceData == nullptr)
             {
@@ -531,5 +503,85 @@ void MainWindow::displayHoleWallComponents(
         faceShapes,
         OccQtCore::DisplayLayer::Analysis,
         OccQtCore::DisplayStyle::analysisAdjacentFace());
+}
+
+void MainWindow::displayHoleElements(
+    const std::vector<OccQtCore::Feature::HoleElement>& elements,
+    const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
+    const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents)
+{
+    const auto& model = m_document.geometryModel();
+
+    std::vector<TopoDS_Shape> faceShapes;
+    std::vector<TopoDS_Shape> edgeShapes;
+
+    for (const auto& element : elements)
+    {
+        if (element.wallComponentIndex >= 0 &&
+            element.wallComponentIndex < static_cast<int>(wallComponents.size()))
+        {
+            const auto& wall = wallComponents[element.wallComponentIndex];
+
+            for (int faceIndex : wall.geometryRefs.faceIndices)
+            {
+                const auto* faceData = model.faceAt(faceIndex);
+                if (faceData == nullptr)
+                {
+                    continue;
+                }
+
+                faceShapes.push_back(faceData->shape);
+            }
+        }
+
+        for (int endIndex : element.endComponentIndices)
+        {
+            if (endIndex < 0 ||
+                endIndex >= static_cast<int>(endComponents.size()))
+            {
+                continue;
+            }
+
+            const auto& end = endComponents[endIndex];
+
+            for (int faceIndex : end.geometryRefs.faceIndices)
+            {
+                const auto* faceData = model.faceAt(faceIndex);
+                if (faceData == nullptr)
+                {
+                    continue;
+                }
+
+                faceShapes.push_back(faceData->shape);
+            }
+
+            for (int edgeIndex : end.geometryRefs.edgeIndices)
+            {
+                const auto* edgeData = model.edgeAt(edgeIndex);
+                if (edgeData == nullptr)
+                {
+                    continue;
+                }
+
+                edgeShapes.push_back(edgeData->shape);
+            }
+        }
+    }
+
+    if (!faceShapes.empty())
+    {
+        m_occView->displayShapes(
+            faceShapes,
+            OccQtCore::DisplayLayer::Analysis,
+            OccQtCore::DisplayStyle::analysisAdjacentFace());
+    }
+
+    if (!edgeShapes.empty())
+    {
+        m_occView->displayShapes(
+            edgeShapes,
+            OccQtCore::DisplayLayer::Analysis,
+            OccQtCore::DisplayStyle::analysisComponentEdge());
+    }
 }
 
