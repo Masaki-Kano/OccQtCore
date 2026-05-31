@@ -84,6 +84,16 @@ namespace OccQtCore
             const std::vector<Feature::HoleElement>& elements,
             const std::vector<Feature::HoleEndComponent>& endComponents) const;
 
+        void logHoleCandidates(
+            const OccQtCore::GeometryModel& model,
+            const std::vector<OccQtCore::Feature::HoleCandidate>& candidates,
+            const std::vector<OccQtCore::Feature::HoleElement>& elements,
+            const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
+            const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents) const;
+
+        void logHoleElementStepConnections(
+            const std::vector<Feature::HoleElementStepConnection>& connections) const;
+
     private:
         QString formatIndexList(const std::vector<int>& indices) const;
         QString formatFaceIndexList(

@@ -58,6 +58,7 @@ private:
     void buildHoleWallComponents();
     void buildHoleEndComponentsFromWallComponents();
     void buildHoleElements();
+    void buildHoleCandidates();
 
     // 穴関連一時表示デバック
     void displayHoleWallCandidates(
@@ -70,6 +71,12 @@ private:
         const std::vector<OccQtCore::Feature::HoleEndComponent>& components);
 
     void displayHoleElements(
+        const std::vector<OccQtCore::Feature::HoleElement>& elements,
+        const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
+        const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents);
+
+    void displayHoleCandidates(
+        const std::vector<OccQtCore::Feature::HoleCandidate>& candidates,
         const std::vector<OccQtCore::Feature::HoleElement>& elements,
         const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
         const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents);

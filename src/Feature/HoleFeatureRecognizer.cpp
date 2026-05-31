@@ -108,6 +108,23 @@ namespace
         return true;
     }
 
+    bool isSameHoleAxis(
+        const OccQtCore::Feature::HoleWallComponent& lhs,
+        const OccQtCore::Feature::HoleWallComponent& rhs)
+    {
+        if (!isSameDirectionOrReverse(lhs.axisDirection, rhs.axisDirection))
+        {
+            return false;
+        }
+
+        if (!isPointOnAxis(lhs.center, lhs.axisDirection, rhs.center))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     bool hasSharedEdge(
         const OccQtCore::GeometryModel& model,
         int lhsFaceIndex,
@@ -252,6 +269,239 @@ namespace
     {
         return kind == OccQtCore::SurfaceKind::Cone ||
                kind == OccQtCore::SurfaceKind::Torus;
+    }
+
+    const OccQtCore::Feature::HoleEndComponent* endComponentByIndex(
+        const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents,
+        int endComponentIndex)
+    {
+        if (endComponentIndex < 0 ||
+            endComponentIndex >= static_cast<int>(endComponents.size()))
+        {
+            return nullptr;
+        }
+
+        return &endComponents[endComponentIndex];
+    }
+
+    const OccQtCore::Feature::HoleWallComponent* wallComponentOfElement(
+        const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
+        const OccQtCore::Feature::HoleElement& element)
+    {
+        if (element.wallComponentIndex < 0 ||
+            element.wallComponentIndex >= static_cast<int>(wallComponents.size()))
+        {
+            return nullptr;
+        }
+
+        return &wallComponents[element.wallComponentIndex];
+    }
+
+    bool faceContainsAnyEdge(
+        const OccQtCore::GeometryModel& model,
+        int faceIndex,
+        const std::vector<int>& edgeIndices)
+    {
+        if (!OccQtCore::TopologyQuery::isValidFaceIndex(model, faceIndex))
+        {
+            return false;
+        }
+
+        const auto faceEdges =
+            OccQtCore::TopologyQuery::edgesOfFace(model, faceIndex);
+
+        for (int edgeIndex : edgeIndices)
+        {
+            if (OccQtCore::CollectionUtil::contains(faceEdges, edgeIndex))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool bottomEndFacesContainOpenEndEdges(
+        const OccQtCore::GeometryModel& model,
+        const OccQtCore::Feature::HoleEndComponent& bottomEnd,
+        const OccQtCore::Feature::HoleEndComponent& openEnd)
+    {
+        for (int bottomFaceIndex : bottomEnd.geometryRefs.faceIndices)
+        {
+            if (faceContainsAnyEdge(
+                    model,
+                    bottomFaceIndex,
+                    openEnd.geometryRefs.edgeIndices))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool bottomEndFacesAdjacentToOpenWallFaces(
+        const OccQtCore::GeometryModel& model,
+        const OccQtCore::Feature::HoleEndComponent& bottomEnd,
+        const OccQtCore::Feature::HoleWallComponent& openWall)
+    {
+        for (int bottomFaceIndex : bottomEnd.geometryRefs.faceIndices)
+        {
+            if (!OccQtCore::TopologyQuery::isValidFaceIndex(model, bottomFaceIndex))
+            {
+                continue;
+            }
+
+            const auto adjacentFaces =
+                OccQtCore::TopologyQuery::adjacentFacesOfFace(
+                    model,
+                    bottomFaceIndex);
+
+            for (int wallFaceIndex : openWall.geometryRefs.faceIndices)
+            {
+                if (OccQtCore::CollectionUtil::contains(
+                        adjacentFaces,
+                        wallFaceIndex))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    OccQtCore::Feature::HoleElementStepConnectionDirection stepConnectionDirection(
+        double bottomRadius,
+        double openRadius)
+    {
+        using Direction = OccQtCore::Feature::HoleElementStepConnectionDirection;
+
+        if (isSameRadius(bottomRadius, openRadius))
+        {
+            return Direction::Unknown;
+        }
+
+        return bottomRadius > openRadius
+            ? Direction::LargerToSmaller
+            : Direction::SmallerToLarger;
+    }
+
+    std::optional<OccQtCore::Feature::HoleElementStepConnection>
+    findBottomToOpenStepConnection(
+        const OccQtCore::GeometryModel& model,
+        int candidateIndex,
+        const OccQtCore::Feature::HoleElement& bottomOwnerElement,
+        const OccQtCore::Feature::HoleElement& openOwnerElement,
+        const std::vector<OccQtCore::Feature::HoleWallComponent>& wallComponents,
+        const std::vector<OccQtCore::Feature::HoleEndComponent>& endComponents)
+    {
+        const auto* bottomWall =
+            wallComponentOfElement(
+                wallComponents,
+                bottomOwnerElement);
+
+        const auto* openWall =
+            wallComponentOfElement(
+                wallComponents,
+                openOwnerElement);
+
+        if (bottomWall == nullptr || openWall == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        if (isSameRadius(bottomWall->radius, openWall->radius))
+        {
+            return std::nullopt;
+        }
+
+        for (int bottomEndIndex : bottomOwnerElement.endComponentIndices)
+        {
+            const auto* bottomEnd =
+                endComponentByIndex(
+                    endComponents,
+                    bottomEndIndex);
+
+            if (bottomEnd == nullptr)
+            {
+                continue;
+            }
+
+            if (bottomEnd->endType != OccQtCore::Feature::Hole::EndType::Bottom)
+            {
+                continue;
+            }
+
+            for (int openEndIndex : openOwnerElement.endComponentIndices)
+            {
+                const auto* openEnd =
+                    endComponentByIndex(
+                        endComponents,
+                        openEndIndex);
+
+                if (openEnd == nullptr)
+                {
+                    continue;
+                }
+
+                if (openEnd->endType != OccQtCore::Feature::Hole::EndType::Open)
+                {
+                    continue;
+                }
+
+                if (bottomEndFacesContainOpenEndEdges(
+                        model,
+                        *bottomEnd,
+                        *openEnd))
+                {
+                    OccQtCore::Feature::HoleElementStepConnection connection;
+
+                    connection.candidateIndex = candidateIndex;
+                    connection.bottomElementIndex = bottomOwnerElement.index;
+                    connection.openElementIndex = openOwnerElement.index;
+                    connection.bottomEndComponentIndex = bottomEndIndex;
+                    connection.openEndComponentIndex = openEndIndex;
+                    connection.bottomElementRadius = bottomWall->radius;
+                    connection.openElementRadius = openWall->radius;
+                    connection.direction =
+                        stepConnectionDirection(
+                            bottomWall->radius,
+                            openWall->radius);
+                    connection.reason =
+                        OccQtCore::Feature::HoleElementStepConnectionReason::
+                        BottomFaceContainsOpenEdge;
+
+                    return connection;
+                }
+
+                if (bottomEndFacesAdjacentToOpenWallFaces(
+                        model,
+                        *bottomEnd,
+                        *openWall))
+                {
+                    OccQtCore::Feature::HoleElementStepConnection connection;
+
+                    connection.candidateIndex = candidateIndex;
+                    connection.bottomElementIndex = bottomOwnerElement.index;
+                    connection.openElementIndex = openOwnerElement.index;
+                    connection.bottomEndComponentIndex = bottomEndIndex;
+                    connection.openEndComponentIndex = openEndIndex;
+                    connection.bottomElementRadius = bottomWall->radius;
+                    connection.openElementRadius = openWall->radius;
+                    connection.direction =
+                        stepConnectionDirection(
+                            bottomWall->radius,
+                            openWall->radius);
+                    connection.reason =
+                        OccQtCore::Feature::HoleElementStepConnectionReason::
+                        BottomEndFaceAdjacentToOpenWall;
+
+                    return connection;
+                }
+            }
+        }
+        return std::nullopt;
     }
 
     OccQtCore::Feature::HoleEndComponent makeBaseEndComponentFromWall(
@@ -471,8 +721,6 @@ namespace OccQtCore::Feature
         const auto endComponents = buildEndComponentsFromWallComponents(model, wallComponents);
         const auto holeElements =
             buildHoleElements(model, wallComponents, endComponents);
-
-        (void)holeElements;
 
         return {};
     }
@@ -708,5 +956,155 @@ namespace OccQtCore::Feature
         }
 
         return elements;
+    }
+
+    std::vector<HoleCandidate> HoleFeatureRecognizer::buildHoleCandidatesFromElements(
+        const std::vector<HoleWallComponent>& wallComponents,
+        const std::vector<HoleElement>& holeElements) const
+    {
+        std::vector<HoleCandidate> candidates;
+        std::vector<bool> used(holeElements.size(), false);
+
+        for (int baseElementArrayIndex = 0;
+             baseElementArrayIndex < static_cast<int>(holeElements.size());
+             ++baseElementArrayIndex)
+        {
+            if (used[baseElementArrayIndex])
+            {
+                continue;
+            }
+
+            const auto& baseElement = holeElements[baseElementArrayIndex];
+
+            const auto* baseWall =
+                wallComponentOfElement(
+                    wallComponents,
+                    baseElement);
+
+            if (baseWall == nullptr)
+            {
+                continue;
+            }
+
+            HoleCandidate candidate;
+            candidate.index = static_cast<int>(candidates.size());
+
+            OccQtCore::CollectionUtil::addUnique(
+                candidate.elementIndices,
+                baseElement.index);
+
+            used[baseElementArrayIndex] = true;
+
+            for (int nextElementArrayIndex = baseElementArrayIndex + 1;
+                 nextElementArrayIndex < static_cast<int>(holeElements.size());
+                 ++nextElementArrayIndex)
+            {
+                if (used[nextElementArrayIndex])
+                {
+                    continue;
+                }
+
+                const auto& nextElement = holeElements[nextElementArrayIndex];
+
+                const auto* nextWall =
+                    wallComponentOfElement(
+                        wallComponents,
+                        nextElement);
+
+                if (nextWall == nullptr)
+                {
+                    continue;
+                }
+
+                if (!isSameHoleAxis(*baseWall, *nextWall))
+                {
+                    continue;
+                }
+
+                OccQtCore::CollectionUtil::addUnique(
+                    candidate.elementIndices,
+                    nextElement.index);
+
+                used[nextElementArrayIndex] = true;
+            }
+
+            candidates.push_back(candidate);
+        }
+
+        return candidates;
+    }
+
+    std::vector<HoleElementStepConnection>
+    HoleFeatureRecognizer::buildStepConnectionsInHoleCandidates(
+        const GeometryModel& model,
+        const std::vector<HoleCandidate>& candidates,
+        const std::vector<HoleElement>& elements,
+        const std::vector<HoleWallComponent>& wallComponents,
+        const std::vector<HoleEndComponent>& endComponents) const
+    {
+        std::vector<HoleElementStepConnection> connections;
+
+        for (const auto& candidate : candidates)
+        {
+            for (int i = 0;
+                 i < static_cast<int>(candidate.elementIndices.size());
+                 ++i)
+            {
+                const int firstElementIndex = candidate.elementIndices[i];
+
+                if (firstElementIndex < 0 ||
+                    firstElementIndex >= static_cast<int>(elements.size()))
+                {
+                    continue;
+                }
+
+                const auto& firstElement = elements[firstElementIndex];
+
+                for (int j = i + 1;
+                     j < static_cast<int>(candidate.elementIndices.size());
+                     ++j)
+                {
+                    const int secondElementIndex = candidate.elementIndices[j];
+
+                    if (secondElementIndex < 0 ||
+                        secondElementIndex >= static_cast<int>(elements.size()))
+                    {
+                        continue;
+                    }
+
+                    const auto& secondElement = elements[secondElementIndex];
+
+                    const auto firstToSecond =
+                        findBottomToOpenStepConnection(
+                            model,
+                            candidate.index,
+                            firstElement,
+                            secondElement,
+                            wallComponents,
+                            endComponents);
+
+                    if (firstToSecond.has_value())
+                    {
+                        connections.push_back(firstToSecond.value());
+                    }
+
+                    const auto secondToFirst =
+                        findBottomToOpenStepConnection(
+                            model,
+                            candidate.index,
+                            secondElement,
+                            firstElement,
+                            wallComponents,
+                            endComponents);
+
+                    if (secondToFirst.has_value())
+                    {
+                        connections.push_back(secondToFirst.value());
+                    }
+                }
+            }
+        }
+
+        return connections;
     }
 }

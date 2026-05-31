@@ -130,6 +130,7 @@
      <addaction name="actionDetectHoleWallCandidates"/>
      <addaction name="actionBuildHoleWallComponents"/>
      <addaction name="actionBuildHoleElements"/>
+     <addaction name="actionBuildHoleCandidates"/>
     </widget>
     <addaction name="menuHole"/>
    </widget>
@@ -210,6 +211,11 @@
   <action name="actionBuildHoleElements">
    <property name="text">
     <string>穴要素生成</string>
+   </property>
+  </action>
+  <action name="actionBuildHoleCandidates">
+   <property name="text">
+    <string>穴候補生成</string>
    </property>
   </action>
  </widget>

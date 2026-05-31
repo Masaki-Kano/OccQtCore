@@ -130,6 +130,48 @@ namespace OccQtCore::Feature
         Hole::Type type = Hole::Type::Unknown;
     };
 
+    enum class HoleElementStepConnectionDirection
+    {
+        Unknown,
+
+        // Bottom側Elementの半径 > Open側Elementの半径
+        LargerToSmaller,
+
+        // Bottom側Elementの半径 < Open側Elementの半径
+        SmallerToLarger
+    };
+
+    enum class HoleElementStepConnectionReason
+    {
+        Unknown,
+
+        // BottomEndのFace群に、OpenEndのEdgeが含まれる
+        BottomFaceContainsOpenEdge,
+
+        // BottomEndのFace群が、Open側WallのFace群と隣接する
+        BottomEndFaceAdjacentToOpenWall
+    };
+
+    struct HoleElementStepConnection
+    {
+        int candidateIndex = -1;
+
+        int bottomElementIndex = -1;
+        int openElementIndex = -1;
+
+        int bottomEndComponentIndex = -1;
+        int openEndComponentIndex = -1;
+
+        double bottomElementRadius = 0.0;
+        double openElementRadius = 0.0;
+
+        HoleElementStepConnectionDirection direction =
+            HoleElementStepConnectionDirection::Unknown;
+
+        HoleElementStepConnectionReason reason =
+            HoleElementStepConnectionReason::Unknown;
+    };
+
     /**
      * @brief 穴フィーチャ候補
      *
@@ -171,6 +213,15 @@ namespace OccQtCore::Feature
         std::vector<HoleWallComponent> buildWallComponents(const GeometryModel& model, const std::vector<HoleWallCandidate>& wallCandidates) const;
         std::vector<HoleEndComponent> buildEndComponentsFromWallComponents(const GeometryModel& model, const std::vector<HoleWallComponent>& wallComponents) const;
         std::vector<HoleElement> buildHoleElements(const GeometryModel& model, const std::vector<HoleWallComponent>& wallComponents, const std::vector<HoleEndComponent>& endComponents) const;
+        std::vector<HoleCandidate> buildHoleCandidatesFromElements(
+            const std::vector<HoleWallComponent>& wallComponents,
+            const std::vector<HoleElement>& holeElements) const;
+        std::vector<HoleElementStepConnection> buildStepConnectionsInHoleCandidates(
+            const GeometryModel& model,
+            const std::vector<HoleCandidate>& candidates,
+            const std::vector<HoleElement>& elements,
+            const std::vector<HoleWallComponent>& wallComponents,
+            const std::vector<HoleEndComponent>& endComponents) const;
 
     };
 }

@@ -82,6 +82,46 @@ namespace OccQtCore
                 return "Unknown";
             }
         }
+
+        QString stepConnectionDirectionToString(
+            OccQtCore::Feature::HoleElementStepConnectionDirection direction)
+        {
+            using Direction =
+                OccQtCore::Feature::HoleElementStepConnectionDirection;
+
+            switch (direction)
+            {
+            case Direction::LargerToSmaller:
+                return "LargerToSmaller";
+
+            case Direction::SmallerToLarger:
+                return "SmallerToLarger";
+
+            case Direction::Unknown:
+            default:
+                return "Unknown";
+            }
+        }
+
+        QString stepConnectionReasonToString(
+            OccQtCore::Feature::HoleElementStepConnectionReason reason)
+        {
+            using Reason =
+                OccQtCore::Feature::HoleElementStepConnectionReason;
+
+            switch (reason)
+            {
+            case Reason::BottomFaceContainsOpenEdge:
+                return "BottomFaceContainsOpenEdge";
+
+            case Reason::BottomEndFaceAdjacentToOpenWall:
+                return "BottomEndFaceAdjacentToOpenWall";
+
+            case Reason::Unknown:
+            default:
+                return "Unknown";
+            }
+        }
     }
 
     AppLogReporter::AppLogReporter(AppLogger* logger)
@@ -755,6 +795,158 @@ namespace OccQtCore
                     .arg(typeText)
                     .arg(element.wallComponentIndex)
                     .arg(endTexts.join(", ")));
+        }
+    }
+
+    void AppLogReporter::logHoleCandidates(
+        const GeometryModel& model,
+        const std::vector<Feature::HoleCandidate>& candidates,
+        const std::vector<Feature::HoleElement>& elements,
+        const std::vector<Feature::HoleWallComponent>& wallComponents,
+        const std::vector<Feature::HoleEndComponent>& endComponents) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("========== 穴候補 ==========");
+        m_logger->info(QString("候補数: %1").arg(candidates.size()));
+
+        for (const auto& candidate : candidates)
+        {
+            QStringList elementTexts;
+
+            for (int elementIndex : candidate.elementIndices)
+            {
+                elementTexts.push_back(QString::number(elementIndex));
+            }
+
+            m_logger->info(
+                QString("HoleCandidate[%1]: Elements=[%2]")
+                    .arg(candidate.index)
+                    .arg(elementTexts.join(", ")));
+
+            for (int elementIndex : candidate.elementIndices)
+            {
+                if (elementIndex < 0 ||
+                    elementIndex >= static_cast<int>(elements.size()))
+                {
+                    m_logger->warn(
+                        QString("  Element[%1]: Invalid").arg(elementIndex));
+                    continue;
+                }
+
+                const auto& element = elements[elementIndex];
+
+                QString typeText = "Unknown";
+
+                switch (element.type)
+                {
+                case Feature::Hole::Type::SimpleBlind:
+                    typeText = "SimpleBlind";
+                    break;
+
+                case Feature::Hole::Type::SimpleThrough:
+                    typeText = "SimpleThrough";
+                    break;
+
+                case Feature::Hole::Type::SteppedBlind:
+                    typeText = "SteppedBlind";
+                    break;
+
+                case Feature::Hole::Type::SteppedThrough:
+                    typeText = "SteppedThrough";
+                    break;
+
+                case Feature::Hole::Type::ConterBore:
+                    typeText = "CounterBore";
+                    break;
+
+                case Feature::Hole::Type::CounterSink:
+                    typeText = "CounterSink";
+                    break;
+
+                default:
+                    break;
+                }
+
+                QString wallText = "Invalid";
+
+                if (element.wallComponentIndex >= 0 &&
+                    element.wallComponentIndex < static_cast<int>(wallComponents.size()))
+                {
+                    const auto& wall = wallComponents[element.wallComponentIndex];
+
+                    wallText =
+                        QString("%1, Faces=[%2], Center=(%3, %4, %5), Axis=(%6, %7, %8), Radius=%9")
+                            .arg(element.wallComponentIndex)
+                            .arg(formatFaceIndexList(model, wall.geometryRefs.faceIndices))
+                            .arg(wall.center.X(), 0, 'f', 3)
+                            .arg(wall.center.Y(), 0, 'f', 3)
+                            .arg(wall.center.Z(), 0, 'f', 3)
+                            .arg(wall.axisDirection.X(), 0, 'f', 3)
+                            .arg(wall.axisDirection.Y(), 0, 'f', 3)
+                            .arg(wall.axisDirection.Z(), 0, 'f', 3)
+                            .arg(wall.radius, 0, 'f', 3);
+                }
+
+                QStringList endTexts;
+
+                for (int endIndex : element.endComponentIndices)
+                {
+                    if (endIndex < 0 ||
+                        endIndex >= static_cast<int>(endComponents.size()))
+                    {
+                        endTexts.push_back(
+                            QString("%1:Invalid").arg(endIndex));
+                        continue;
+                    }
+
+                    const auto& end = endComponents[endIndex];
+
+                    endTexts.push_back(
+                        QString("%1:%2, Faces=[%3], Edges=[%4]")
+                            .arg(endIndex)
+                            .arg(endTypeToString(end.endType))
+                            .arg(formatFaceIndexList(model, end.geometryRefs.faceIndices))
+                            .arg(formatEdgeIndexList(model, end.geometryRefs.edgeIndices)));
+                }
+
+                m_logger->info(
+                    QString("  Element[%1]: Type=%2, Wall={%3}, Ends=[%4]")
+                        .arg(element.index)
+                        .arg(typeText)
+                        .arg(wallText)
+                        .arg(endTexts.join(" | ")));
+            }
+        }
+    }
+
+    void AppLogReporter::logHoleElementStepConnections(
+        const std::vector<Feature::HoleElementStepConnection>& connections) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("========== 穴要素Step接続 ==========");
+        m_logger->info(QString("接続数: %1").arg(connections.size()));
+
+        for (const auto& connection : connections)
+        {
+            m_logger->info(
+                QString("StepConnection: Candidate=%1, BottomElement=%2(R=%3), OpenElement=%4(R=%5), BottomEnd=%6, OpenEnd=%7, Direction=%8, Reason=%9")
+                    .arg(connection.candidateIndex)
+                    .arg(connection.bottomElementIndex)
+                    .arg(connection.bottomElementRadius, 0, 'f', 3)
+                    .arg(connection.openElementIndex)
+                    .arg(connection.openElementRadius, 0, 'f', 3)
+                    .arg(connection.bottomEndComponentIndex)
+                    .arg(connection.openEndComponentIndex)
+                    .arg(stepConnectionDirectionToString(connection.direction))
+                    .arg(stepConnectionReasonToString(connection.reason)));
         }
     }
 
