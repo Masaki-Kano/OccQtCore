@@ -33,6 +33,18 @@ namespace OccQtCore
             int vertexIndex);
 
         /**
+         * @brief 2つのFaceが共通Edgeを持つか判定する
+         * @param model 対象ジオメトリモデル
+         * @param lhsFaceIndex 比較元Faceインデックス
+         * @param rhsFaceIndex 比較先Faceインデックス
+         * @return
+         */
+        bool hasSharedEdge(
+            const GeometryModel& model,
+            int lhsFaceIndex,
+            int rhsFaceIndex);
+
+        /**
          * @brief Faceに属するEdgeを取得する
          *
          * Face -> Wire -> Edge の合成問い合わせ。

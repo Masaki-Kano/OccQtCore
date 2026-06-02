@@ -1,478 +1,193 @@
+#include <algorithm>
 #include <cmath>
-#include <set>
-#include <tuple>
-
-#include <TopoDS.hxx>
 
 #include "Feature/HoleFeatureRecognizer.h"
+
 #include "Core/CollectionUtil.h"
+#include "Feature/HoleRecognitionUtil.h"
 #include "Geometry/GeometryModel.h"
 #include "Geometry/TopologyQuery.h"
-#include "Geometry/SurfaceUtil.h"
 
 namespace
 {
-    constexpr double Pi = 3.14159265358979323846;
-    constexpr double RadiusTolerance = 1.0e-4;
-    constexpr double AxisLineTolerance = 1.0e-4;
-    constexpr double DirectionTolerance = 1.0e-6;
-    constexpr double AngleTolerance = 1.0e-3;
+    constexpr double SegmentEndAxialTolerance = 1.0e-3;
 
-    struct HoleEndComponentKey
+    int holeEndTypePriority(
+        OccQtCore::Feature::HoleEndCandidateType type)
     {
-        int wallComponentIndex = -1;
-        std::vector<int> faceIndices;
-        std::vector<int> edgeIndicesForFaceLessOpen;
-        OccQtCore::Feature::Hole::EndType endType =
-            OccQtCore::Feature::Hole::EndType::Unknown;
+        using OccQtCore::Feature::HoleEndCandidateType;
 
-        bool operator<(const HoleEndComponentKey& other) const
+        switch (type)
         {
-            return std::tie(
-                       wallComponentIndex,
-                       faceIndices,
-                       edgeIndicesForFaceLessOpen,
-                       endType)
-                   < std::tie(
-                       other.wallComponentIndex,
-                       other.faceIndices,
-                       other.edgeIndicesForFaceLessOpen,
-                       other.endType);
+        case HoleEndCandidateType::Open:
+            return 3;
+
+        case HoleEndCandidateType::WallConnection:
+            return 2;
+
+        case HoleEndCandidateType::Bottom:
+            return 1;
+
+        case HoleEndCandidateType::Unknown:
+        default:
+            return 0;
         }
-    };
-
-    HoleEndComponentKey makeHoleEndComponentKey(
-        const OccQtCore::Feature::HoleEndComponent& component)
-    {
-        HoleEndComponentKey key;
-
-        key.wallComponentIndex = component.wallComponentIndex;
-        key.faceIndices = component.geometryRefs.faceIndices;
-        key.endType = component.endType;
-
-        OccQtCore::CollectionUtil::sortUnique(key.faceIndices);
-
-        // 面取りなしOpenは faceIndices が空になる。
-        // 貫通穴の両端Openを同一扱いで潰さないため、
-        // faceIndices が空のOpen端だけ edgeIndices をキーに含める。
-        if (component.endType == OccQtCore::Feature::Hole::EndType::Open &&
-            component.geometryRefs.faceIndices.empty())
-        {
-            key.edgeIndicesForFaceLessOpen = component.geometryRefs.edgeIndices;
-            OccQtCore::CollectionUtil::sortUnique(key.edgeIndicesForFaceLessOpen);
-        }
-
-        return key;
     }
 
-    bool isSameRadius(double lhs, double rhs)
+    bool isBetterRepresentativeEnd(
+        const OccQtCore::Feature::HoleEndCandidate& current,
+        const OccQtCore::Feature::HoleEndCandidate& next)
     {
-        return std::abs(lhs - rhs) <= RadiusTolerance;
+        return holeEndTypePriority(next.type) >
+               holeEndTypePriority(current.type);
     }
 
-    bool isSameDirectionOrReverse(const gp_Dir& lhs, const gp_Dir& rhs)
+    std::vector<int> selectRepresentativeEndIndicesForSegment(
+        const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates,
+        const std::vector<int>& sourceEndIndices)
     {
-        return std::abs(lhs.Dot(rhs)) >= 1.0 - DirectionTolerance;
-    }
-
-    bool isPointOnAxis(
-        const gp_Pnt& axisPoint,
-        const gp_Dir& axisDirection,
-        const gp_Pnt& point)
-    {
-        const gp_Vec v(axisPoint, point);
-        const gp_Vec axisVec(axisDirection);
-
-        return v.Crossed(axisVec).Magnitude() <= AxisLineTolerance;
-    }
-
-    bool isSameCylinderCandidate(
-        const OccQtCore::Feature::HoleWallCandidate& lhs,
-        const OccQtCore::Feature::HoleWallCandidate& rhs)
-    {
-        if (!isSameRadius(lhs.radius, rhs.radius))
+        struct EndGroup
         {
-            return false;
-        }
+            double axialPosition = 0.0;
+            int representativeEndIndex = -1;
+        };
 
-        if (!isSameDirectionOrReverse(lhs.axisDirection, rhs.axisDirection))
+        std::vector<EndGroup> groups;
+
+        for (int endIndex : sourceEndIndices)
         {
-            return false;
-        }
-
-        if (!isPointOnAxis(lhs.center, lhs.axisDirection, rhs.center))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    bool hasSharedEdge(
-        const OccQtCore::GeometryModel& model,
-        int lhsFaceIndex,
-        int rhsFaceIndex)
-    {
-        const auto lhsEdges =
-            OccQtCore::TopologyQuery::edgesOfFace(model, lhsFaceIndex);
-
-        const auto rhsEdges =
-            OccQtCore::TopologyQuery::edgesOfFace(model, rhsFaceIndex);
-
-        for (int edgeIndex : lhsEdges)
-        {
-            if (OccQtCore::CollectionUtil::contains(rhsEdges, edgeIndex))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    double cylinderFaceUSpan(
-        const OccQtCore::GeometryModel& model,
-        int faceIndex)
-    {
-        const auto* faceData = model.faceAt(faceIndex);
-
-        if (faceData == nullptr)
-        {
-            return 0.0;
-        }
-
-        return std::abs(faceData->info.uMax - faceData->info.uMin);
-    }
-
-    bool isClosedCylinderWallGroup(
-        const OccQtCore::GeometryModel& model,
-        const std::vector<OccQtCore::Feature::HoleWallCandidate>& wallCandidates,
-        const std::vector<int>& candidateIndices)
-    {
-        double totalUSpan = 0.0;
-
-        for (int candidateIndex : candidateIndices)
-        {
-            if (candidateIndex < 0 ||
-                candidateIndex >= static_cast<int>(wallCandidates.size()))
+            if (endIndex < 0 ||
+                endIndex >= static_cast<int>(endCandidates.size()))
             {
                 continue;
             }
 
-            const int faceIndex = wallCandidates[candidateIndex].faceIndex;
-            totalUSpan += cylinderFaceUSpan(model, faceIndex);
-        }
+            const auto& end = endCandidates[endIndex];
 
-        return totalUSpan >= 2.0 * Pi - AngleTolerance;
-    }
-
-    bool isCylinderFaceInwardOriented(
-        const OccQtCore::GeometryModel& model,
-        int faceIndex)
-    {
-        const auto* faceData = model.faceAt(faceIndex);
-
-        if (faceData == nullptr)
-        {
-            return false;
-        }
-
-        if (faceData->info.kind != OccQtCore::SurfaceKind::Cylinder ||
-            !faceData->info.cylinder.has_value())
-        {
-            return false;
-        }
-
-        const TopoDS_Face face = TopoDS::Face(faceData->shape);
-        const auto& cylinder = faceData->info.cylinder.value();
-
-        return OccQtCore::SurfaceUtil::isCylinderFaceInwardOriented(
-            face,
-            cylinder.axis,
-            faceData->info.uMin,
-            faceData->info.uMax,
-            faceData->info.vMin,
-            faceData->info.vMax);
-    }
-
-    bool isLikelyHoleWallByOrientation(
-        const OccQtCore::GeometryModel& model,
-        const OccQtCore::Feature::HoleWallComponent& component)
-    {
-        int inwardCount = 0;
-
-        for (int faceIndex : component.geometryRefs.faceIndices)
-        {
-            if (isCylinderFaceInwardOriented(model, faceIndex))
-            {
-                ++inwardCount;
-            }
-        }
-
-        return inwardCount > 0;
-    }
-
-    bool isConnectionEdgeOnInnerWireOfFace(
-        const OccQtCore::GeometryModel& model,
-        int faceIndex,
-        int edgeIndex)
-    {
-        if (!OccQtCore::TopologyQuery::isValidFaceIndex(model, faceIndex) ||
-            !OccQtCore::TopologyQuery::isValidEdgeIndex(model, edgeIndex))
-        {
-            return false;
-        }
-
-        const auto& graph = model.graph();
-        const auto& wires = model.wires();
-
-        for (int wireIndex : graph.wiresOfFace(faceIndex))
-        {
-            if (!OccQtCore::TopologyQuery::isValidWireIndex(model, wireIndex))
+            if (!end.hasAxialPosition)
             {
                 continue;
             }
 
-            const auto edgeIndices = graph.edgesOfWire(wireIndex);
-
-            if (!OccQtCore::CollectionUtil::contains(edgeIndices, edgeIndex))
-            {
-                continue;
-            }
-
-            const auto& wire = wires[wireIndex];
-
-            return wire.info.isInner && wire.info.isClosed;
-        }
-
-        return false;
-    }
-
-    bool isTransitionSurface(OccQtCore::SurfaceKind kind)
-    {
-        return kind == OccQtCore::SurfaceKind::Cone ||
-               kind == OccQtCore::SurfaceKind::Torus;
-    }
-
-    OccQtCore::Feature::HoleEndComponent makeBaseEndComponentFromWall(
-        const OccQtCore::Feature::HoleWallComponent& wallComponent)
-    {
-        OccQtCore::Feature::HoleEndComponent component;
-
-        component.wallComponentIndex = wallComponent.index;
-        component.center = wallComponent.center;
-        component.axisDirection = wallComponent.axisDirection;
-        component.normalDirection = wallComponent.axisDirection;
-        component.radius = wallComponent.radius;
-
-        return component;
-    }
-
-    std::optional<OccQtCore::Feature::HoleEndComponent>
-    buildDirectEndComponentFromWallConnection(
-        const OccQtCore::GeometryModel& model,
-        const OccQtCore::Feature::HoleWallComponent& wallComponent,
-        int adjacentFaceIndex,
-        int connectionEdgeIndex)
-    {
-        const auto* faceData = model.faceAt(adjacentFaceIndex);
-
-        if (faceData == nullptr)
-        {
-            return std::nullopt;
-        }
-
-        auto component = makeBaseEndComponentFromWall(wallComponent);
-
-        // 面取り無しOpen端:
-        // Wallとの接続Edgeが、隣接Face側でInnerWireに属しているならOpen端。
-        if (isConnectionEdgeOnInnerWireOfFace(
-                model,
-                adjacentFaceIndex,
-                connectionEdgeIndex))
-        {
-            component.endType = OccQtCore::Feature::Hole::EndType::Open;
-
-            // Open先の外部Planeは穴端構成Faceには入れない。
-            OccQtCore::CollectionUtil::addUnique(component.geometryRefs.edgeIndices, connectionEdgeIndex);
-
-            return component;
-        }
-
-        // Wall -> Plane
-        // InnerWireでなければ平底として扱う。
-        if (faceData->info.kind == OccQtCore::SurfaceKind::Plane)
-        {
-            component.endType = OccQtCore::Feature::Hole::EndType::Bottom;
-
-            OccQtCore::CollectionUtil::addUnique(component.geometryRefs.faceIndices, adjacentFaceIndex);
-            OccQtCore::CollectionUtil::addUnique(component.geometryRefs.edgeIndices, connectionEdgeIndex);
-
-            return component;
-        }
-
-        return std::nullopt;
-    }
-
-    std::optional<OccQtCore::Feature::HoleEndComponent>
-    buildEndComponentThroughTransitionSurface(
-        const OccQtCore::GeometryModel& model,
-        const OccQtCore::Feature::HoleWallComponent& wallComponent,
-        int transitionFaceIndex,
-        int wallConnectionEdgeIndex)
-    {
-        const auto* transitionFaceData = model.faceAt(transitionFaceIndex);
-
-        if (transitionFaceData == nullptr)
-        {
-            return std::nullopt;
-        }
-
-        if (!isTransitionSurface(transitionFaceData->info.kind))
-        {
-            return std::nullopt;
-        }
-
-        const auto transitionEdgeIndices =
-            OccQtCore::TopologyQuery::edgesOfFace(
-                model,
-                transitionFaceIndex);
-
-        for (int nextEdgeIndex : transitionEdgeIndices)
-        {
-            if (nextEdgeIndex == wallConnectionEdgeIndex)
-            {
-                continue;
-            }
-
-            const auto nextFaceIndices =
-                OccQtCore::TopologyQuery::adjacentFacesOfEdge(
-                    model,
-                    nextEdgeIndex,
-                    transitionFaceIndex);
-
-            for (int nextFaceIndex : nextFaceIndices)
-            {
-                const auto* nextFaceData = model.faceAt(nextFaceIndex);
-
-                if (nextFaceData == nullptr)
+            auto groupIt = std::find_if(
+                groups.begin(),
+                groups.end(),
+                [&](const EndGroup& group)
                 {
-                    continue;
-                }
+                    return std::abs(group.axialPosition - end.axialPosition) <
+                           SegmentEndAxialTolerance;
+                });
 
-                auto component = makeBaseEndComponentFromWall(wallComponent);
+            if (groupIt == groups.end())
+            {
+                groups.push_back(
+                    EndGroup{
+                             end.axialPosition,
+                             endIndex});
+                continue;
+            }
 
-                // 遷移面は穴端コンポーネントの構成Faceに含める。
-                OccQtCore::CollectionUtil::addUnique(
-                    component.geometryRefs.faceIndices,
-                    transitionFaceIndex);
+            const auto& currentRepresentative =
+                endCandidates[groupIt->representativeEndIndex];
 
-                OccQtCore::CollectionUtil::addUnique(
-                    component.geometryRefs.edgeIndices,
-                    wallConnectionEdgeIndex);
-
-                OccQtCore::CollectionUtil::addUnique(
-                    component.geometryRefs.edgeIndices,
-                    nextEdgeIndex);
-
-                // Wall -> Cone/Torus -> 外部PlaneのInnerWire
-                // 面取り/R付きOpen端。
-                if (isConnectionEdgeOnInnerWireOfFace(
-                        model,
-                        nextFaceIndex,
-                        nextEdgeIndex))
-                {
-                    component.endType = OccQtCore::Feature::Hole::EndType::Open;
-
-                    // Open先の外部Planeは構成Faceには入れない。
-                    return component;
-                }
-
-                // Wall -> Cone/Torus -> Plane
-                // 面取り/R付きBottom。
-                if (nextFaceData->info.kind == OccQtCore::SurfaceKind::Plane)
-                {
-                    component.endType = OccQtCore::Feature::Hole::EndType::Bottom;
-
-                    OccQtCore::CollectionUtil::addUnique(
-                        component.geometryRefs.faceIndices,
-                        nextFaceIndex);
-
-                    return component;
-                }
-
-                // Wall -> Cone/Torus -> Cylinder
-                // 別径Wall / Step候補。
-                // Stepはこの段階ではまだ確定しない。
+            if (isBetterRepresentativeEnd(
+                    currentRepresentative,
+                    end))
+            {
+                groupIt->representativeEndIndex = endIndex;
             }
         }
 
-        // Wall -> Cone で、その先に有効な接続が見つからない場合。
-        // 普通のドリル底の円錐面として Bottom 扱いする。
-        if (transitionFaceData->info.kind == OccQtCore::SurfaceKind::Cone)
+        std::sort(
+            groups.begin(),
+            groups.end(),
+            [](const EndGroup& lhs, const EndGroup& rhs)
+            {
+                return lhs.axialPosition < rhs.axialPosition;
+            });
+
+        std::vector<int> selectedEndIndices;
+
+        if (!groups.empty())
         {
-            auto component = makeBaseEndComponentFromWall(wallComponent);
-
-            component.endType = OccQtCore::Feature::Hole::EndType::Bottom;
-
-            OccQtCore::CollectionUtil::addUnique(
-                component.geometryRefs.faceIndices,
-                transitionFaceIndex);
-
-            OccQtCore::CollectionUtil::addUnique(
-                component.geometryRefs.edgeIndices,
-                wallConnectionEdgeIndex);
-
-            return component;
+            selectedEndIndices.push_back(
+                groups.front().representativeEndIndex);
         }
 
-        // Torus単独終端は怪しいので、今はUnknown扱い。
-        return std::nullopt;
+        if (groups.size() >= 2)
+        {
+            selectedEndIndices.push_back(
+                groups.back().representativeEndIndex);
+        }
+
+        return selectedEndIndices;
     }
 
-    std::optional<OccQtCore::Feature::HoleEndComponent>
-    buildEndComponentFromWallConnection(
-        const OccQtCore::GeometryModel& model,
-        const OccQtCore::Feature::HoleWallComponent& wallComponent,
-        int adjacentFaceIndex,
-        int connectionEdgeIndex)
+    void countEndTypes(
+        const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates,
+        const std::vector<int>& endCandidateIndices,
+        int& openCount,
+        int& bottomCount,
+        int& wallConnectionCount)
     {
-        const auto* faceData = model.faceAt(adjacentFaceIndex);
+        openCount = 0;
+        bottomCount = 0;
+        wallConnectionCount = 0;
 
-        if (faceData == nullptr)
+        for (int endIndex : endCandidateIndices)
         {
-            return std::nullopt;
-        }
+            if (endIndex < 0 ||
+                endIndex >= static_cast<int>(endCandidates.size()))
+            {
+                continue;
+            }
 
-        if (isTransitionSurface(faceData->info.kind))
-        {
-            return buildEndComponentThroughTransitionSurface(
-                model,
-                wallComponent,
-                adjacentFaceIndex,
-                connectionEdgeIndex);
-        }
+            const auto& end = endCandidates[endIndex];
 
-        return buildDirectEndComponentFromWallConnection(
-            model,
-            wallComponent,
-            adjacentFaceIndex,
-            connectionEdgeIndex);
+            if (end.type == OccQtCore::Feature::HoleEndCandidateType::Open)
+            {
+                ++openCount;
+            }
+            else if (end.type == OccQtCore::Feature::HoleEndCandidateType::Bottom)
+            {
+                ++bottomCount;
+            }
+            else if (end.type == OccQtCore::Feature::HoleEndCandidateType::WallConnection)
+            {
+                ++wallConnectionCount;
+            }
+        }
     }
 }
 
 namespace OccQtCore::Feature
 {
 
-    std::vector<Hole::Data> HoleFeatureRecognizer::recognize(const GeometryModel& model) const
+    std::vector<Hole::Data> HoleFeatureRecognizer::recognize(
+        const GeometryModel& model) const
     {
-        const auto wallCandidates = detectWallCandidates(model);
-        const auto wallComponents = buildWallComponents(model, wallCandidates);
-        const auto endComponents = buildEndComponentsFromWallComponents(model, wallComponents);
-        const auto holeElements =
-            buildHoleElements(model, wallComponents, endComponents);
+        const auto wallCandidates =
+            detectWallCandidates(model);
 
-        (void)holeElements;
+        const auto endCandidates =
+            detectEndCandidates(
+                model,
+                wallCandidates);
+
+        const auto segmentCandidates =
+            buildSegmentCandidates(
+                model,
+                wallCandidates,
+                endCandidates);
+
+        const auto holeCandidates =
+            buildHoleCandidates(
+                model,
+                wallCandidates,
+                endCandidates,
+                segmentCandidates);
+
+        (void)holeCandidates;
 
         return {};
     }
@@ -480,8 +195,9 @@ namespace OccQtCore::Feature
     std::vector<HoleWallCandidate> HoleFeatureRecognizer::detectWallCandidates(
         const GeometryModel& model) const
     {
-        std::vector<HoleWallCandidate> candidates;
+        std::vector<HoleWallCandidate> rawCandidates;
 
+        // 1. 円筒Faceを1枚単位の穴壁候補として抽出する。
         for (const auto& face : model.faces())
         {
             if (face.info.kind != SurfaceKind::Cylinder)
@@ -497,28 +213,26 @@ namespace OccQtCore::Feature
             const auto& cylinder = face.info.cylinder.value();
 
             HoleWallCandidate candidate;
-            candidate.index = static_cast<int>(candidates.size());
-            candidate.faceIndex = face.index;
+            candidate.index = static_cast<int>(rawCandidates.size());
+
+            OccQtCore::CollectionUtil::addUnique(
+                candidate.geometryRefs.faceIndices,
+                face.index);
+
             candidate.center = cylinder.axis.Location();
             candidate.axisDirection = cylinder.axis.Direction();
             candidate.radius = cylinder.radius;
+            candidate.depth = 0.0;
 
-            candidates.push_back(candidate);
+            rawCandidates.push_back(candidate);
         }
 
-        return candidates;
-    }
+        std::vector<HoleWallCandidate> wallCandidates;
+        std::vector<bool> used(rawCandidates.size(), false);
 
-    std::vector<HoleWallComponent> HoleFeatureRecognizer::buildWallComponents(
-        const GeometryModel& model,
-        const std::vector<HoleWallCandidate>& wallCandidates) const
-    {
-        std::vector<HoleWallComponent> components;
-
-        std::vector<bool> used(wallCandidates.size(), false);
-
+        // 2. 同軸・同半径・トポロジー的に接続している円筒Face群をまとめる。
         for (int baseCandidateIndex = 0;
-             baseCandidateIndex < static_cast<int>(wallCandidates.size());
+             baseCandidateIndex < static_cast<int>(rawCandidates.size());
              ++baseCandidateIndex)
         {
             if (used[baseCandidateIndex])
@@ -526,7 +240,8 @@ namespace OccQtCore::Feature
                 continue;
             }
 
-            const auto& baseCandidate = wallCandidates[baseCandidateIndex];
+            const auto& baseCandidate =
+                rawCandidates[baseCandidateIndex];
 
             std::vector<int> groupCandidateIndices;
             std::vector<int> stack;
@@ -541,10 +256,11 @@ namespace OccQtCore::Feature
 
                 groupCandidateIndices.push_back(currentCandidateIndex);
 
-                const auto& currentCandidate = wallCandidates[currentCandidateIndex];
+                const auto& currentCandidate =
+                    rawCandidates[currentCandidateIndex];
 
                 for (int nextCandidateIndex = 0;
-                     nextCandidateIndex < static_cast<int>(wallCandidates.size());
+                     nextCandidateIndex < static_cast<int>(rawCandidates.size());
                      ++nextCandidateIndex)
                 {
                     if (used[nextCandidateIndex])
@@ -552,17 +268,32 @@ namespace OccQtCore::Feature
                         continue;
                     }
 
-                    const auto& nextCandidate = wallCandidates[nextCandidateIndex];
+                    const auto& nextCandidate =
+                        rawCandidates[nextCandidateIndex];
 
-                    if (!isSameCylinderCandidate(currentCandidate, nextCandidate))
+                    if (!HoleRecognitionUtil::isSameCylinderCandidate(
+                            currentCandidate,
+                            nextCandidate))
                     {
                         continue;
                     }
 
-                    if (!hasSharedEdge(
+                    if (currentCandidate.geometryRefs.faceIndices.empty() ||
+                        nextCandidate.geometryRefs.faceIndices.empty())
+                    {
+                        continue;
+                    }
+
+                    const int currentFaceIndex =
+                        currentCandidate.geometryRefs.faceIndices.front();
+
+                    const int nextFaceIndex =
+                        nextCandidate.geometryRefs.faceIndices.front();
+
+                    if (!TopologyQuery::hasSharedEdge(
                             model,
-                            currentCandidate.faceIndex,
-                            nextCandidate.faceIndex))
+                            currentFaceIndex,
+                            nextFaceIndex))
                     {
                         continue;
                     }
@@ -572,141 +303,192 @@ namespace OccQtCore::Feature
                 }
             }
 
-            if (!isClosedCylinderWallGroup(model, wallCandidates, groupCandidateIndices))
+            if (!HoleRecognitionUtil::isClosedCylinderWallGroup(
+                    model,
+                    rawCandidates,
+                    groupCandidateIndices))
             {
                 continue;
             }
 
-            HoleWallComponent component;
+            HoleWallCandidate wallCandidate;
 
             for (int candidateIndex : groupCandidateIndices)
             {
-                const int faceIndex = wallCandidates[candidateIndex].faceIndex;
-                OccQtCore::CollectionUtil::addUnique(component.geometryRefs.faceIndices, faceIndex);
+                for (int faceIndex :
+                     rawCandidates[candidateIndex].geometryRefs.faceIndices)
+                {
+                    OccQtCore::CollectionUtil::addUnique(
+                        wallCandidate.geometryRefs.faceIndices,
+                        faceIndex);
+                }
             }
 
-            component.center = baseCandidate.center;
-            component.axisDirection = baseCandidate.axisDirection;
-            component.radius = baseCandidate.radius;
-            component.depth = 0.0;
+            wallCandidate.center = baseCandidate.center;
+            wallCandidate.axisDirection = baseCandidate.axisDirection;
+            wallCandidate.radius = baseCandidate.radius;
+            wallCandidate.depth = 0.0;
 
-            if (!isLikelyHoleWallByOrientation(model, component))
+            if (!HoleRecognitionUtil::isLikelyHoleWallByOrientation(
+                    model,
+                    wallCandidate))
             {
                 continue;
             }
 
-            component.index = static_cast<int>(components.size());
-            components.push_back(component);
+            wallCandidate.index = static_cast<int>(wallCandidates.size());
+            wallCandidates.push_back(wallCandidate);
         }
 
-        return components;
+        return wallCandidates;
     }
 
-    std::vector<HoleEndComponent> HoleFeatureRecognizer::buildEndComponentsFromWallComponents(
+    std::vector<HoleEndCandidate> HoleFeatureRecognizer::detectEndCandidates(
         const GeometryModel& model,
-        const std::vector<HoleWallComponent>& wallComponents) const
+        const std::vector<HoleWallCandidate>& wallCandidates) const
     {
-        std::vector<HoleEndComponent> components;
-        std::set<HoleEndComponentKey> usedEndComponentKeys;
+        std::vector<HoleEndCandidate> candidates;
 
-        for (const auto& wallComponent : wallComponents)
+        for (const auto& wallCandidate : wallCandidates)
         {
             const auto connections =
                 TopologyQuery::collectBoundaryConnectionsOfFaceGroup(
                     model,
-                    wallComponent.geometryRefs.faceIndices);
+                    wallCandidate.geometryRefs.faceIndices);
 
             for (const auto& connection : connections)
             {
-                const auto componentOpt =
-                    buildEndComponentFromWallConnection(
+                const auto candidateOpt =
+                    HoleRecognitionUtil::buildEndCandidateFromWallConnection(
                         model,
-                        wallComponent,
+                        wallCandidate,
+                        wallCandidates,
                         connection.adjacentFaceIndex,
                         connection.boundaryEdgeIndex);
 
-                if (!componentOpt.has_value())
+                if (!candidateOpt.has_value())
                 {
                     continue;
                 }
 
-                HoleEndComponent component = componentOpt.value();
-                component.index = static_cast<int>(components.size());
-
-                const auto key = makeHoleEndComponentKey(component);
-
-                if (usedEndComponentKeys.find(key) != usedEndComponentKeys.end())
-                {
-                    continue;
-                }
-
-                usedEndComponentKeys.insert(key);
-                components.push_back(component);
+                HoleRecognitionUtil::appendOrMergeEndCandidate(
+                    candidates,
+                    candidateOpt.value());
             }
         }
 
-        return components;
+        for (int i = 0; i < static_cast<int>(candidates.size()); ++i)
+        {
+            candidates[i].index = i;
+        }
+
+        return candidates;
     }
 
-    std::vector<HoleElement> HoleFeatureRecognizer::buildHoleElements(
+    std::vector<HoleSegmentCandidate> HoleFeatureRecognizer::buildSegmentCandidates(
         const GeometryModel& model,
-        const std::vector<HoleWallComponent>& wallComponents,
-        const std::vector<HoleEndComponent>& endComponents) const
+        const std::vector<HoleWallCandidate>& wallCandidates,
+        const std::vector<HoleEndCandidate>& endCandidates) const
     {
         (void)model;
 
-        std::vector<HoleElement> elements;
+        std::vector<HoleSegmentCandidate> candidates;
 
-        for (const auto& wallComponent : wallComponents)
+        for (const auto& wallCandidate : wallCandidates)
         {
-            HoleElement element;
+            HoleSegmentCandidate candidate;
 
-            element.index = static_cast<int>(elements.size());
-            element.wallComponentIndex = wallComponent.index;
+            candidate.index = static_cast<int>(candidates.size());
+            candidate.wallCandidateIndex = wallCandidate.index;
 
-            int openCount = 0;
-            int bottomCount = 0;
-
-            for (const auto& endComponent : endComponents)
+            for (const auto& endCandidate : endCandidates)
             {
-                if (endComponent.wallComponentIndex != wallComponent.index)
+                if (endCandidate.wallCandidateIndex != wallCandidate.index)
                 {
                     continue;
                 }
 
-                OccQtCore::CollectionUtil::addUnique(element.endComponentIndices, endComponent.index);
-
-                if (endComponent.endType == Hole::EndType::Open)
-                {
-                    ++openCount;
-                }
-                else if (endComponent.endType == Hole::EndType::Bottom)
-                {
-                    ++bottomCount;
-                }
+                OccQtCore::CollectionUtil::addUnique(
+                    candidate.endCandidateIndices,
+                    endCandidate.index);
             }
 
-            if (element.endComponentIndices.empty())
+            if (candidate.endCandidateIndices.empty())
             {
                 continue;
             }
 
-            if (openCount == 2 && bottomCount == 0)
+            candidate.endCandidateIndices =
+                selectRepresentativeEndIndicesForSegment(
+                    endCandidates,
+                    candidate.endCandidateIndices);
+
+            if (candidate.endCandidateIndices.empty())
             {
-                element.type = Hole::Type::SimpleThrough;
+                continue;
             }
-            else if (openCount == 1 && bottomCount == 1)
+
+            int openCount = 0;
+            int bottomCount = 0;
+            int wallConnectionCount = 0;
+
+            countEndTypes(
+                endCandidates,
+                candidate.endCandidateIndices,
+                openCount,
+                bottomCount,
+                wallConnectionCount);
+
+            if (openCount == 2 &&
+                bottomCount == 0 &&
+                wallConnectionCount == 0)
             {
-                element.type = Hole::Type::SimpleBlind;
+                candidate.type = Hole::Type::SimpleThrough;
+            }
+            else if (openCount == 1 &&
+                     bottomCount == 1 &&
+                     wallConnectionCount == 0)
+            {
+                candidate.type = Hole::Type::SimpleBlind;
             }
             else
             {
-                element.type = Hole::Type::Unknown;
+                candidate.type = Hole::Type::Unknown;
             }
 
-            elements.push_back(element);
+            candidates.push_back(candidate);
         }
 
-        return elements;
+        return candidates;
+    }
+
+    std::vector<HoleCandidate> HoleFeatureRecognizer::buildHoleCandidates(
+        const GeometryModel& model,
+        const std::vector<HoleWallCandidate>& wallCandidates,
+        const std::vector<HoleEndCandidate>& endCandidates,
+        const std::vector<HoleSegmentCandidate>& segmentCandidates) const
+    {
+        (void)model;
+        (void)wallCandidates;
+        (void)endCandidates;
+
+        std::vector<HoleCandidate> candidates;
+
+        for (const auto& segmentCandidate : segmentCandidates)
+        {
+            HoleCandidate candidate;
+
+            candidate.index = static_cast<int>(candidates.size());
+
+            OccQtCore::CollectionUtil::addUnique(
+                candidate.segmentCandidateIndices,
+                segmentCandidate.index);
+
+            candidate.type = segmentCandidate.type;
+
+            candidates.push_back(candidate);
+        }
+
+        return candidates;
     }
 }

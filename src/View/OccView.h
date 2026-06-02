@@ -49,6 +49,17 @@ namespace OccQtCore
         static DisplayStyle analysisCandidateWire();
         static DisplayStyle analysisComponentEdge();
         static DisplayStyle analysisAdjacentFace();
+
+        static DisplayStyle analysisHoleWallFace();
+
+        static DisplayStyle analysisHoleOpenFace();
+        static DisplayStyle analysisHoleOpenEdge();
+
+        static DisplayStyle analysisHoleBottomFace();
+        static DisplayStyle analysisHoleBottomEdge();
+
+        static DisplayStyle analysisHoleConnectionFace();
+        static DisplayStyle analysisHoleConnectionEdge();
     };
 
     class OccView : public QWidget

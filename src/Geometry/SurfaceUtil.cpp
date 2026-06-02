@@ -1,5 +1,7 @@
 #include "Geometry/SurfaceUtil.h"
 
+#include <cmath>
+
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepLProp_SLProps.hxx>
 #include <TopAbs_Orientation.hxx>
@@ -8,6 +10,78 @@
 
 namespace OccQtCore::SurfaceUtil
 {
+
+    bool isSameRadius(
+        double lhs,
+        double rhs,
+        double tolerance)
+    {
+        return std::abs(lhs - rhs) <= tolerance;
+    }
+
+    bool isSameDirectionOrReverse(
+        const gp_Dir& lhs,
+        const gp_Dir& rhs,
+        double tolerance)
+    {
+        return std::abs(lhs.Dot(rhs)) >= 1.0 - tolerance;
+    }
+
+    bool isPointOnAxis(
+        const gp_Pnt& axisPoint,
+        const gp_Dir& axisDirection,
+        const gp_Pnt& point,
+        double tolerance)
+    {
+        const gp_Vec v(axisPoint, point);
+        const gp_Vec axisVec(axisDirection);
+
+        return v.Crossed(axisVec).Magnitude() <= tolerance;
+    }
+
+    bool isSameCylinderAxisAndRadius(
+        const gp_Pnt& lhsAxisPoint,
+        const gp_Dir& lhsAxisDirection,
+        double lhsRadius,
+        const gp_Pnt& rhsAxisPoint,
+        const gp_Dir& rhsAxisDirection,
+        double rhsRadisu,
+        double radiusTolerance,
+        double axisLineTolerance,
+        double directionTolerance)
+    {
+        if (!isSameRadius(lhsRadius, rhsRadisu, radiusTolerance))
+        {
+            return false;
+        }
+
+        if (!isSameDirectionOrReverse(
+                lhsAxisDirection,
+                rhsAxisDirection,
+                directionTolerance))
+        {
+            return false;
+        }
+
+        if (!isPointOnAxis(
+                lhsAxisPoint,
+                lhsAxisDirection,
+                rhsAxisPoint,
+                axisLineTolerance))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    double parameterSpan(
+        double min,
+        double max)
+    {
+        return std::abs(max - min);
+    }
+
     bool isCylinderFaceInwardOriented(
         const TopoDS_Face& face,
         const gp_Ax1& cylinderAxis,

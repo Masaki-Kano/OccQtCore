@@ -69,6 +69,9 @@ qt_add_executable(OccQtCore
     src/Geometry/TopologyQuery.cpp
     src/Geometry/SurfaceUtil.h
     src/Geometry/SurfaceUtil.cpp
+    src/Feature/HoleRecognitionTypes.h
+    src/Feature/HoleRecognitionUtil.h
+    src/Feature/HoleRecognitionUtil.cpp
 )
 
 target_include_directories(OccQtCore

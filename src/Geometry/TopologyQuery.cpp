@@ -47,6 +47,25 @@ namespace OccQtCore::TopologyQuery
                vertexIndex < graph.vertexCount();
     }
 
+    bool hasSharedEdge(
+        const GeometryModel& model,
+        int lhsFaceIndex,
+        int rhsFaceIndex)
+    {
+        const auto lhsEdges = edgesOfFace(model, lhsFaceIndex);
+        const auto rhsEdges = edgesOfFace(model, rhsFaceIndex);
+
+        for (int edgeIndex : lhsEdges)
+        {
+            if (OccQtCore::CollectionUtil::contains(rhsEdges, edgeIndex))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     std::vector<int> edgesOfFace(
         const GeometryModel& model,
         int faceIndex)
