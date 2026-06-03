@@ -39,22 +39,14 @@ namespace OccQtCore::SurfaceUtil
         return v.Crossed(axisVec).Magnitude() <= tolerance;
     }
 
-    bool isSameCylinderAxisAndRadius(
+    bool isSameAxis(
         const gp_Pnt& lhsAxisPoint,
         const gp_Dir& lhsAxisDirection,
-        double lhsRadius,
         const gp_Pnt& rhsAxisPoint,
         const gp_Dir& rhsAxisDirection,
-        double rhsRadisu,
-        double radiusTolerance,
         double axisLineTolerance,
         double directionTolerance)
     {
-        if (!isSameRadius(lhsRadius, rhsRadisu, radiusTolerance))
-        {
-            return false;
-        }
-
         if (!isSameDirectionOrReverse(
                 lhsAxisDirection,
                 rhsAxisDirection,
@@ -73,6 +65,31 @@ namespace OccQtCore::SurfaceUtil
         }
 
         return true;
+    }
+
+    bool isSameCylinderAxisAndRadius(
+        const gp_Pnt& lhsAxisPoint,
+        const gp_Dir& lhsAxisDirection,
+        double lhsRadius,
+        const gp_Pnt& rhsAxisPoint,
+        const gp_Dir& rhsAxisDirection,
+        double rhsRadius,
+        double radiusTolerance,
+        double axisLineTolerance,
+        double directionTolerance)
+    {
+        if (!isSameRadius(lhsRadius, rhsRadius, radiusTolerance))
+        {
+            return false;
+        }
+
+        return isSameAxis(
+            lhsAxisPoint,
+            lhsAxisDirection,
+            rhsAxisPoint,
+            rhsAxisDirection,
+            axisLineTolerance,
+            directionTolerance);
     }
 
     double parameterSpan(
@@ -136,5 +153,16 @@ namespace OccQtCore::SurfaceUtil
         const gp_Vec normalVec(normal);
 
         return normalVec.Dot(radial) < 0.0;
+    }
+
+    double projectPointToAxis(
+        const gp_Pnt& axisPoint,
+        const gp_Dir& axisDirextion,
+        const gp_Pnt& point)
+    {
+        const gp_Vec axisVector(axisDirextion);
+        const gp_Vec axisPointToPoint(axisPoint, point);
+
+        return axisPointToPoint.Dot(axisVector);
     }
 }

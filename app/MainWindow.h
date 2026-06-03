@@ -96,6 +96,7 @@ private:
     std::vector<OccQtCore::Feature::HoleWallCandidate> m_holeWallCandidates;
     std::vector<OccQtCore::Feature::HoleEndCandidate> m_holeEndCandidates;
     std::vector<OccQtCore::Feature::HoleSegmentCandidate> m_holeSegmentCandidates;
+    std::vector<OccQtCore::Feature::HoleCandidate> m_holeCandidates;
 
     OccQtCore::Debug::HoleDebugDisplayOptions m_holeDebugDisplayOptions;
     OccQtCore::Debug::HoleDebugLogOptions m_holeDebugLogOptions;

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <BRepAdaptor_Surface.hxx>
 #include <GeomAbs_SurfaceType.hxx>
 
@@ -11,83 +13,6 @@
 
 namespace OccQtCore
 {
-    namespace
-    {
-        QString pickedShapeTypeToJapanese(PickedShapeType type)
-        {
-            switch (type)
-            {
-            case OccQtCore::PickedShapeType::Vertex:
-                return "頂点";
-
-            case OccQtCore::PickedShapeType::Edge:
-                return "エッジ";
-
-            case OccQtCore::PickedShapeType::Face:
-                return "面";
-
-            case OccQtCore::PickedShapeType::Solid:
-                return "ソリッド";
-
-            case OccQtCore::PickedShapeType::Unknown:
-            default:
-                return "不明";
-            }
-        }
-
-        QString surfaceTypeToString(GeomAbs_SurfaceType type)
-        {
-            switch (type)
-            {
-            case GeomAbs_Plane:
-                return "Plane";
-            case GeomAbs_Cylinder:
-                return "Cylinder";
-            case GeomAbs_Cone:
-                return "Cone";
-            case GeomAbs_Sphere:
-                return "Sphere";
-            case GeomAbs_Torus:
-                return "Torus";
-            case GeomAbs_BezierSurface:
-                return "Bezier";
-            case GeomAbs_BSplineSurface:
-                return "BSpline";
-            case GeomAbs_SurfaceOfRevolution:
-                return "Revolution";
-            case GeomAbs_SurfaceOfExtrusion:
-                return "Extrusion";
-            case GeomAbs_OffsetSurface:
-                return "Offset";
-            case GeomAbs_OtherSurface:
-            default:
-                return "Other";
-            }
-        }
-
-        QString holeEndCandidateTypeToString(
-            OccQtCore::Feature::HoleEndCandidateType type)
-        {
-            using OccQtCore::Feature::HoleEndCandidateType;
-
-            switch (type)
-            {
-            case HoleEndCandidateType::Open:
-                return "Open";
-
-            case HoleEndCandidateType::Bottom:
-                return "Bottom";
-
-            case HoleEndCandidateType::WallConnection:
-                return "WallConnection";
-
-            case HoleEndCandidateType::Unknown:
-            default:
-                return "Unknown";
-            }
-        }
-    }
-
     AppLogReporter::AppLogReporter(AppLogger* logger)
         : m_logger(logger)
     {
@@ -108,7 +33,7 @@ namespace OccQtCore
 
         m_logger->info(
             QString("選択: %1, インデックス=%2, 表示オブジェクトID=%3")
-                .arg(pickedShapeTypeToJapanese(selectionInfo.type))
+                .arg(formatPickedShapeType(selectionInfo.type))
                 .arg(selectionInfo.elementIndex)
                 .arg(selectionInfo.sourceDisplayObjectId));
 
@@ -575,18 +500,15 @@ namespace OccQtCore
 
         for (const auto& candidate : candidates)
         {
-            m_logger->info(
-                QString("WallCandidate[%1]: Faces=%2, Center=(%3, %4, %5), Axis=(%6, %7, %8), Radius=%9, Depth=%10")
-                    .arg(candidate.index)
-                    .arg(formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
-                    .arg(candidate.center.X(), 0, 'f', 3)
-                    .arg(candidate.center.Y(), 0, 'f', 3)
-                    .arg(candidate.center.Z(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.X(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.Y(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.Z(), 0, 'f', 3)
-                    .arg(candidate.radius, 0, 'f', 3)
-                    .arg(candidate.depth, 0, 'f', 3));
+            const QString message = QString("WallCandidate[%1]: Faces=%2, Center=%3, Axis=%4, Radius=%5, Depth=%6")
+                .arg(candidate.index)
+                .arg(formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
+                .arg(formatPoint(candidate.center))
+                .arg(formatDirection(candidate.axisDirection))
+                .arg(candidate.radius, 0, 'f', 3)
+                .arg(candidate.depth, 0, 'f', 3);
+
+            m_logger->info(message);
         }
     }
 
@@ -604,20 +526,18 @@ namespace OccQtCore
 
         for (const auto& candidate : candidates)
         {
-            m_logger->info(
-                QString("EndCandidate[%1]: Type=%2, Wall=%3, Faces=%4, Edges=%5, Center=(%6, %7, %8), Axis=(%9, %10, %11), Radius=%12")
+            const QString message =
+                QString("EndCandidate[%1]: Type=%2, Wall=%3, Faces=%4, Edges=%5, Center=%6, Axis=%7, Radius=%8")
                     .arg(candidate.index)
-                    .arg(holeEndCandidateTypeToString(candidate.type))
+                    .arg(formatHoleEndCandidateType(candidate.type))
                     .arg(candidate.wallCandidateIndex)
                     .arg(formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
                     .arg(formatEdgeIndexList(model, candidate.geometryRefs.edgeIndices))
-                    .arg(candidate.center.X(), 0, 'f', 3)
-                    .arg(candidate.center.Y(), 0, 'f', 3)
-                    .arg(candidate.center.Z(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.X(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.Y(), 0, 'f', 3)
-                    .arg(candidate.axisDirection.Z(), 0, 'f', 3)
-                    .arg(candidate.radius, 0, 'f', 3));
+                    .arg(formatPoint(candidate.center))
+                    .arg(formatDirection(candidate.axisDirection))
+                    .arg(candidate.radius, 0, 'f', 3);
+
+            m_logger->info(message);
         }
     }
 
@@ -655,15 +575,11 @@ namespace OccQtCore
                                    model,
                                    wall.geometryRefs.faceIndices));
 
-                message += QString(", Center=(%1, %2, %3)")
-                               .arg(wall.center.X(), 0, 'f', 3)
-                               .arg(wall.center.Y(), 0, 'f', 3)
-                               .arg(wall.center.Z(), 0, 'f', 3);
+                message += QString(", Center=%1")
+                               .arg(formatPoint(wall.center));
 
-                message += QString(", Axis=(%1, %2, %3)")
-                               .arg(wall.axisDirection.X(), 0, 'f', 3)
-                               .arg(wall.axisDirection.Y(), 0, 'f', 3)
-                               .arg(wall.axisDirection.Z(), 0, 'f', 3);
+                message += QString(", Axis=%1")
+                               .arg(formatDirection(wall.axisDirection));
 
                 message += QString(", Radius=%1")
                                .arg(wall.radius, 0, 'f', 3);
@@ -691,7 +607,7 @@ namespace OccQtCore
 
                 endMessage += QString("  End[%1]: Type=%2")
                                   .arg(end.index)
-                                  .arg(holeEndCandidateTypeToString(end.type));
+                                  .arg(formatHoleEndCandidateType(end.type));
 
                 endMessage += ", Axial=";
 
@@ -718,6 +634,186 @@ namespace OccQtCore
                                       end.geometryRefs.edgeIndices));
 
                 m_logger->info(endMessage);
+            }
+        }
+    }
+
+    void AppLogReporter::logHoleCandidates(
+        const std::vector<Feature::HoleCandidate>& candidates,
+        const std::vector<Feature::HoleSegmentCandidate>& segmentCandidates,
+        const std::vector<Feature::HoleWallCandidate>& wallCandidates,
+        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
+    {
+        if (m_logger == nullptr)
+        {
+            return;
+        }
+
+        m_logger->info("========== 穴候補 ==========");
+        m_logger->info(QString("候補数: %1").arg(candidates.size()));
+
+        for (const auto& candidate : candidates)
+        {
+            m_logger->info(
+                QString("HoleCandidate[%1]: SegmentCount=%2, Segments=[%3]")
+                    .arg(candidate.index)
+                    .arg(candidate.segmentCandidateIndices.size())
+                    .arg(formatIndexList(candidate.segmentCandidateIndices)));
+
+            m_logger->info(
+                QString("  CandidateAxis: Valid=%1, Point=%2, Direction=%3")
+                    .arg(candidate.axis.isValid ? "true" : "false")
+                    .arg(formatPoint(candidate.axis.point))
+                    .arg(formatDirection(candidate.axis.direction)));
+
+            // ============================================================
+            // Sorted ranges
+            // Candidate代表軸上で見たSegment範囲。
+            //
+            // AxialRangeGapToNext は、隣接する円筒Segment範囲同士の
+            // 軸方向の空白であり、トポロジー接続距離ではない。
+            // 面取り・円錐・Rなどの遷移部がある場合、
+            // その軸方向長さがここに現れることがある。
+            // ============================================================
+            if (candidate.segmentRanges.empty())
+            {
+                m_logger->info("  SortedRanges: empty");
+            }
+            else
+            {
+                m_logger->info("  SortedRanges:");
+
+                for (int i = 0; i < static_cast<int>(candidate.segmentRanges.size()); ++i)
+                {
+                    const auto& range = candidate.segmentRanges[i];
+
+                    m_logger->info(
+                        QString("    Segment[%1]: RangeOnAxis=%2 - %3, MinEnd=%4, MaxEnd=%5")
+                            .arg(range.segmentCandidateIndex)
+                            .arg(range.minAxial, 0, 'f', 4)
+                            .arg(range.maxAxial, 0, 'f', 4)
+                            .arg(range.minEndCandidateIndex)
+                            .arg(range.maxEndCandidateIndex));
+
+                    if (i + 1 >= static_cast<int>(candidate.segmentRanges.size()))
+                    {
+                        continue;
+                    }
+
+                    const auto& nextRange = candidate.segmentRanges[i + 1];
+
+                    const double axialRangeGap =
+                        nextRange.minAxial - range.maxAxial;
+
+                    m_logger->info(
+                        QString("      AxialRangeGapToNext[Segment%1]=%2")
+                            .arg(nextRange.segmentCandidateIndex)
+                            .arg(axialRangeGap, 0, 'f', 4));
+                }
+            }
+
+            // ============================================================
+            // Segment connections
+            // SortedRanges上で隣接するSegment同士の接続根拠。
+            // ============================================================
+            if (candidate.segmentConnections.empty())
+            {
+                m_logger->info("  SegmentConnections: empty");
+            }
+            else
+            {
+                m_logger->info("  SegmentConnections:");
+
+                for (const auto& connection : candidate.segmentConnections)
+                {
+                    m_logger->info(
+                        QString("    Segment[%1] -> Segment[%2]: "
+                                "CurrentEnd=%3, NextEnd=%4, "
+                                "AxialRangeGap=%5, Kind=%6")
+                            .arg(connection.currentSegmentCandidateIndex)
+                            .arg(connection.nextSegmentCandidateIndex)
+                            .arg(connection.currentEndCandidateIndex)
+                            .arg(connection.nextEndCandidateIndex)
+                            .arg(connection.axialRangeGap, 0, 'f', 4)
+                            .arg(formatHoleSegmentConnectionKind(connection.kind)));
+                }
+            }
+
+            // ============================================================
+            // Segment chains
+            // 接続根拠により連結したSegment列。
+            // ============================================================
+            if (candidate.segmentChains.empty())
+            {
+                m_logger->info("  SegmentChains: empty");
+            }
+            else
+            {
+                m_logger->info("  SegmentChains:");
+
+                for (const auto& chain : candidate.segmentChains)
+                {
+                    m_logger->info(
+                        QString("    Chain[%1]: Segments=[%2]")
+                            .arg(chain.index)
+                            .arg(formatIndexList(chain.segmentCandidateIndices)));
+                }
+            }
+
+            // ============================================================
+            // Segment details
+            // 既存の詳細表示。
+            // ============================================================
+            for (int segmentIndex : candidate.segmentCandidateIndices)
+            {
+                if (segmentIndex < 0 ||
+                    segmentIndex >= static_cast<int>(segmentCandidates.size()))
+                {
+                    m_logger->info(
+                        QString("  Segment[%1]: <invalid>")
+                            .arg(segmentIndex));
+                    continue;
+                }
+
+                const auto& segment = segmentCandidates[segmentIndex];
+
+                QString message;
+
+                message += QString("  Segment[%1]: Wall=%2")
+                               .arg(segment.index)
+                               .arg(segment.wallCandidateIndex);
+
+                if (segment.wallCandidateIndex >= 0 &&
+                    segment.wallCandidateIndex < static_cast<int>(wallCandidates.size()))
+                {
+                    const auto& wall = wallCandidates[segment.wallCandidateIndex];
+
+                    message += QString(", Center=%1")
+                                   .arg(formatPoint(wall.center));
+
+                    message += QString(", Axis=%1")
+                                   .arg(formatDirection(wall.axisDirection));
+
+                    message += QString(", Radius=%1")
+                                   .arg(wall.radius, 0, 'f', 3);
+                }
+
+                message += QString(", AxialRange=%1")
+                               .arg(formatHoleSegmentAxialRange(
+                                   segment,
+                                   endCandidates));
+
+                message += QString(", RangeOnAxis=%1")
+                               .arg(formatHoleSegmentRangeOnCandidateAxis(
+                                   candidate,
+                                   segment.index));
+
+                message += QString(", Ends=[%1]")
+                               .arg(formatHoleSegmentEndTypes(
+                                   segment,
+                                   endCandidates));
+
+                m_logger->info(message);
             }
         }
     }
@@ -894,5 +990,186 @@ namespace OccQtCore
         return QString("%1:%2")
             .arg(wireIndex)
             .arg(typeText);
+    }
+
+    QString AppLogReporter::formatPickedShapeType(PickedShapeType type) const
+    {
+        switch (type)
+        {
+        case OccQtCore::PickedShapeType::Vertex:
+            return "Vertex";
+
+        case OccQtCore::PickedShapeType::Edge:
+            return "Edge";
+
+        case OccQtCore::PickedShapeType::Face:
+            return "Face";
+
+        case OccQtCore::PickedShapeType::Solid:
+            return "Solid";
+
+        case OccQtCore::PickedShapeType::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
+
+    QString AppLogReporter::formatPoint(const gp_Pnt& point) const
+    {
+        return QString("(%1, %2, %3)")
+            .arg(point.X(), 0, 'f', 3)
+            .arg(point.Y(), 0, 'f', 3)
+            .arg(point.Z(), 0, 'f', 3);
+    }
+
+    QString AppLogReporter::formatDirection(const gp_Dir& direction) const
+    {
+        return QString("(%1, %2, %3)")
+            .arg(direction.X(), 0, 'f', 3)
+            .arg(direction.Y(), 0, 'f', 3)
+            .arg(direction.Z(), 0, 'f', 3);
+    }
+
+    QString AppLogReporter::formatHoleEndCandidateType(
+        Feature::HoleEndCandidateType type) const
+    {
+        using Type = Feature::HoleEndCandidateType;
+
+        switch (type)
+        {
+        case Type::Open:
+            return "Open";
+
+        case Type::Bottom:
+            return "Bottom";
+
+        case Type::WallConnection:
+            return "WallConnection";
+
+        case Type::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
+
+    QString AppLogReporter::formatHoleSegmentAxialRange(
+        const Feature::HoleSegmentCandidate& segment,
+        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
+    {
+        bool hasAxial = false;
+        double minAxial = 0.0;
+        double maxAxial = 0.0;
+
+        for (int endIndex : segment.endCandidateIndices)
+        {
+            if (endIndex < 0 ||
+                endIndex >= static_cast<int>(endCandidates.size()))
+            {
+                continue;
+            }
+
+            const auto& end = endCandidates[endIndex];
+
+            if (!end.hasAxialPosition)
+            {
+                continue;
+            }
+
+            if (!hasAxial)
+            {
+                minAxial = end.axialPosition;
+                maxAxial = end.axialPosition;
+                hasAxial = true;
+                continue;
+            }
+
+            minAxial = std::min(minAxial, end.axialPosition);
+            maxAxial = std::max(maxAxial, end.axialPosition);
+        }
+
+        if (!hasAxial)
+        {
+            return "N/A";
+        }
+
+        return QString("%1 - %2")
+            .arg(minAxial, 0, 'f', 4)
+            .arg(maxAxial, 0, 'f', 4);
+    }
+
+    QString AppLogReporter::formatHoleSegmentEndTypes(
+        const Feature::HoleSegmentCandidate& segment,
+        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
+    {
+        QString text;
+
+        for (int endIndex : segment.endCandidateIndices)
+        {
+            if (!text.isEmpty())
+            {
+                text += ", ";
+            }
+
+            if (endIndex < 0 ||
+                endIndex >= static_cast<int>(endCandidates.size()))
+            {
+                text += QString("%1:Invalid").arg(endIndex);
+                continue;
+            }
+
+            const auto& end = endCandidates[endIndex];
+
+            text += QString("%1:%2")
+                        .arg(endIndex)
+                        .arg(formatHoleEndCandidateType(end.type));
+        }
+
+        return text;
+    }
+
+    QString AppLogReporter::formatHoleSegmentRangeOnCandidateAxis(
+        const Feature::HoleCandidate& candidate,
+        int segmentCandidateIndex) const
+    {
+        for (const auto& range : candidate.segmentRanges)
+        {
+            if (range.segmentCandidateIndex != segmentCandidateIndex)
+            {
+                continue;
+            }
+
+            if (!range.isValid)
+            {
+                return "N/A";
+            }
+
+            return QString("%1 - %2")
+                .arg(range.minAxial, 0, 'f', 4)
+                .arg(range.maxAxial, 0, 'f', 4);
+        }
+
+        return "N/A";
+    }
+
+    QString AppLogReporter::formatHoleSegmentConnectionKind(
+        Feature::HoleSegmentConnectionKind kind) const
+    {
+        using Kind = Feature::HoleSegmentConnectionKind;
+
+        switch (kind)
+        {
+        case Kind::SharedEndGeometry:
+            return "SharedEndGeometry";
+
+        case Kind::ShoulderPlane:
+            return "ShoulderPlane";
+
+        case Kind::AxialRangeNear:
+            return "AxialRangeNear";
+
+        case Kind::Unknown:
+        default:
+            return "Unknown";
+        }
     }
 }

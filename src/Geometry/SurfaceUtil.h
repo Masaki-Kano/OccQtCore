@@ -55,6 +55,14 @@ namespace OccQtCore::SurfaceUtil
         const gp_Pnt& point,
         double tolerance);
 
+    bool isSameAxis(
+        const gp_Pnt& lhsAxisPoint,
+        const gp_Dir& lhsAxisDirection,
+        const gp_Pnt& rhsAxisPoint,
+        const gp_Dir& rhsAxisDirection,
+        double axisLineTolerance,
+        double directionTolerance);
+
     /**
      * @brief 2つの円筒が同じ軸線と半径を持つかを判定する。
      *
@@ -116,6 +124,11 @@ namespace OccQtCore::SurfaceUtil
         double uMax,
         double vMin,
         double vMax);
+
+    double projectPointToAxis(
+        const gp_Pnt& axisPoint,
+        const gp_Dir& axisDirection,
+        const gp_Pnt& point);
 }
 
 #endif // SURFACEUTIL_H

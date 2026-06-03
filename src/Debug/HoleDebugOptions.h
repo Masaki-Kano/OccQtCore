@@ -20,9 +20,10 @@ namespace OccQtCore::Debug
 
     struct HoleDebugLogOptions
     {
-        bool logWalls = true;
-        bool logEnds = true;
+        bool logWalls = false;
+        bool logEnds = false;
         bool logSegments = true;
+        bool logCandidates = true;
     };
 }
 

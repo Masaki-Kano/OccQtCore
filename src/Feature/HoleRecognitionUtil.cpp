@@ -1,5 +1,6 @@
 #include "Feature/HoleRecognitionUtil.h"
 
+#include <algorithm>
 #include <cmath>
 #include <tuple>
 
@@ -18,6 +19,40 @@ namespace
     constexpr double DirectionTolerance = 1.0e-6;
     constexpr double AngleTolerance = 1.0e-3;
     constexpr double AxialPositionTolerance = 1.0e-4;
+    constexpr double AxialRangeGapTolerance = 0.6;
+
+    bool containsIndex(
+        const std::vector<int>& indices,
+        int target)
+    {
+        return std::find(
+                   indices.begin(),
+                   indices.end(),
+                   target) != indices.end();
+    }
+
+    bool hasSharedIndex(
+        const std::vector<int>& lhs,
+        const std::vector<int>& rhs)
+    {
+        for (const int index : lhs)
+        {
+            if (containsIndex(rhs, index))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool isValidEndIndex(
+        int index,
+        const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates)
+    {
+        return index >= 0 &&
+               index < static_cast<int>(endCandidates.size());
+    }
 
     /**
      * @brief HoleEndCandidate の重複除外用キー。
@@ -290,6 +325,8 @@ namespace
 
         const auto& circle = edgeData->info.circle.value();
 
+        candidate.center = circle.center;
+
         const auto vectorFromWallCenter =
             circle.center.XYZ() - wallCandidate.center.XYZ();
 
@@ -549,7 +586,6 @@ namespace
     }
 }
 
-
 namespace OccQtCore::Feature::HoleRecognitionUtil
 {
     void mergeEndCandidateGeometryRefs(
@@ -628,6 +664,19 @@ namespace OccQtCore::Feature::HoleRecognitionUtil
         return inwardCount > 0;
     }
 
+    bool isSameAxisCandidate(
+        const HoleWallCandidate& lhs,
+        const HoleWallCandidate& rhs)
+    {
+        return SurfaceUtil::isSameAxis(
+            lhs.center,
+            lhs.axisDirection,
+            rhs.center,
+            rhs.axisDirection,
+            AxisLineTolerance,
+            DirectionTolerance);
+    }
+
     std::optional<HoleEndCandidate> buildEndCandidateFromWallConnection(
         const GeometryModel& model,
         const HoleWallCandidate& sourceWallCandidate,
@@ -660,6 +709,148 @@ namespace OccQtCore::Feature::HoleRecognitionUtil
             connectionEdgeIndex);
     }
 
+    bool isWallOnCandidateAxis(
+        const HoleCandidateAxis& candidateAxis,
+        const HoleWallCandidate& wallCandidate)
+    {
+        if (!candidateAxis.isValid)
+        {
+            return false;
+        }
+
+        return SurfaceUtil::isSameAxis(
+            candidateAxis.point,
+            candidateAxis.direction,
+            wallCandidate.center,
+            wallCandidate.axisDirection,
+            AxisLineTolerance,
+            DirectionTolerance);
+    }
+
+    HoleCandidateAxis buildHoleCandidateAxis(
+        const HoleCandidate& candidate,
+        const std::vector<HoleSegmentCandidate>& segmentCandidates,
+        const std::vector<HoleWallCandidate>& wallCandidates)
+    {
+        HoleCandidateAxis axis;
+
+        for (const int segmentIndex : candidate.segmentCandidateIndices)
+        {
+            if (segmentIndex < 0 ||
+                segmentIndex >= static_cast<int>(segmentCandidates.size()))
+            {
+                continue;
+            }
+
+            const auto& segment = segmentCandidates[segmentIndex];
+
+            if (segment.wallCandidateIndex < 0 ||
+                segment.wallCandidateIndex >= static_cast<int>(wallCandidates.size()))
+            {
+                continue;
+            }
+
+            const auto& wall = wallCandidates[segment.wallCandidateIndex];
+
+            axis.point = wall.center;
+            axis.direction = wall.axisDirection;
+            axis.isValid = true;
+            break;
+        }
+
+        if (!axis.isValid)
+        {
+            return axis;
+        }
+
+        for (const int segmentIndex : candidate.segmentCandidateIndices)
+        {
+            if (segmentIndex < 0 ||
+                segmentIndex >= static_cast<int>(segmentCandidates.size()))
+            {
+                axis.isValid = false;
+                return axis;
+            }
+
+            const auto& segment = segmentCandidates[segmentIndex];
+
+            if (segment.wallCandidateIndex < 0 ||
+                segment.wallCandidateIndex >= static_cast<int>(wallCandidates.size()))
+            {
+                axis.isValid = false;
+                return axis;
+            }
+
+            const auto& wall = wallCandidates[segment.wallCandidateIndex];
+
+            if (!isWallOnCandidateAxis(axis, wall))
+            {
+                axis.isValid = false;
+                return axis;
+            }
+        }
+
+        return axis;
+    }
+
+    HoleSegmentRangeOnCandidateAxis buildHoleSegmentRangeOnCandidateAxis(
+        const HoleSegmentCandidate& segment,
+        const HoleCandidateAxis& candidateAxis,
+        const std::vector<HoleEndCandidate>& endCandidates)
+    {
+        HoleSegmentRangeOnCandidateAxis range;
+        range.segmentCandidateIndex = segment.index;
+
+        if (!candidateAxis.isValid)
+        {
+            return range;
+        }
+
+        bool hasValue = false;
+
+        for (const int endIndex : segment.endCandidateIndices)
+        {
+            if (endIndex < 0 ||
+                endIndex >= static_cast<int>(endCandidates.size()))
+            {
+                continue;
+            }
+
+            const auto& end = endCandidates[endIndex];
+
+            const double axial =
+                SurfaceUtil::projectPointToAxis(
+                    candidateAxis.point,
+                    candidateAxis.direction,
+                    end.center);
+
+            if (!hasValue)
+            {
+                range.minAxial = axial;
+                range.maxAxial = axial;
+                range.minEndCandidateIndex = endIndex;
+                range.maxEndCandidateIndex = endIndex;
+                hasValue = true;
+                continue;
+            }
+
+            if (axial < range.minAxial)
+            {
+                range.minAxial = axial;
+                range.minEndCandidateIndex = endIndex;
+            }
+
+            if (axial > range.maxAxial)
+            {
+                range.maxAxial = axial;
+                range.maxEndCandidateIndex = endIndex;
+            }
+        }
+
+        range.isValid = hasValue;
+        return range;
+    }
+
     bool isSameEndCandidate(
         const HoleEndCandidate& lhs,
         const HoleEndCandidate& rhs)
@@ -685,5 +876,243 @@ namespace OccQtCore::Feature::HoleRecognitionUtil
         }
 
         candidates.push_back(candidate);
+    }
+
+    bool hasSharedEndGeometry(
+        const HoleEndCandidate& lhs,
+        const HoleEndCandidate& rhs)
+    {
+        if (hasSharedIndex(
+                lhs.geometryRefs.faceIndices,
+                rhs.geometryRefs.faceIndices))
+        {
+            return true;
+        }
+
+        if (hasSharedIndex(
+                lhs.geometryRefs.edgeIndices,
+                rhs.geometryRefs.edgeIndices))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    HoleSegmentConnectionKind classifyAdjacentSegmentConnection(
+        const HoleSegmentRangeOnCandidateAxis& currentRange,
+        const HoleSegmentRangeOnCandidateAxis& nextRange,
+        const std::vector<HoleEndCandidate>& endCandidates)
+    {
+        if (!currentRange.isValid || !nextRange.isValid)
+        {
+            return HoleSegmentConnectionKind::Unknown;
+        }
+
+        const int currentEndIndex = currentRange.maxEndCandidateIndex;
+        const int nextEndIndex = nextRange.minEndCandidateIndex;
+
+        if (!isValidEndIndex(currentEndIndex, endCandidates) ||
+            !isValidEndIndex(nextEndIndex, endCandidates))
+        {
+            return HoleSegmentConnectionKind::Unknown;
+        }
+
+        const auto& currentEnd = endCandidates[currentEndIndex];
+        const auto& nextEnd = endCandidates[nextEndIndex];
+
+        if (hasSharedEndGeometry(currentEnd, nextEnd))
+        {
+            return HoleSegmentConnectionKind::SharedEndGeometry;
+        }
+
+        const double axialRangeGap =
+            nextRange.minAxial - currentRange.maxAxial;
+
+        if (axialRangeGap >= 0.0 &&
+            axialRangeGap <= AxialRangeGapTolerance)
+        {
+            return HoleSegmentConnectionKind::AxialRangeNear;
+        }
+
+        return HoleSegmentConnectionKind::Unknown;
+    }
+
+    HoleSegmentConnection buildHoleSegmentConnection(
+        const HoleSegmentRangeOnCandidateAxis& currentRange,
+        const HoleSegmentRangeOnCandidateAxis& nextRange,
+        const std::vector<HoleEndCandidate>& endCandidates)
+    {
+        HoleSegmentConnection connection;
+
+        connection.currentSegmentCandidateIndex =
+            currentRange.segmentCandidateIndex;
+        connection.nextSegmentCandidateIndex =
+            nextRange.segmentCandidateIndex;
+
+        connection.currentEndCandidateIndex =
+            currentRange.maxEndCandidateIndex;
+        connection.nextEndCandidateIndex =
+            nextRange.minEndCandidateIndex;
+
+        connection.axialRangeGap =
+            nextRange.minAxial - currentRange.maxAxial;
+
+        connection.kind =
+            classifyAdjacentSegmentConnection(
+                currentRange,
+                nextRange,
+                endCandidates);
+
+        return connection;
+    }
+
+    std::vector<HoleSegmentConnection> buildHoleSegmentConnections(
+        const HoleCandidate& candidate,
+        const std::vector<HoleEndCandidate>& endCandidates)
+    {
+        std::vector<HoleSegmentConnection> connections;
+
+        if (candidate.segmentRanges.size() < 2)
+        {
+            return connections;
+        }
+
+        connections.reserve(candidate.segmentRanges.size() - 1);
+
+        for (int i = 0;
+             i + 1 < static_cast<int>(candidate.segmentRanges.size());
+             ++i)
+        {
+            const auto& currentRange = candidate.segmentRanges[i];
+            const auto& nextRange = candidate.segmentRanges[i + 1];
+
+            connections.push_back(
+                buildHoleSegmentConnection(
+                    currentRange,
+                    nextRange,
+                    endCandidates));
+        }
+
+        return connections;
+    }
+
+    std::vector<HoleSegmentChain> buildHoleSegmentChains(
+        const HoleCandidate& candidate,
+        const std::vector<HoleSegmentConnection>& connections)
+    {
+        std::vector<HoleSegmentChain> chains;
+
+        if (candidate.segmentRanges.empty())
+        {
+            return chains;
+        }
+
+        HoleSegmentChain currentChain;
+        currentChain.index = 0;
+        currentChain.segmentCandidateIndices.push_back(
+            candidate.segmentRanges.front().segmentCandidateIndex);
+
+        for (const auto& connection : connections)
+        {
+            const bool isConnected =
+                connection.kind == HoleSegmentConnectionKind::SharedEndGeometry ||
+                connection.kind == HoleSegmentConnectionKind::ShoulderPlane ||
+                connection.kind == HoleSegmentConnectionKind::AxialRangeNear;
+
+            if (isConnected)
+            {
+                currentChain.segmentCandidateIndices.push_back(
+                    connection.nextSegmentCandidateIndex);
+                continue;
+            }
+
+            chains.push_back(currentChain);
+
+            currentChain = HoleSegmentChain{};
+            currentChain.index = static_cast<int>(chains.size());
+            currentChain.segmentCandidateIndices.push_back(
+                connection.nextSegmentCandidateIndex);
+        }
+
+        chains.push_back(currentChain);
+
+        return chains;
+    }
+
+    bool HoleRecognitionUtil::isPointOnPlaneFace(
+        const GeometryModel& model,
+        int faceIndex,
+        const gp_Pnt& point,
+        double tolerance)
+    {
+        const auto* faceData = model.faceAt(faceIndex);
+
+        if (faceData == nullptr)
+        {
+            return false;
+        }
+
+        if (!faceData->info.plane.has_value())
+        {
+            return false;
+        }
+
+        const auto& plane = faceData->info.plane.value();
+
+        const gp_Vec originToPoint(
+            plane.origin,
+            point);
+
+        const double distance =
+            std::abs(originToPoint.Dot(gp_Vec(plane.normal)));
+
+        return distance <= tolerance;
+    }
+
+    bool HoleRecognitionUtil::hasPlaneFaceContainingEndCenter(
+        const GeometryModel& model,
+        const HoleEndCandidate& planeEnd,
+        const HoleEndCandidate& targetEnd)
+    {
+        constexpr double PlaneDistanceTolerance = 1.0e-4;
+
+        for (const int faceIndex : planeEnd.geometryRefs.faceIndices)
+        {
+            if (isPointOnPlaneFace(
+                    model,
+                    faceIndex,
+                    targetEnd.center,
+                    PlaneDistanceTolerance))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool HoleRecognitionUtil::isShoulderPlaneConnection(
+        const GeometryModel& model,
+        const HoleEndCandidate& currentEnd,
+        const HoleEndCandidate& nextEnd)
+    {
+        if (hasPlaneFaceContainingEndCenter(
+                model,
+                currentEnd,
+                nextEnd))
+        {
+            return true;
+        }
+
+        if (hasPlaneFaceContainingEndCenter(
+                model,
+                nextEnd,
+                currentEnd))
+        {
+            return true;
+        }
+
+        return false;
     }
 }

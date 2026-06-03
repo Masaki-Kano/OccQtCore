@@ -181,11 +181,18 @@ namespace OccQtCore::Feature
                 endCandidates);
 
         const auto holeCandidates =
-            buildHoleCandidates(
-                model,
+            buildHoleCandidatesFromSegments(
                 wallCandidates,
                 endCandidates,
                 segmentCandidates);
+
+        // TODO:
+        // const auto holes =
+        //     buildHoleDataFromCandidates(
+        //         holeCandidates,
+        //         segmentCandidates,
+        //         wallCandidates,
+        //         endCandidates);
 
         (void)holeCandidates;
 
@@ -462,33 +469,123 @@ namespace OccQtCore::Feature
         return candidates;
     }
 
-    std::vector<HoleCandidate> HoleFeatureRecognizer::buildHoleCandidates(
-        const GeometryModel& model,
+    std::vector<HoleCandidate>
+    HoleFeatureRecognizer::buildHoleCandidatesFromSegments(
         const std::vector<HoleWallCandidate>& wallCandidates,
         const std::vector<HoleEndCandidate>& endCandidates,
         const std::vector<HoleSegmentCandidate>& segmentCandidates) const
     {
-        (void)model;
-        (void)wallCandidates;
-        (void)endCandidates;
+        std::vector<HoleCandidate> holeCandidates;
+        holeCandidates.reserve(segmentCandidates.size());
 
-        std::vector<HoleCandidate> candidates;
+        std::vector<bool> used(segmentCandidates.size(), false);
 
-        for (const auto& segmentCandidate : segmentCandidates)
+        for (int i = 0; i < static_cast<int>(segmentCandidates.size()); ++i)
         {
+            if (used[i])
+            {
+                continue;
+            }
+
+            const auto& baseSegment = segmentCandidates[i];
+
+            if (baseSegment.wallCandidateIndex < 0 ||
+                baseSegment.wallCandidateIndex >= static_cast<int>(wallCandidates.size()))
+            {
+                continue;
+            }
+
+            const auto& baseWall =
+                wallCandidates[baseSegment.wallCandidateIndex];
+
             HoleCandidate candidate;
+            candidate.index = static_cast<int>(holeCandidates.size());
+            candidate.type = Hole::Type::Unknown;
 
-            candidate.index = static_cast<int>(candidates.size());
+            candidate.segmentCandidateIndices.push_back(i);
+            used[i] = true;
 
-            OccQtCore::CollectionUtil::addUnique(
-                candidate.segmentCandidateIndices,
-                segmentCandidate.index);
+            for (int j = i + 1; j < static_cast<int>(segmentCandidates.size()); ++j)
+            {
+                if (used[j])
+                {
+                    continue;
+                }
 
-            candidate.type = segmentCandidate.type;
+                const auto& targetSegment = segmentCandidates[j];
 
-            candidates.push_back(candidate);
+                if (targetSegment.wallCandidateIndex < 0 ||
+                    targetSegment.wallCandidateIndex >= static_cast<int>(wallCandidates.size()))
+                {
+                    continue;
+                }
+
+                const auto& targetWall =
+                    wallCandidates[targetSegment.wallCandidateIndex];
+
+                if (!HoleRecognitionUtil::isSameAxisCandidate(
+                        baseWall,
+                        targetWall))
+                {
+                    continue;
+                }
+
+                candidate.segmentCandidateIndices.push_back(j);
+                used[j] = true;
+            }
+
+            candidate.axis =
+                HoleRecognitionUtil::buildHoleCandidateAxis(
+                    candidate,
+                    segmentCandidates,
+                    wallCandidates);
+
+            candidate.segmentRanges.clear();
+
+            for (const int segmentIndex : candidate.segmentCandidateIndices)
+            {
+                if (segmentIndex < 0 ||
+                    segmentIndex >= static_cast<int>(segmentCandidates.size()))
+                {
+                    continue;
+                }
+
+                const auto& segment = segmentCandidates[segmentIndex];
+
+                const auto range =
+                    HoleRecognitionUtil::buildHoleSegmentRangeOnCandidateAxis(
+                        segment,
+                        candidate.axis,
+                        endCandidates);
+
+                if (range.isValid)
+                {
+                    candidate.segmentRanges.push_back(range);
+                }
+            }
+
+            std::sort(
+                candidate.segmentRanges.begin(),
+                candidate.segmentRanges.end(),
+                [](const HoleSegmentRangeOnCandidateAxis& lhs,
+                   const HoleSegmentRangeOnCandidateAxis& rhs)
+                {
+                    return lhs.minAxial < rhs.minAxial;
+                });
+
+            candidate.segmentConnections =
+                HoleRecognitionUtil::buildHoleSegmentConnections(
+                    candidate,
+                    endCandidates);
+
+            candidate.segmentChains =
+                HoleRecognitionUtil::buildHoleSegmentChains(
+                    candidate,
+                    candidate.segmentConnections);
+
+            holeCandidates.push_back(candidate);
         }
 
-        return candidates;
+        return holeCandidates;
     }
 }

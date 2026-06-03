@@ -5,6 +5,9 @@
 
 #include <QString>
 
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+
 #include "Core/SelectionInfo.h"
 #include "Feature/HoleRecognitionTypes.h"
 
@@ -80,23 +83,58 @@ namespace OccQtCore
             const std::vector<Feature::HoleWallCandidate>& wallCandidates,
             const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
 
+        void logHoleCandidates(
+            const std::vector<OccQtCore::Feature::HoleCandidate>& candidates,
+            const std::vector<OccQtCore::Feature::HoleSegmentCandidate>& segmentCandidates,
+            const std::vector<OccQtCore::Feature::HoleWallCandidate>& wallCandidates,
+            const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates) const;
+
     private:
-        QString formatIndexList(const std::vector<int>& indices) const;
+        QString formatIndexList(
+            const std::vector<int>& indices) const;
+
         QString formatFaceIndexList(
             const GeometryModel& model,
             const std::vector<int>& faceIndices) const;
+
         QString formatEdgeIndexList(
             const GeometryModel& model,
             const std::vector<int>& edgeIndices) const;
+
         QString formatWireIndexList(
             const GeometryModel& model,
             const std::vector<int>& wireIndices) const;
+
         QString formatFaceIndex(
             const GeometryModel& model,
             int faceIndex) const;
+
         QString formatWireIndex(
             const GeometryModel& model,
             int wireIndex) const;
+
+        QString formatPoint(const gp_Pnt& point) const;
+        QString formatDirection(const gp_Dir& direction) const;
+
+        QString formatPickedShapeType(PickedShapeType type) const;
+
+        QString formatHoleEndCandidateType(
+            Feature::HoleEndCandidateType type) const;
+
+        QString formatHoleSegmentAxialRange(
+            const Feature::HoleSegmentCandidate& segment,
+            const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
+
+        QString formatHoleSegmentEndTypes(
+            const Feature::HoleSegmentCandidate& segment,
+            const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
+
+        QString formatHoleSegmentRangeOnCandidateAxis(
+            const Feature::HoleCandidate& candidate,
+            int segmentCandidateIndex) const;
+
+        QString formatHoleSegmentConnectionKind(
+            Feature::HoleSegmentConnectionKind kind) const;
 
 
     private:

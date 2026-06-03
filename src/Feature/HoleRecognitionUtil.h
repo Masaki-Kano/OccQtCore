@@ -67,6 +67,23 @@ namespace OccQtCore::Feature::HoleRecognitionUtil
         const HoleWallCandidate& candidate);
 
     /**
+     * @brief 2つの穴壁候補が同一軸上の候補として扱えるかを判定する
+     *
+     * 軸方向と軸線位置が許容値内で一致する場合にtrueを返す
+     *
+     * この関数では半径差、Face同士の接続関係、軸方向の連続性は判定しない
+     * 段付き穴・座ぐり穴など。同軸だか半径の異なるセグメントを
+     * HoleCandidateとしてまとめるための一次判定に使用する
+     *
+     * @param lhs 比較元の穴壁候補。
+     * @param rhs 比較先の穴壁候補
+     * @return 同一軸上の候補として扱える場合true
+     */
+    bool isSameAxisCandidate(
+        const HoleWallCandidate& lhs,
+        const HoleWallCandidate& rhs);
+
+    /**
      * @brief 穴壁候補と隣接Faceの接続から穴端候補を生成する。
      *
      * Wall -> Plane、Wall -> Cone/Torus -> Plane などの接続関係から、
@@ -86,6 +103,81 @@ namespace OccQtCore::Feature::HoleRecognitionUtil
         const std::vector<HoleWallCandidate>& allWallCandidates,
         int adjacentFaceIndex,
         int connectionEdgeIndex);
+
+    bool isWallOnCandidateAxis(
+        const HoleCandidateAxis& candidateAxis,
+        const HoleWallCandidate& wallCandidate);
+
+    /**
+     * @brief HoleCandidate の評価用共通軸を生成する。
+     *
+     * Candidate に含まれる最初の有効な HoleSegmentCandidate の
+     * Wall 軸を代表軸として使用する。
+     *
+     * @param candidate 対象の穴候補。
+     * @param segmentCandidates 穴セグメント候補群。
+     * @param wallCandidates 穴壁候補群。
+     * @return 生成した共通軸。有効な軸を取得できない場合は isValid=false。
+     */
+    HoleCandidateAxis buildHoleCandidateAxis(
+        const HoleCandidate& candidate,
+        const std::vector<HoleSegmentCandidate>& segmentCandidates,
+        const std::vector<HoleWallCandidate>& wallCandidate);
+
+    /**
+     * @brief HoleSegmentCandidate を HoleCandidateAxis 上の範囲へ変換する。
+     *
+     * Segment が持つ各 HoleEndCandidate::center を Candidate 共通軸へ射影し、
+     * その最小値・最大値を範囲として返す。
+     *
+     * @param segment 対象セグメント。
+     * @param candidateAxis Candidate 評価用共通軸。
+     * @param endCandidates 穴端候補群。
+     * @return Candidate 共通軸上で見た Segment 範囲。
+     */
+    HoleSegmentRangeOnCandidateAxis buildHoleSegmentRangeOnCandidateAxis(
+        const HoleSegmentCandidate& segment,
+        const HoleCandidateAxis& candidateAxis,
+        const std::vector<HoleEndCandidate>& endCandidates);
+
+    bool hasSharedEndGeometryRef(
+        const HoleEndCandidate& lhs,
+        const HoleEndCandidate& rhs);
+
+    HoleSegmentConnectionKind classifyAdjacentSegmentConnection(
+        const GeometryModel& model,
+        const HoleSegmentRangeOnCandidateAxis& currentRange,
+        const HoleSegmentRangeOnCandidateAxis& nextRange,
+        const std::vector<HoleEndCandidate>& endCandidates);
+
+    HoleSegmentConnection buildHoleSegmentConnection(
+        const HoleSegmentRangeOnCandidateAxis& currentRange,
+        const HoleSegmentRangeOnCandidateAxis& nextRange,
+        const std::vector<HoleEndCandidate>& endCandidates);
+
+    std::vector<HoleSegmentConnection> buildHoleSegmentConnections(
+        const HoleCandidate& candidate,
+        const std::vector<HoleEndCandidate>& endCandidates);
+
+    std::vector<HoleSegmentChain> buildHoleSegmentChains(
+        const HoleCandidate& candidate,
+        const std::vector<HoleSegmentConnection>& connections);
+
+    bool isPointOnPlaneFace(
+        const GeometryModel& model,
+        int faceIndex,
+        const gp_Pnt& point,
+        double tolerance);
+
+    bool hasPlaneFaceContainingEndCenter(
+        const GeometryModel& model,
+        const HoleEndCandidate& planeEnd,
+        const HoleEndCandidate& targetEnd);
+
+    bool isShoulderPlaneConnection(
+        const GeometryModel& model,
+        const HoleEndCandidate& currentEnd,
+        const HoleEndCandidate& nextEnd);
 
     /**
      * @brief 2つの穴端候補が同一端として扱えるかを判定する。

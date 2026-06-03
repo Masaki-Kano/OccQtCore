@@ -403,6 +403,11 @@ void MainWindow::buildHoleDebugData()
             m_holeWallCandidates,
             m_holeEndCandidates);
 
+    m_holeCandidates = recognizer.buildHoleCandidatesFromSegments(
+        m_holeWallCandidates,
+        m_holeEndCandidates,
+        m_holeSegmentCandidates);
+
     m_hasHoleDebugData = true;
 }
 
@@ -452,6 +457,15 @@ void MainWindow::logHoleDebugInfo()
     {
         m_logReporter->logHoleSegmentCandidates(
             model,
+            m_holeSegmentCandidates,
+            m_holeWallCandidates,
+            m_holeEndCandidates);
+    }
+
+    if (m_holeDebugLogOptions.logCandidates)
+    {
+        m_logReporter->logHoleCandidates(
+            m_holeCandidates,
             m_holeSegmentCandidates,
             m_holeWallCandidates,
             m_holeEndCandidates);
