@@ -126,9 +126,7 @@
      <property name="title">
       <string>穴</string>
      </property>
-     <addaction name="actionDetectHoleWallCandidates"/>
-     <addaction name="actionDetectHoleEndCandidates"/>
-     <addaction name="actionBuildHoleSegmentCandidates"/>
+     <addaction name="actionHoleDebug"/>
     </widget>
     <addaction name="menuHole"/>
    </widget>
@@ -191,19 +189,9 @@
     <string>形状詳細診断ログ出力</string>
    </property>
   </action>
-  <action name="actionDetectHoleWallCandidates">
+  <action name="actionHoleDebug">
    <property name="text">
-    <string>穴壁候補生成</string>
-   </property>
-  </action>
-  <action name="actionDetectHoleEndCandidates">
-   <property name="text">
-    <string>穴端候補生成</string>
-   </property>
-  </action>
-  <action name="actionBuildHoleSegmentCandidates">
-   <property name="text">
-    <string>穴セグメント候補生成</string>
+    <string>穴認識デバック</string>
    </property>
   </action>
  </widget>

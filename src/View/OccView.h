@@ -19,6 +19,8 @@
 #include <Quantity_NameOfColor.hxx>
 
 #include "Core/PickResult.h"
+#include "View/DisplayTypes.h"
+#include "View/DisplayStyle.h"
 
 class QMouseEvent;
 class QWheelEvent;
@@ -26,41 +28,6 @@ class QWheelEvent;
 namespace OccQtCore
 {
     class GeometryModel;
-
-    using DisplayObjectId = int;
-
-    enum class DisplayLayer
-    {
-        Shape,          // 通常モデル
-        PickHighlight,  // ピック選択
-        Analysis,       // 穴候補、ポケット候補などの解析結果
-        Helper,         // 法線・座標軸・補助線・パス
-        Temporary       // 一時表示
-    };
-
-    struct DisplayStyle
-    {
-        Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);
-        double transparency = 0.0;
-        AIS_DisplayMode displayMode = AIS_Shaded;
-
-        static DisplayStyle defaultShape();
-        static DisplayStyle pickHighlightFace();
-        static DisplayStyle analysisCandidateWire();
-        static DisplayStyle analysisComponentEdge();
-        static DisplayStyle analysisAdjacentFace();
-
-        static DisplayStyle analysisHoleWallFace();
-
-        static DisplayStyle analysisHoleOpenFace();
-        static DisplayStyle analysisHoleOpenEdge();
-
-        static DisplayStyle analysisHoleBottomFace();
-        static DisplayStyle analysisHoleBottomEdge();
-
-        static DisplayStyle analysisHoleConnectionFace();
-        static DisplayStyle analysisHoleConnectionEdge();
-    };
 
     class OccView : public QWidget
     {
@@ -92,6 +59,8 @@ namespace OccQtCore
 
         void removeObject(DisplayObjectId id);
         void clearLayer(DisplayLayer layer);
+        void clearAnalysisLayers();
+        void clearHoleAnalysisLayers();
         void clearAll();
 
         void fitAll();
@@ -179,11 +148,8 @@ namespace OccQtCore
 
         MouseState m_mouseState;
 
-        DisplayStyle m_shapeStyle{
-            Quantity_Color(0.75, 0.78, 0.82, Quantity_TOC_RGB),
-            0.0,
-            AIS_Shaded
-        };
+        DisplayStyle m_shapeStyle =
+            DisplayStyle::preset(DisplayStyle::Preset::DefaultShape);
 
         bool m_initialized = false;
     };

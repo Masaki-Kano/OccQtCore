@@ -12,12 +12,15 @@
 
 // 一時デバック用のインクルード
 #include "Feature/HoleFeatureRecognizer.h"
+#include "Debug/HoleDebugOptions.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
 QT_END_NAMESPACE
+
+class HoleDebugPanel;
 
 namespace OccQtCore {
 class AppLogger;
@@ -34,6 +37,8 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+
 
 private:
     void setupWindow();
@@ -53,22 +58,23 @@ private:
     void dumpGeometryAnalysisLog();
     void dumpGeometryDetailDiagnosticsLog();
 
-    // 穴関連一時デバック関数群
-    void detectHoleWallCandidates();
-    void detectHoleEndCandidates();
-    void buildHoleSegmentCandidates();
+    // 穴デバッグウィンドウ
+    void showHoleDebugPanel();
+    void setupHoleDebugPanelConnections();
 
-    // 穴関連一時表示デバック
-    void displayHoleWallCandidates(
-        const std::vector<OccQtCore::Feature::HoleWallCandidate>& candidates);
+    // 穴認識デバッグ制御
+    void setHoleDebugEnabled(bool enabled);
+    void buildHoleDebugData();
+    void rebuildHoleDebugData();
+    void logHoleDebugInfo();
 
-    void displayHoleEndCandidates(
-        const std::vector<OccQtCore::Feature::HoleEndCandidate>& candidates);
+    void applyHoleDebugDisplayOptions(
+        const OccQtCore::Debug::HoleDebugDisplayOptions& options);
 
-    void displayHoleSegmentCandidates(
-        const std::vector<OccQtCore::Feature::HoleSegmentCandidate>& segments,
-        const std::vector<OccQtCore::Feature::HoleWallCandidate>& wallCandidates,
-        const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates);
+    void refreshHoleDebugDisplay();
+    void clearHoleDebugDisplay();
+    void displayHoleDebugData();
+
 
 private:
     Ui::MainWindow* ui = nullptr;
@@ -78,8 +84,20 @@ private:
     OccQtCore::LogPanel* m_logPanel = nullptr;
     OccQtCore::OccView* m_occView = nullptr;
 
+    HoleDebugPanel* m_holeDebugPanel = nullptr;
+
     OccQtCore::DocumentData m_document;
     OccQtCore::SelectionInfo m_selectionInfo;
     QString m_lastOpenDirectory;
+
+    bool m_isHoleDebugEnabled = false;
+    bool m_hasHoleDebugData = false;
+
+    std::vector<OccQtCore::Feature::HoleWallCandidate> m_holeWallCandidates;
+    std::vector<OccQtCore::Feature::HoleEndCandidate> m_holeEndCandidates;
+    std::vector<OccQtCore::Feature::HoleSegmentCandidate> m_holeSegmentCandidates;
+
+    OccQtCore::Debug::HoleDebugDisplayOptions m_holeDebugDisplayOptions;
+    OccQtCore::Debug::HoleDebugLogOptions m_holeDebugLogOptions;
 };
 #endif // MAINWINDOW_H

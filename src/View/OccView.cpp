@@ -29,114 +29,6 @@ namespace OccQtCore
         constexpr double ZoomStepFactor = 1.1;
     }
 
-    DisplayStyle DisplayStyle::defaultShape()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(0.75, 0.78, 0.82, Quantity_TOC_RGB);
-        style.transparency = 0.0;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::pickHighlightFace()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_CYAN);
-        style.transparency = 0.45;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisCandidateWire()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_CYAN);
-        style.transparency = 0.0;
-        style.displayMode = AIS_WireFrame;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisComponentEdge()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_YELLOW);
-        style.transparency = 0.0;
-        style.displayMode = AIS_WireFrame;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisAdjacentFace()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_ORANGE);
-        style.transparency = 0.55;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleWallFace()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_ORANGE);
-        style.transparency = 0.55;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleOpenFace()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_GREEN);
-        style.transparency = 0.50;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleOpenEdge()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_GREEN);
-        style.transparency = 0.0;
-        style.displayMode = AIS_WireFrame;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleBottomFace()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_RED);
-        style.transparency = 0.45;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleBottomEdge()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_RED);
-        style.transparency = 0.0;
-        style.displayMode = AIS_WireFrame;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleConnectionFace()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_CYAN);
-        style.transparency = 0.45;
-        style.displayMode = AIS_Shaded;
-        return style;
-    }
-
-    DisplayStyle DisplayStyle::analysisHoleConnectionEdge()
-    {
-        DisplayStyle style;
-        style.color = Quantity_Color(Quantity_NOC_CYAN);
-        style.transparency = 0.0;
-        style.displayMode = AIS_WireFrame;
-        return style;
-    }
-
     OccView::OccView(QWidget* parent)
         : QWidget(parent)
     {
@@ -712,6 +604,20 @@ namespace OccQtCore
 
         m_context->UpdateCurrentViewer();
         redraw();
+    }
+
+    void OccView::clearAnalysisLayers()
+    {
+        clearLayer(DisplayLayer::Analysis);
+        clearHoleAnalysisLayers();
+    }
+
+    void OccView::clearHoleAnalysisLayers()
+    {
+        clearLayer(DisplayLayer::AnalysisHoleWall);
+        clearLayer(DisplayLayer::AnalysisHoleOpen);
+        clearLayer(DisplayLayer::AnalysisHoleBottom);
+        clearLayer(DisplayLayer::AnalysisHoleConnection);
     }
 
     void OccView::clearAll()
