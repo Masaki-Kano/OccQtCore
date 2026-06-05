@@ -655,115 +655,12 @@ namespace OccQtCore
         for (const auto& candidate : candidates)
         {
             m_logger->info(
-                QString("HoleCandidate[%1]: SegmentCount=%2, Segments=[%3]")
+                QString("HoleCandidate[%1]: SegmentCount=%2, Segments=[%3], Type=%4")
                     .arg(candidate.index)
                     .arg(candidate.segmentCandidateIndices.size())
-                    .arg(formatIndexList(candidate.segmentCandidateIndices)));
+                    .arg(formatIndexList(candidate.segmentCandidateIndices))
+                    .arg(static_cast<int>(candidate.type)));
 
-            m_logger->info(
-                QString("  CandidateAxis: Valid=%1, Point=%2, Direction=%3")
-                    .arg(candidate.axis.isValid ? "true" : "false")
-                    .arg(formatPoint(candidate.axis.point))
-                    .arg(formatDirection(candidate.axis.direction)));
-
-            // ============================================================
-            // Sorted ranges
-            // Candidate代表軸上で見たSegment範囲。
-            //
-            // AxialRangeGapToNext は、隣接する円筒Segment範囲同士の
-            // 軸方向の空白であり、トポロジー接続距離ではない。
-            // 面取り・円錐・Rなどの遷移部がある場合、
-            // その軸方向長さがここに現れることがある。
-            // ============================================================
-            if (candidate.segmentRanges.empty())
-            {
-                m_logger->info("  SortedRanges: empty");
-            }
-            else
-            {
-                m_logger->info("  SortedRanges:");
-
-                for (int i = 0; i < static_cast<int>(candidate.segmentRanges.size()); ++i)
-                {
-                    const auto& range = candidate.segmentRanges[i];
-
-                    m_logger->info(
-                        QString("    Segment[%1]: RangeOnAxis=%2 - %3, MinEnd=%4, MaxEnd=%5")
-                            .arg(range.segmentCandidateIndex)
-                            .arg(range.minAxial, 0, 'f', 4)
-                            .arg(range.maxAxial, 0, 'f', 4)
-                            .arg(range.minEndCandidateIndex)
-                            .arg(range.maxEndCandidateIndex));
-
-                    if (i + 1 >= static_cast<int>(candidate.segmentRanges.size()))
-                    {
-                        continue;
-                    }
-
-                    const auto& nextRange = candidate.segmentRanges[i + 1];
-
-                    const double axialRangeGap =
-                        nextRange.minAxial - range.maxAxial;
-
-                    m_logger->info(
-                        QString("      AxialRangeGapToNext[Segment%1]=%2")
-                            .arg(nextRange.segmentCandidateIndex)
-                            .arg(axialRangeGap, 0, 'f', 4));
-                }
-            }
-
-            // ============================================================
-            // Segment connections
-            // SortedRanges上で隣接するSegment同士の接続根拠。
-            // ============================================================
-            if (candidate.segmentConnections.empty())
-            {
-                m_logger->info("  SegmentConnections: empty");
-            }
-            else
-            {
-                m_logger->info("  SegmentConnections:");
-
-                for (const auto& connection : candidate.segmentConnections)
-                {
-                    m_logger->info(
-                        QString("    Segment[%1] -> Segment[%2]: "
-                                "CurrentEnd=%3, NextEnd=%4, "
-                                "AxialRangeGap=%5, Kind=%6")
-                            .arg(connection.currentSegmentCandidateIndex)
-                            .arg(connection.nextSegmentCandidateIndex)
-                            .arg(connection.currentEndCandidateIndex)
-                            .arg(connection.nextEndCandidateIndex)
-                            .arg(connection.axialRangeGap, 0, 'f', 4)
-                            .arg(formatHoleSegmentConnectionKind(connection.kind)));
-                }
-            }
-
-            // ============================================================
-            // Segment chains
-            // 接続根拠により連結したSegment列。
-            // ============================================================
-            if (candidate.segmentChains.empty())
-            {
-                m_logger->info("  SegmentChains: empty");
-            }
-            else
-            {
-                m_logger->info("  SegmentChains:");
-
-                for (const auto& chain : candidate.segmentChains)
-                {
-                    m_logger->info(
-                        QString("    Chain[%1]: Segments=[%2]")
-                            .arg(chain.index)
-                            .arg(formatIndexList(chain.segmentCandidateIndices)));
-                }
-            }
-
-            // ============================================================
-            // Segment details
-            // 既存の詳細表示。
-            // ============================================================
             for (int segmentIndex : candidate.segmentCandidateIndices)
             {
                 if (segmentIndex < 0 ||
@@ -802,11 +699,6 @@ namespace OccQtCore
                                .arg(formatHoleSegmentAxialRange(
                                    segment,
                                    endCandidates));
-
-                message += QString(", RangeOnAxis=%1")
-                               .arg(formatHoleSegmentRangeOnCandidateAxis(
-                                   candidate,
-                                   segment.index));
 
                 message += QString(", Ends=[%1]")
                                .arg(formatHoleSegmentEndTypes(
@@ -1125,51 +1017,5 @@ namespace OccQtCore
         }
 
         return text;
-    }
-
-    QString AppLogReporter::formatHoleSegmentRangeOnCandidateAxis(
-        const Feature::HoleCandidate& candidate,
-        int segmentCandidateIndex) const
-    {
-        for (const auto& range : candidate.segmentRanges)
-        {
-            if (range.segmentCandidateIndex != segmentCandidateIndex)
-            {
-                continue;
-            }
-
-            if (!range.isValid)
-            {
-                return "N/A";
-            }
-
-            return QString("%1 - %2")
-                .arg(range.minAxial, 0, 'f', 4)
-                .arg(range.maxAxial, 0, 'f', 4);
-        }
-
-        return "N/A";
-    }
-
-    QString AppLogReporter::formatHoleSegmentConnectionKind(
-        Feature::HoleSegmentConnectionKind kind) const
-    {
-        using Kind = Feature::HoleSegmentConnectionKind;
-
-        switch (kind)
-        {
-        case Kind::SharedEndGeometry:
-            return "SharedEndGeometry";
-
-        case Kind::ShoulderPlane:
-            return "ShoulderPlane";
-
-        case Kind::AxialRangeNear:
-            return "AxialRangeNear";
-
-        case Kind::Unknown:
-        default:
-            return "Unknown";
-        }
     }
 }

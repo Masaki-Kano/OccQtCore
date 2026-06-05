@@ -70,8 +70,8 @@ qt_add_executable(OccQtCore
     src/Geometry/SurfaceUtil.h
     src/Geometry/SurfaceUtil.cpp
     src/Feature/HoleRecognitionTypes.h
-    src/Feature/HoleRecognitionUtil.h
-    src/Feature/HoleRecognitionUtil.cpp
+
+
     src/View/DisplayTypes.h
     src/View/DisplayStyle.h
     src/View/DisplayStyle.cpp
@@ -79,6 +79,15 @@ qt_add_executable(OccQtCore
     src/Debug/HoleDebugPanel.h
     src/Debug/HoleDebugPanelcpp.cpp
     src/Debug/HoleDebugPanel.ui
+    src/Feature/HoleEndCandidateDetector.h
+    src/Feature/HoleEndCandidateDetector.cpp
+    src/Feature/HoleCandidateBuilder.h
+    src/Feature/HoleCandidateBuilder.h
+    src/Feature/HoleCandidateBuilder.cpp
+    src/Feature/HoleSegmentCandidateBuilder.h
+    src/Feature/HoleSegmentCandidateBuilder.cpp
+    src/Feature/HoleWallCandidateDetector.cpp
+    src/Feature/HoleWallCandidateDetector.h
 )
 
 target_include_directories(OccQtCore

@@ -129,13 +129,6 @@ namespace OccQtCore
             const Feature::HoleSegmentCandidate& segment,
             const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
 
-        QString formatHoleSegmentRangeOnCandidateAxis(
-            const Feature::HoleCandidate& candidate,
-            int segmentCandidateIndex) const;
-
-        QString formatHoleSegmentConnectionKind(
-            Feature::HoleSegmentConnectionKind kind) const;
-
 
     private:
         AppLogger* m_logger = nullptr;

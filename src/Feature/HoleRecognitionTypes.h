@@ -143,79 +143,6 @@ namespace OccQtCore::Feature
     };
 
     /**
-     * @brief 穴候補の評価用共通軸
-     *
-     * HoleCandidateに含まれるHoleSegmentCandidate群を、
-     * 同一の軸方向座標系で評価するための代表軸。
-     *
-     * HoleCandidateは同軸セグメント集合だが、
-     * 各Segment/Wallはそれぞれcenter/axisDirectionを持つため、
-     * 端位置や軸方向範囲を比較するには共通軸への射影が必要となる。
-     */
-    struct HoleCandidateAxis
-    {
-        gp_Pnt point;
-        gp_Dir direction = gp_Dir(0.0, 0.0, 1.0);
-
-        bool isValid = false;
-    };
-
-    /**
-     * @brief 穴候補の共通軸上で見たセグメント範囲
-     *
-     * HoleSegmentCandidateの各HoleEndCandidate::centerを
-     * HoleCandidateAxisへ射影して得られる、Candidate共通座標系での範囲。
-     *
-     * これはHoleSegmentCandidate固有のローカル範囲ではなく、
-     * 特定のHoleCandidateAxis上で評価した派生情報。
-     *
-     * HoleCandidate内の複数のSegmentを比較・並び替え・接続判定する場合に使用する
-     */
-    struct HoleSegmentRangeOnCandidateAxis
-    {
-        int segmentCandidateIndex = -1;
-
-        double minAxial = 0.0;
-        double maxAxial = 0.0;
-
-        int minEndCandidateIndex = -1;
-        int maxEndCandidateIndex = -1;
-
-        bool isValid = false;
-    };
-
-    enum class HoleSegmentConnectionKind
-    {
-        Unknown,
-
-        SharedEndGeometry,
-
-        ShoulderPlane,
-
-        AxialRangeNear
-    };
-
-    struct HoleSegmentConnection
-    {
-        int currentSegmentCandidateIndex = -1;
-        int nextSegmentCandidateIndex = -1;
-
-        int currentEndCandidateIndex = -1;
-        int nextEndCandidateIndex = -1;
-
-        double axialRangeGap = 0.0;
-
-        HoleSegmentConnectionKind kind = HoleSegmentConnectionKind::Unknown;
-    };
-
-    struct HoleSegmentChain
-    {
-        int index = -1;
-
-        std::vector<int> segmentCandidateIndices;
-    };
-
-    /**
      * @brief 穴候補
      *
      * HoleSegmentCandidate を軸単位の判断基準でまとめた穴フィーチャ候補。
@@ -235,15 +162,7 @@ namespace OccQtCore::Feature
     struct HoleCandidate
     {
         int index = -1;
-
         std::vector<int> segmentCandidateIndices;
-
-        HoleCandidateAxis axis;
-        std::vector<HoleSegmentRangeOnCandidateAxis> segmentRanges;
-
-        std::vector<HoleSegmentConnection> segmentConnections;
-        std::vector<HoleSegmentChain> segmentChains;
-
         Hole::Type type = Hole::Type::Unknown;
     };
 }
