@@ -92,6 +92,8 @@ qt_add_executable(OccQtCore
     src/Log/LogFormatUtil.cpp
     src/Log/HoleRecognitionLogReporter.h
     src/Log/HoleRocognitionLogReporter.cpp
+    src/Log/GeometryLogReporter.h
+    src/Log/GeometryLogReporter.cpp
 )
 
 target_include_directories(OccQtCore

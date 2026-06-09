@@ -1,16 +1,11 @@
 #ifndef APPLOGREPORTER_H
 #define APPLOGREPORTER_H
 
-#include <vector>
-
 #include <QString>
-
-#include <gp_Dir.hxx>
-#include <gp_Pnt.hxx>
 
 #include "Core/SelectionInfo.h"
 #include "Log/HoleRecognitionLogReporter.h"
-#include "Feature/HoleRecognitionTypes.h"
+#include "Log/GeometryLogReporter.h"
 
 namespace OccQtCore
 {
@@ -38,27 +33,8 @@ namespace OccQtCore
         // Geometry logs
         // 読み込んだ形状データそのもののログ
         // ============================================================
-        void logGeometryAnalysisReport(const GeometryModel& model) const;
-        void logGeometryDetailDiagnostics(const GeometryModel& model) const;
-
-        void logGeometrySummary(const GeometryModel& model) const;
-        void logGeometryTopologySummary(const GeometryModel& model) const;
-        void logComplexGeometrySummary(const GeometryModel& model) const;
-        void logCircleGroupSummary(const GeometryModel& model) const;
-
-        void logSelectionGeometryDetails(
-            const GeometryModel& model,
-            const SelectionInfo& selectionInfo) const;
-
-        // 単体詳細：ピック向け
-        void logFaceDetails(const GeometryModel& model, int faceIndex) const;
-        void logWireDetails(const GeometryModel& model, int wireIndex) const;
-        void logEdgeDetails(const GeometryModel& model, int edgeIndex) const;
-        void logVertexDetails(const GeometryModel& model, int vertexIndex) const;
-
-        // 階層詳細：診断向け
-        void logFaceTreeDetails(const GeometryModel& model, int faceIndex) const;
-        void logWireTreeDetails(const GeometryModel& model, int wireIndex) const;
+        void logGeometry(const GeometryLogReport& report) const;
+        void logGeometryElement(const GeometryElementLogReport& report) const;
 
         // ============================================================
         // Feature logs
@@ -70,6 +46,7 @@ namespace OccQtCore
     private:
         AppLogger* m_logger = nullptr;
 
+        GeometryLogReporter m_geometryReporter;
         HoleRecognitionLogReporter m_holeRecognitionReporter;
     };
 }

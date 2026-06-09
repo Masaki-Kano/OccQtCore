@@ -286,7 +286,15 @@ void MainWindow::dumpGeometryAnalysisLog()
     }
 
     m_logReporter->logActionStarted("形状解析ログ出力");
-    m_logReporter->logGeometryAnalysisReport(m_document.geometryModel());
+
+    OccQtCore::GeometryLogReport report{
+        m_document.geometryModel()
+    };
+
+    report.outputDetailDiagnostics = false;
+
+    m_logReporter->logGeometry(report);
+
     m_logReporter->logActionFinished("形状解析ログ出力");
 }
 
@@ -298,7 +306,18 @@ void MainWindow::dumpGeometryDetailDiagnosticsLog()
     }
 
     m_logReporter->logActionStarted("形状詳細診断ログ出力");
-    m_logReporter->logGeometryDetailDiagnostics(m_document.geometryModel());
+
+    OccQtCore::GeometryLogReport report{
+        m_document.geometryModel()
+    };
+
+    report.outputSummary = false;
+    report.outputTopologySummary = false;
+    report.outputComplexGeometrySummary = false;
+    report.outputDetailDiagnostics = true;
+
+    m_logReporter->logGeometry(report);
+
     m_logReporter->logActionFinished("形状詳細診断ログ出力");
 }
 
