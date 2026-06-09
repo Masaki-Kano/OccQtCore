@@ -1,15 +1,19 @@
-#include <algorithm>
-
 #include <BRepAdaptor_Surface.hxx>
 #include <GeomAbs_SurfaceType.hxx>
 
 #include "Log/AppLogReporter.h"
 #include "Log/AppLogger.h"
+#include "Log/LogFormatUtil.h"
 
 #include "Geometry/GeometryModel.h"
 #include "Geometry/TopologyQuery.h"
 
 #include "Feature/FeatureTypes.h"
+
+namespace
+{
+namespace LF = OccQtCore::LogFormatUtil;
+}
 
 namespace OccQtCore
 {
@@ -33,7 +37,7 @@ namespace OccQtCore
 
         m_logger->info(
             QString("選択: %1, インデックス=%2, 表示オブジェクトID=%3")
-                .arg(formatPickedShapeType(selectionInfo.type))
+                .arg(LF::formatPickedShapeType(selectionInfo.type))
                 .arg(selectionInfo.elementIndex)
                 .arg(selectionInfo.sourceDisplayObjectId));
 
@@ -96,7 +100,7 @@ namespace OccQtCore
         m_logger->error(
             QString("操作失敗: %1, 理由=%2")
             .arg(actionName)
-                .arg(reason));
+            .arg(reason));
     }
 
     void AppLogReporter::logGeometryAnalysisReport(const GeometryModel& model) const
@@ -254,8 +258,8 @@ namespace OccQtCore
                 .arg(surfaceKindDisplayName(faceData->info.kind))
                 .arg(faceData->info.area, 0, 'f', 3)
                 .arg(wireIndices.size())
-                .arg(formatWireIndexList(model, wireIndices))
-                .arg(formatFaceIndexList(model, adjacentFaceIndices)));
+                .arg(LF::formatWireIndexList(model, wireIndices))
+                .arg(LF::formatFaceIndexList(model, adjacentFaceIndices)));
 
         if (faceData->info.plane.has_value())
         {
@@ -312,8 +316,8 @@ namespace OccQtCore
                 .arg(wireData->info.isOuter ? "true" : "false")
                 .arg(wireData->info.isInner ? "true" : "false")
                 .arg(wireData->info.isClosed ? "true" : "false")
-                .arg(formatFaceIndexList(model, faceIndices))
-                .arg(formatEdgeIndexList(model, edgeIndices)));
+                .arg(LF::formatFaceIndexList(model, faceIndices))
+                .arg(LF::formatEdgeIndexList(model, edgeIndices)));
     }
 
     void AppLogReporter::logEdgeDetails(const GeometryModel& model, int edgeIndex) const
@@ -340,9 +344,9 @@ namespace OccQtCore
                 .arg(edgeIndex)
                 .arg(curveKindDisplayName(edgeData->info.kind))
                 .arg(edgeData->info.length, 0, 'f', 3)
-                .arg(formatFaceIndexList(model, faceIndices))
-                .arg(formatWireIndexList(model, graph.wiresOfEdge(edgeIndex)))
-                .arg(formatIndexList(graph.verticesOfEdge(edgeIndex)))
+                .arg(LF::formatFaceIndexList(model, faceIndices))
+                .arg(LF::formatWireIndexList(model, graph.wiresOfEdge(edgeIndex)))
+                .arg(LF::formatIndexList(graph.verticesOfEdge(edgeIndex)))
                 .arg(edgeData->info.firstParameter, 0, 'f', 3)
                 .arg(edgeData->info.lastParameter, 0, 'f', 3));
 
@@ -419,14 +423,14 @@ namespace OccQtCore
                     .arg(p.X(), 0, 'f', 3)
                     .arg(p.Y(), 0, 'f', 3)
                     .arg(p.Z(), 0, 'f', 3)
-                    .arg(formatIndexList(graph.edgesOfVertex(vertexIndex))));
+                    .arg(LF::formatIndexList(graph.edgesOfVertex(vertexIndex))));
         }
         else
         {
             m_logger->info(
                 QString("Vertex[%1]: Point=なし, Edges=[%2]")
                     .arg(vertexIndex)
-                    .arg(formatIndexList(graph.edgesOfVertex(vertexIndex))));
+                    .arg(LF::formatIndexList(graph.edgesOfVertex(vertexIndex))));
         }
     }
 
@@ -502,9 +506,9 @@ namespace OccQtCore
         {
             const QString message = QString("WallCandidate[%1]: Faces=%2, Center=%3, Axis=%4, Radius=%5, Depth=%6")
                 .arg(candidate.index)
-                .arg(formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
-                .arg(formatPoint(candidate.center))
-                .arg(formatDirection(candidate.axisDirection))
+                .arg(LF::formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
+                .arg(LF::formatPoint(candidate.center))
+                .arg(LF::formatDirection(candidate.axisDirection))
                 .arg(candidate.radius, 0, 'f', 3)
                 .arg(candidate.depth, 0, 'f', 3);
 
@@ -520,25 +524,6 @@ namespace OccQtCore
         {
             return;
         }
-
-        m_logger->info("========== 穴端候補 ==========");
-        m_logger->info(QString("候補数: %1").arg(candidates.size()));
-
-        for (const auto& candidate : candidates)
-        {
-            const QString message =
-                QString("EndCandidate[%1]: Type=%2, Wall=%3, Faces=%4, Edges=%5, Center=%6, Axis=%7, Radius=%8")
-                    .arg(candidate.index)
-                    .arg(formatHoleEndCandidateType(candidate.type))
-                    .arg(candidate.wallCandidateIndex)
-                    .arg(formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
-                    .arg(formatEdgeIndexList(model, candidate.geometryRefs.edgeIndices))
-                    .arg(formatPoint(candidate.center))
-                    .arg(formatDirection(candidate.axisDirection))
-                    .arg(candidate.radius, 0, 'f', 3);
-
-            m_logger->info(message);
-        }
     }
 
     void AppLogReporter::logHoleSegmentCandidates(
@@ -553,89 +538,6 @@ namespace OccQtCore
         }
 
         m_logger->info("========== 穴セグメント候補 ==========");
-        m_logger->info(QString("候補数: %1").arg(segments.size()));
-
-        for (const auto& segment : segments)
-        {
-            QString message;
-
-            message += QString("SegmentCandidate[%1]: ")
-                           .arg(segment.index);
-
-            message += QString("Wall=%1")
-                           .arg(segment.wallCandidateIndex);
-
-            if (segment.wallCandidateIndex >= 0 &&
-                segment.wallCandidateIndex < static_cast<int>(wallCandidates.size()))
-            {
-                const auto& wall = wallCandidates[segment.wallCandidateIndex];
-
-                message += QString(", WallFaces=%1")
-                               .arg(formatFaceIndexList(
-                                   model,
-                                   wall.geometryRefs.faceIndices));
-
-                message += QString(", Center=%1")
-                               .arg(formatPoint(wall.center));
-
-                message += QString(", Axis=%1")
-                               .arg(formatDirection(wall.axisDirection));
-
-                message += QString(", Radius=%1")
-                               .arg(wall.radius, 0, 'f', 3);
-            }
-
-            message += QString(", EndIndices=%1")
-                           .arg(formatIndexList(segment.endCandidateIndices));
-
-            m_logger->info(message);
-
-            for (int endCandidateIndex : segment.endCandidateIndices)
-            {
-                if (endCandidateIndex < 0 ||
-                    endCandidateIndex >= static_cast<int>(endCandidates.size()))
-                {
-                    m_logger->info(
-                        QString("  End[%1]: <invalid>")
-                            .arg(endCandidateIndex));
-                    continue;
-                }
-
-                const auto& end = endCandidates[endCandidateIndex];
-
-                QString endMessage;
-
-                endMessage += QString("  End[%1]: Type=%2")
-                                  .arg(end.index)
-                                  .arg(formatHoleEndCandidateType(end.type));
-
-                endMessage += ", Axial=";
-
-                if (end.hasAxialPosition)
-                {
-                    endMessage += QString::number(
-                        end.axialPosition,
-                        'f',
-                        4);
-                }
-                else
-                {
-                    endMessage += "N/A";
-                }
-
-                endMessage += QString(", Faces=%1")
-                                  .arg(formatFaceIndexList(
-                                      model,
-                                      end.geometryRefs.faceIndices));
-
-                endMessage += QString(", Edges=%1")
-                                  .arg(formatEdgeIndexList(
-                                      model,
-                                      end.geometryRefs.edgeIndices));
-
-                m_logger->info(endMessage);
-            }
-        }
     }
 
     void AppLogReporter::logHoleCandidates(
@@ -650,372 +552,5 @@ namespace OccQtCore
         }
 
         m_logger->info("========== 穴候補 ==========");
-        m_logger->info(QString("候補数: %1").arg(candidates.size()));
-
-        for (const auto& candidate : candidates)
-        {
-            m_logger->info(
-                QString("HoleCandidate[%1]: SegmentCount=%2, Segments=[%3], Type=%4")
-                    .arg(candidate.index)
-                    .arg(candidate.segmentCandidateIndices.size())
-                    .arg(formatIndexList(candidate.segmentCandidateIndices))
-                    .arg(static_cast<int>(candidate.type)));
-
-            for (int segmentIndex : candidate.segmentCandidateIndices)
-            {
-                if (segmentIndex < 0 ||
-                    segmentIndex >= static_cast<int>(segmentCandidates.size()))
-                {
-                    m_logger->info(
-                        QString("  Segment[%1]: <invalid>")
-                            .arg(segmentIndex));
-                    continue;
-                }
-
-                const auto& segment = segmentCandidates[segmentIndex];
-
-                QString message;
-
-                message += QString("  Segment[%1]: Wall=%2")
-                               .arg(segment.index)
-                               .arg(segment.wallCandidateIndex);
-
-                if (segment.wallCandidateIndex >= 0 &&
-                    segment.wallCandidateIndex < static_cast<int>(wallCandidates.size()))
-                {
-                    const auto& wall = wallCandidates[segment.wallCandidateIndex];
-
-                    message += QString(", Center=%1")
-                                   .arg(formatPoint(wall.center));
-
-                    message += QString(", Axis=%1")
-                                   .arg(formatDirection(wall.axisDirection));
-
-                    message += QString(", Radius=%1")
-                                   .arg(wall.radius, 0, 'f', 3);
-                }
-
-                message += QString(", AxialRange=%1")
-                               .arg(formatHoleSegmentAxialRange(
-                                   segment,
-                                   endCandidates));
-
-                message += QString(", Ends=[%1]")
-                               .arg(formatHoleSegmentEndTypes(
-                                   segment,
-                                   endCandidates));
-
-                m_logger->info(message);
-            }
-        }
-    }
-
-    QString AppLogReporter::formatIndexList(
-        const std::vector<int>& indices) const
-    {
-        QString text;
-
-        for (int index : indices)
-        {
-            if (!text.isEmpty())
-            {
-                text += ", ";
-            }
-
-            text += QString::number(index);
-        }
-
-        return text;
-    }
-
-    QString AppLogReporter::formatFaceIndexList(
-        const GeometryModel& model,
-        const std::vector<int>& faceIndices) const
-    {
-        QString text;
-
-        for (int faceIndex : faceIndices)
-        {
-            if (!text.isEmpty())
-            {
-                text += ", ";
-            }
-
-            QString kindText = "Invalid";
-
-            const auto* faceData = model.faceAt(faceIndex);
-            if (faceData != nullptr)
-            {
-                kindText = surfaceKindDisplayName(faceData->info.kind);
-            }
-
-            text += QString("%1:%2")
-                        .arg(faceIndex)
-                        .arg(kindText);
-        }
-
-        return text;
-    }
-
-    QString AppLogReporter::formatEdgeIndexList(
-        const GeometryModel& model,
-        const std::vector<int>& edgeIndices) const
-    {
-        QString text;
-
-        for (int edgeIndex : edgeIndices)
-        {
-            if (!text.isEmpty())
-            {
-                text += ", ";
-            }
-
-            QString kindText = "Invalid";
-
-            const auto* edgeData = model.edgeAt(edgeIndex);
-            if (edgeData != nullptr)
-            {
-                kindText = curveKindDisplayName(edgeData->info.kind);
-            }
-
-            text += QString("%1:%2")
-                        .arg(edgeIndex)
-                        .arg(kindText);
-        }
-
-        return text;
-    }
-
-    QString AppLogReporter::formatWireIndexList(
-        const GeometryModel& model,
-        const std::vector<int>& wireIndices) const
-    {
-        QString text;
-
-        for (int wireIndex : wireIndices)
-        {
-            if (!text.isEmpty())
-            {
-                text += ", ";
-            }
-
-            QString kindText = "Invalid";
-
-            const auto* wireData = model.wireAt(wireIndex);
-            if (wireData != nullptr)
-            {
-                if (wireData->info.isOuter)
-                {
-                    kindText = "Outer";
-                }
-                else if (wireData->info.isInner)
-                {
-                    kindText = "Inner";
-                }
-                else
-                {
-                    kindText = "Unknown";
-                }
-
-                if (wireData->info.isClosed)
-                {
-                    kindText += "/Closed";
-                }
-                else
-                {
-                    kindText += "/Open";
-                }
-            }
-
-            text += QString("%1:%2")
-                        .arg(wireIndex)
-                        .arg(kindText);
-        }
-
-        return text;
-    }
-
-    QString AppLogReporter::formatFaceIndex(
-        const GeometryModel& model,
-        int faceIndex) const
-    {
-        const auto* faceData = model.faceAt(faceIndex);
-
-        if (faceData == nullptr)
-        {
-            return QString("%1:Invalid").arg(faceIndex);
-        }
-
-        return QString("%1:%2")
-            .arg(faceIndex)
-            .arg(surfaceKindDisplayName(faceData->info.kind));
-    }
-
-    QString AppLogReporter::formatWireIndex(
-        const GeometryModel& model,
-        int wireIndex) const
-    {
-        const auto* wireData = model.wireAt(wireIndex);
-
-        if (wireData == nullptr)
-        {
-            return QString("%1:Invalid").arg(wireIndex);
-        }
-
-        QString typeText;
-
-        if (wireData->info.isOuter)
-        {
-            typeText = "Outer";
-        }
-        else if (wireData->info.isInner)
-        {
-            typeText = "Inner";
-        }
-        else
-        {
-            typeText = "Unknown";
-        }
-
-        typeText += wireData->info.isClosed ? "/Closed" : "/Open";
-
-        return QString("%1:%2")
-            .arg(wireIndex)
-            .arg(typeText);
-    }
-
-    QString AppLogReporter::formatPickedShapeType(PickedShapeType type) const
-    {
-        switch (type)
-        {
-        case OccQtCore::PickedShapeType::Vertex:
-            return "Vertex";
-
-        case OccQtCore::PickedShapeType::Edge:
-            return "Edge";
-
-        case OccQtCore::PickedShapeType::Face:
-            return "Face";
-
-        case OccQtCore::PickedShapeType::Solid:
-            return "Solid";
-
-        case OccQtCore::PickedShapeType::Unknown:
-        default:
-            return "Unknown";
-        }
-    }
-
-    QString AppLogReporter::formatPoint(const gp_Pnt& point) const
-    {
-        return QString("(%1, %2, %3)")
-            .arg(point.X(), 0, 'f', 3)
-            .arg(point.Y(), 0, 'f', 3)
-            .arg(point.Z(), 0, 'f', 3);
-    }
-
-    QString AppLogReporter::formatDirection(const gp_Dir& direction) const
-    {
-        return QString("(%1, %2, %3)")
-            .arg(direction.X(), 0, 'f', 3)
-            .arg(direction.Y(), 0, 'f', 3)
-            .arg(direction.Z(), 0, 'f', 3);
-    }
-
-    QString AppLogReporter::formatHoleEndCandidateType(
-        Feature::HoleEndCandidateType type) const
-    {
-        using Type = Feature::HoleEndCandidateType;
-
-        switch (type)
-        {
-        case Type::Open:
-            return "Open";
-
-        case Type::Bottom:
-            return "Bottom";
-
-        case Type::WallConnection:
-            return "WallConnection";
-
-        case Type::Unknown:
-        default:
-            return "Unknown";
-        }
-    }
-
-    QString AppLogReporter::formatHoleSegmentAxialRange(
-        const Feature::HoleSegmentCandidate& segment,
-        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
-    {
-        bool hasAxial = false;
-        double minAxial = 0.0;
-        double maxAxial = 0.0;
-
-        for (int endIndex : segment.endCandidateIndices)
-        {
-            if (endIndex < 0 ||
-                endIndex >= static_cast<int>(endCandidates.size()))
-            {
-                continue;
-            }
-
-            const auto& end = endCandidates[endIndex];
-
-            if (!end.hasAxialPosition)
-            {
-                continue;
-            }
-
-            if (!hasAxial)
-            {
-                minAxial = end.axialPosition;
-                maxAxial = end.axialPosition;
-                hasAxial = true;
-                continue;
-            }
-
-            minAxial = std::min(minAxial, end.axialPosition);
-            maxAxial = std::max(maxAxial, end.axialPosition);
-        }
-
-        if (!hasAxial)
-        {
-            return "N/A";
-        }
-
-        return QString("%1 - %2")
-            .arg(minAxial, 0, 'f', 4)
-            .arg(maxAxial, 0, 'f', 4);
-    }
-
-    QString AppLogReporter::formatHoleSegmentEndTypes(
-        const Feature::HoleSegmentCandidate& segment,
-        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
-    {
-        QString text;
-
-        for (int endIndex : segment.endCandidateIndices)
-        {
-            if (!text.isEmpty())
-            {
-                text += ", ";
-            }
-
-            if (endIndex < 0 ||
-                endIndex >= static_cast<int>(endCandidates.size()))
-            {
-                text += QString("%1:Invalid").arg(endIndex);
-                continue;
-            }
-
-            const auto& end = endCandidates[endIndex];
-
-            text += QString("%1:%2")
-                        .arg(endIndex)
-                        .arg(formatHoleEndCandidateType(end.type));
-        }
-
-        return text;
     }
 }

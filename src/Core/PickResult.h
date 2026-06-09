@@ -18,6 +18,37 @@ namespace OccQtCore
         Compound
     };
 
+    inline const char* pickedShapeTypeDisplayName(PickedShapeType type)
+    {
+        switch (type)
+        {
+        case PickedShapeType::Vertex:
+            return "Vertex";
+
+        case PickedShapeType::Edge:
+            return "Edge";
+
+        case PickedShapeType::Wire:
+            return "Wire";
+
+        case PickedShapeType::Face:
+            return "Face";
+
+        case PickedShapeType::Shell:
+            return "Shell";
+
+        case PickedShapeType::Solid:
+            return "Solid";
+
+        case PickedShapeType::Compound:
+            return "Compound";
+
+        case PickedShapeType::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
+
     struct PickResult
     {
         bool hasShape = false;

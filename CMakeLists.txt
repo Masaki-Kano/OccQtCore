@@ -88,6 +88,8 @@ qt_add_executable(OccQtCore
     src/Feature/HoleSegmentCandidateBuilder.cpp
     src/Feature/HoleWallCandidateDetector.cpp
     src/Feature/HoleWallCandidateDetector.h
+    src/Log/LogFormatUtil.h
+    src/Log/LogFormatUtil.cpp
 )
 
 target_include_directories(OccQtCore

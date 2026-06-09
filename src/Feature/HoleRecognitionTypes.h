@@ -46,6 +46,25 @@ namespace OccQtCore::Feature
         WallConnection
     };
 
+    inline const char* holeEndCandidateTypeDisplayName(HoleEndCandidateType type)
+    {
+        switch (type)
+        {
+        case HoleEndCandidateType::Open:
+            return "Open";
+
+        case HoleEndCandidateType::Bottom:
+            return "Bottom";
+
+        case HoleEndCandidateType::WallConnection:
+            return "WallConnection";
+
+        case HoleEndCandidateType::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
+
     /**
      * @brief 穴壁候補
      *

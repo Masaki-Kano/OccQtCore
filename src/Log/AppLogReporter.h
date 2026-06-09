@@ -29,7 +29,7 @@ namespace OccQtCore
         void logStepLoaded(const QString& filePath) const;
         void logStepLoadFailed(const QString& errorMessage) const;
 
-        void logActionStarted(const QString& acitonName) const;
+        void logActionStarted(const QString& actionName) const;
         void logActionFinished(const QString& actionName) const;
         void logActionFailed(const QString& actionName, const QString& reason) const;
 
@@ -88,47 +88,6 @@ namespace OccQtCore
             const std::vector<OccQtCore::Feature::HoleSegmentCandidate>& segmentCandidates,
             const std::vector<OccQtCore::Feature::HoleWallCandidate>& wallCandidates,
             const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates) const;
-
-    private:
-        QString formatIndexList(
-            const std::vector<int>& indices) const;
-
-        QString formatFaceIndexList(
-            const GeometryModel& model,
-            const std::vector<int>& faceIndices) const;
-
-        QString formatEdgeIndexList(
-            const GeometryModel& model,
-            const std::vector<int>& edgeIndices) const;
-
-        QString formatWireIndexList(
-            const GeometryModel& model,
-            const std::vector<int>& wireIndices) const;
-
-        QString formatFaceIndex(
-            const GeometryModel& model,
-            int faceIndex) const;
-
-        QString formatWireIndex(
-            const GeometryModel& model,
-            int wireIndex) const;
-
-        QString formatPoint(const gp_Pnt& point) const;
-        QString formatDirection(const gp_Dir& direction) const;
-
-        QString formatPickedShapeType(PickedShapeType type) const;
-
-        QString formatHoleEndCandidateType(
-            Feature::HoleEndCandidateType type) const;
-
-        QString formatHoleSegmentAxialRange(
-            const Feature::HoleSegmentCandidate& segment,
-            const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
-
-        QString formatHoleSegmentEndTypes(
-            const Feature::HoleSegmentCandidate& segment,
-            const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
-
 
     private:
         AppLogger* m_logger = nullptr;
