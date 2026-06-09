@@ -19,6 +19,7 @@ namespace OccQtCore
 {
     AppLogReporter::AppLogReporter(AppLogger* logger)
         : m_logger(logger)
+        , m_holeRecognitionReporter(logger)
     {
     }
 
@@ -470,87 +471,10 @@ namespace OccQtCore
         }
     }
 
-    void AppLogReporter::logHoleRecognitionReport(
-        const GeometryModel& model,
-        const std::vector<Feature::HoleWallCandidate>& wallCandidates,
-        const std::vector<Feature::HoleEndCandidate>& endCandidates,
-        const std::vector<Feature::HoleSegmentCandidate>& segmentCandidates) const
+    void AppLogReporter::logHoleRecognition(const HoleRecognitionLogReport& report) const
     {
-        Q_UNUSED(model);
-
-        if (m_logger == nullptr)
-        {
-            return;
-        }
-
-        m_logger->info("========== 穴フィーチャ認識レポート ==========");
-        m_logger->info(QString("穴壁候補数: %1").arg(wallCandidates.size()));
-        m_logger->info(QString("穴端候補数: %1").arg(endCandidates.size()));
-        m_logger->info(QString("穴セグメント候補数: %1").arg(segmentCandidates.size()));
-        m_logger->info("============================================");
+        m_holeRecognitionReporter.logHoleRecognition(report);
     }
 
-    void AppLogReporter::logHoleWallCandidates(
-        const GeometryModel& model,
-        const std::vector<Feature::HoleWallCandidate>& candidates) const
-    {
-        if (m_logger == nullptr)
-        {
-            return;
-        }
 
-        m_logger->info("========== 穴壁候補 ==========");
-        m_logger->info(QString("候補数: %1").arg(candidates.size()));
-
-        for (const auto& candidate : candidates)
-        {
-            const QString message = QString("WallCandidate[%1]: Faces=%2, Center=%3, Axis=%4, Radius=%5, Depth=%6")
-                .arg(candidate.index)
-                .arg(LF::formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
-                .arg(LF::formatPoint(candidate.center))
-                .arg(LF::formatDirection(candidate.axisDirection))
-                .arg(candidate.radius, 0, 'f', 3)
-                .arg(candidate.depth, 0, 'f', 3);
-
-            m_logger->info(message);
-        }
-    }
-
-    void AppLogReporter::logHoleEndCandidates(
-        const GeometryModel& model,
-        const std::vector<Feature::HoleEndCandidate>& candidates) const
-    {
-        if (m_logger == nullptr)
-        {
-            return;
-        }
-    }
-
-    void AppLogReporter::logHoleSegmentCandidates(
-        const GeometryModel& model,
-        const std::vector<Feature::HoleSegmentCandidate>& segments,
-        const std::vector<Feature::HoleWallCandidate>& wallCandidates,
-        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
-    {
-        if (m_logger == nullptr)
-        {
-            return;
-        }
-
-        m_logger->info("========== 穴セグメント候補 ==========");
-    }
-
-    void AppLogReporter::logHoleCandidates(
-        const std::vector<Feature::HoleCandidate>& candidates,
-        const std::vector<Feature::HoleSegmentCandidate>& segmentCandidates,
-        const std::vector<Feature::HoleWallCandidate>& wallCandidates,
-        const std::vector<Feature::HoleEndCandidate>& endCandidates) const
-    {
-        if (m_logger == nullptr)
-        {
-            return;
-        }
-
-        m_logger->info("========== 穴候補 ==========");
-    }
 }

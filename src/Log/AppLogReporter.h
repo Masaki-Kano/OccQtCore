@@ -9,6 +9,7 @@
 #include <gp_Pnt.hxx>
 
 #include "Core/SelectionInfo.h"
+#include "Log/HoleRecognitionLogReporter.h"
 #include "Feature/HoleRecognitionTypes.h"
 
 namespace OccQtCore
@@ -63,34 +64,13 @@ namespace OccQtCore
         // Feature logs
         // 加工フィーチャとして意味づけした情報のログ
         // ============================================================
-        void logHoleRecognitionReport(
-            const GeometryModel& model,
-            const std::vector<Feature::HoleWallCandidate>& wallCandidates,
-            const std::vector<Feature::HoleEndCandidate>& endCandidates,
-            const std::vector<Feature::HoleSegmentCandidate>& segmentCandidates) const;
+        void logHoleRecognition(const HoleRecognitionLogReport& report) const;
 
-        void logHoleWallCandidates(
-            const GeometryModel& model,
-            const std::vector<Feature::HoleWallCandidate>& candidates) const;
-
-        void logHoleEndCandidates(
-            const GeometryModel& model,
-            const std::vector<Feature::HoleEndCandidate>& candidates) const;
-
-        void logHoleSegmentCandidates(
-            const GeometryModel& model,
-            const std::vector<Feature::HoleSegmentCandidate>& segments,
-            const std::vector<Feature::HoleWallCandidate>& wallCandidates,
-            const std::vector<Feature::HoleEndCandidate>& endCandidates) const;
-
-        void logHoleCandidates(
-            const std::vector<OccQtCore::Feature::HoleCandidate>& candidates,
-            const std::vector<OccQtCore::Feature::HoleSegmentCandidate>& segmentCandidates,
-            const std::vector<OccQtCore::Feature::HoleWallCandidate>& wallCandidates,
-            const std::vector<OccQtCore::Feature::HoleEndCandidate>& endCandidates) const;
 
     private:
         AppLogger* m_logger = nullptr;
+
+        HoleRecognitionLogReporter m_holeRecognitionReporter;
     };
 }
 

@@ -184,6 +184,25 @@ namespace OccQtCore::Feature
         std::vector<int> segmentCandidateIndices;
         Hole::Type type = Hole::Type::Unknown;
     };
+
+    /**
+     * @brief 穴認識結果
+     *
+     * 穴認識処理で生成された中間候補データ一式。
+     *
+     * Wall / End / Segment / HoleCandidate は index 参照で互いに関連しているため、
+     * 個別の vector ではなく、同じ認識結果セットとして扱う。
+     *
+     * ここでの HoleCandidate は最終出力用の Hole::Data ではなく、
+     * 認識途中または診断用の穴フィーチャ候補。
+     */
+    struct HoleRecognitionResult
+    {
+        std::vector<HoleWallCandidate> wallCandidates;
+        std::vector<HoleEndCandidate> endCandidates;
+        std::vector<HoleSegmentCandidate> segmentCandidates;
+        std::vector<HoleCandidate> holeCandidates;
+    };
 }
 
 #endif // HOLERECOGNITIONTYPES_H

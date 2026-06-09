@@ -439,37 +439,21 @@ void MainWindow::logHoleDebugInfo()
 
     m_logReporter->logActionStarted("穴認識デバッグ生成");
 
-    if (m_holeDebugLogOptions.logWalls)
-    {
-        m_logReporter->logHoleWallCandidates(
-            model,
-            m_holeWallCandidates);
-    }
+    OccQtCore::Feature::HoleRecognitionResult result;
+    result.wallCandidates = m_holeWallCandidates;
+    result.endCandidates = m_holeEndCandidates;
+    result.segmentCandidates = m_holeSegmentCandidates;
+    result.holeCandidates = m_holeCandidates;
 
-    if (m_holeDebugLogOptions.logEnds)
-    {
-        m_logReporter->logHoleEndCandidates(
-            model,
-            m_holeEndCandidates);
-    }
+    OccQtCore::HoleRecognitionLogReport report{model, result};
 
-    if (m_holeDebugLogOptions.logSegments)
-    {
-        m_logReporter->logHoleSegmentCandidates(
-            model,
-            m_holeSegmentCandidates,
-            m_holeWallCandidates,
-            m_holeEndCandidates);
-    }
+    report.outputSummary = true;
+    report.outputWallCandidates = m_holeDebugLogOptions.logWalls;
+    report.outputEndCandidates = m_holeDebugLogOptions.logEnds;
+    report.outputSegmentCandidates = m_holeDebugLogOptions.logSegments;
+    report.outputHoleCandidates = m_holeDebugLogOptions.logCandidates;
 
-    if (m_holeDebugLogOptions.logCandidates)
-    {
-        m_logReporter->logHoleCandidates(
-            m_holeCandidates,
-            m_holeSegmentCandidates,
-            m_holeWallCandidates,
-            m_holeEndCandidates);
-    }
+    m_logReporter->logHoleRecognition(report);
 
     m_logReporter->logActionFinished("穴認識デバッグ生成");
 }
