@@ -46,6 +46,21 @@ namespace OccQtCore::Feature
         return {};
     }
 
+    HoleRecognitionResult HoleFeatureRecognizer::recognizeCandidates(const GeometryModel& model) const
+    {
+        HoleRecognitionResult result;
+
+        result.wallCandidates = detectWallCandidates(model);
+
+        result.endCandidates = detectEndCandidates(model, result.wallCandidates);
+
+        result.segmentCandidates = buildSegmentCandidates(model, result.wallCandidates, result.endCandidates);
+
+        result.holeCandidates = buildHoleCandidatesFromSegments(result.wallCandidates, result.endCandidates, result.segmentCandidates);
+
+        return result;
+    }
+
     std::vector<HoleWallCandidate> HoleFeatureRecognizer::detectWallCandidates(
         const GeometryModel& model) const
     {

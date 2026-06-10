@@ -41,6 +41,8 @@ namespace OccQtCore::Feature
         std::vector<Hole::Data> recognize(
             const GeometryModel& model) const;
 
+        HoleRecognitionResult recognizeCandidates(const GeometryModel& model) const;
+
         /**
          * @brief 穴壁候補を検出する。
          *

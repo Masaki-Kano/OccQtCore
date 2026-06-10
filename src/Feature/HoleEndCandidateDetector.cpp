@@ -37,10 +37,13 @@ namespace
         HoleEndCandidateKey key;
 
         key.wallCandidateIndex = candidate.wallCandidateIndex;
-        key.faceIndices = candidate.geometryRefs.faceIndices;
         key.type = candidate.type;
 
-        OccQtCore::CollectionUtil::sortUnique(key.faceIndices);
+        if (candidate.type != OccQtCore::Feature::HoleEndCandidateType::Open)
+        {
+            key.faceIndices = candidate.geometryRefs.faceIndices;
+            OccQtCore::CollectionUtil::sortUnique(key.faceIndices);
+        }
 
         if (candidate.hasAxialPosition)
         {
@@ -125,20 +128,16 @@ namespace OccQtCore::Feature
 
             for (const auto& connection : connections)
             {
-                const auto candidateOpt =
+                const auto buildCandidates =
                     buildFromWallConnection(
                         wallCandidate,
                         connection.adjacentFaceIndex,
                         connection.boundaryEdgeIndex);
 
-                if (!candidateOpt.has_value())
+                for (const auto& candidate : buildCandidates)
                 {
-                    continue;
+                    appendOrMergeEndCandidate(candidates, candidate);
                 }
-
-                appendOrMergeEndCandidate(
-                    candidates,
-                    candidateOpt.value());
             }
         }
 
@@ -150,7 +149,7 @@ namespace OccQtCore::Feature
         return candidates;
     }
 
-    std::optional<HoleEndCandidate> HoleEndCandidateDetector::buildFromWallConnection(
+    std::vector<HoleEndCandidate> HoleEndCandidateDetector::buildFromWallConnection(
         const HoleWallCandidate& sourceWallCandidate,
         int adjacentFaceIndex,
         int connectionEdgeIndex) const
@@ -159,7 +158,7 @@ namespace OccQtCore::Feature
 
         if (faceData == nullptr)
         {
-            return std::nullopt;
+            return {};
         }
 
         if (isTransitionSurface(faceData->info.kind))
@@ -174,6 +173,69 @@ namespace OccQtCore::Feature
             sourceWallCandidate,
             adjacentFaceIndex,
             connectionEdgeIndex);
+    }
+
+    std::vector<HoleEndCandidate> HoleEndCandidateDetector::buildDirectConnection(
+        const HoleWallCandidate& sourceWallCandidate,
+        int adjacentFaceIndex,
+        int connectionEdgeIndex) const
+    {
+        const auto* faceData = m_model.faceAt(adjacentFaceIndex);
+
+        if (faceData == nullptr)
+        {
+            return {};
+        }
+
+        if (isFaceOwnedByOtherWallCandidate(
+                adjacentFaceIndex,
+                sourceWallCandidate.index))
+        {
+            return {
+                makeWallConnectionEndCandidateFromWall(
+                    sourceWallCandidate,
+                    connectionEdgeIndex,
+                    adjacentFaceIndex)
+            };
+        }
+
+        auto candidate =
+            makeBaseEndCandidateFromWall(sourceWallCandidate);
+
+        if (isConnectionEdgeOnInnerWireOfFace(
+                adjacentFaceIndex,
+                connectionEdgeIndex))
+        {
+            candidate.type =
+                HoleEndCandidateType::Open;
+
+            CollectionUtil::addUnique(
+                candidate.geometryRefs.edgeIndices,
+                connectionEdgeIndex);
+
+            setAxialPositionFromAnyEdge(
+                sourceWallCandidate,
+                candidate);
+
+            return { candidate };
+        }
+
+        candidate.type =
+            HoleEndCandidateType::Bottom;
+
+        CollectionUtil::addUnique(
+            candidate.geometryRefs.faceIndices,
+            adjacentFaceIndex);
+
+        CollectionUtil::addUnique(
+            candidate.geometryRefs.edgeIndices,
+            connectionEdgeIndex);
+
+        setAxialPositionFromAnyEdge(
+            sourceWallCandidate,
+            candidate);
+
+        return { candidate };
     }
 
     bool HoleEndCandidateDetector::isFaceOwnedByOtherWallCandidate(
@@ -328,83 +390,28 @@ namespace OccQtCore::Feature
         }
     }
 
-    std::optional<HoleEndCandidate> HoleEndCandidateDetector::buildDirectConnection(
-        const HoleWallCandidate& sourceWallCandidate,
-        int adjacentFaceIndex,
-        int connectionEdgeIndex) const
-    {
-        const auto* faceData = m_model.faceAt(adjacentFaceIndex);
-
-        if (faceData == nullptr)
-        {
-            return std::nullopt;
-        }
-
-        if (isFaceOwnedByOtherWallCandidate(
-                adjacentFaceIndex,
-                sourceWallCandidate.index))
-        {
-            return makeWallConnectionEndCandidateFromWall(
-                sourceWallCandidate,
-                connectionEdgeIndex,
-                adjacentFaceIndex);
-        }
-
-        auto candidate = makeBaseEndCandidateFromWall(sourceWallCandidate);
-
-        if (isConnectionEdgeOnInnerWireOfFace(
-                adjacentFaceIndex,
-                connectionEdgeIndex))
-        {
-            candidate.type = HoleEndCandidateType::Open;
-
-            OccQtCore::CollectionUtil::addUnique(
-                candidate.geometryRefs.edgeIndices,
-                connectionEdgeIndex);
-
-            setAxialPositionFromAnyEdge(
-                sourceWallCandidate,
-                candidate);
-
-            return candidate;
-        }
-
-        candidate.type = HoleEndCandidateType::Bottom;
-
-        OccQtCore::CollectionUtil::addUnique(
-            candidate.geometryRefs.faceIndices,
-            adjacentFaceIndex);
-
-        OccQtCore::CollectionUtil::addUnique(
-            candidate.geometryRefs.edgeIndices,
-            connectionEdgeIndex);
-
-        setAxialPositionFromAnyEdge(
-            sourceWallCandidate,
-            candidate);
-
-        return candidate;
-    }
-
-    std::optional<HoleEndCandidate> HoleEndCandidateDetector::buildThroughTransitionSurface(
+    std::vector<HoleEndCandidate> HoleEndCandidateDetector::buildThroughTransitionSurface(
         const HoleWallCandidate& sourceWallCandidate,
         int transitionFaceIndex,
         int wallConnectionEdgeIndex) const
     {
-        const auto* transitionFaceData = m_model.faceAt(transitionFaceIndex);
+        const auto* transitionFaceData =
+            m_model.faceAt(transitionFaceIndex);
 
         if (transitionFaceData == nullptr)
         {
-            return std::nullopt;
+            return {};
         }
 
         if (!isTransitionSurface(transitionFaceData->info.kind))
         {
-            return std::nullopt;
+            return {};
         }
 
+        std::vector<HoleEndCandidate> candidates;
+
         const auto transitionEdgeIndices =
-            OccQtCore::TopologyQuery::edgesOfFace(
+            TopologyQuery::edgesOfFace(
                 m_model,
                 transitionFaceIndex);
 
@@ -418,14 +425,15 @@ namespace OccQtCore::Feature
             }
 
             const auto nextFaceIndices =
-                OccQtCore::TopologyQuery::adjacentFacesOfEdge(
+                TopologyQuery::adjacentFacesOfEdge(
                     m_model,
                     nextEdgeIndex,
                     transitionFaceIndex);
 
             for (int nextFaceIndex : nextFaceIndices)
             {
-                const auto* nextFaceData = m_model.faceAt(nextFaceIndex);
+                const auto* nextFaceData =
+                    m_model.faceAt(nextFaceIndex);
 
                 if (nextFaceData == nullptr)
                 {
@@ -437,15 +445,15 @@ namespace OccQtCore::Feature
                 auto candidate =
                     makeBaseEndCandidateFromWall(sourceWallCandidate);
 
-                OccQtCore::CollectionUtil::addUnique(
+                CollectionUtil::addUnique(
                     candidate.geometryRefs.faceIndices,
                     transitionFaceIndex);
 
-                OccQtCore::CollectionUtil::addUnique(
+                CollectionUtil::addUnique(
                     candidate.geometryRefs.edgeIndices,
                     wallConnectionEdgeIndex);
 
-                OccQtCore::CollectionUtil::addUnique(
+                CollectionUtil::addUnique(
                     candidate.geometryRefs.edgeIndices,
                     nextEdgeIndex);
 
@@ -453,31 +461,40 @@ namespace OccQtCore::Feature
                         nextFaceIndex,
                         sourceWallCandidate.index))
                 {
-                    candidate.type = HoleEndCandidateType::WallConnection;
+                    candidate.type =
+                        HoleEndCandidateType::WallConnection;
 
-                    OccQtCore::CollectionUtil::addUnique(
+                    CollectionUtil::addUnique(
                         candidate.geometryRefs.faceIndices,
                         nextFaceIndex);
 
-                    return candidate;
+                    setAxialPositionFromAnyEdge(
+                        sourceWallCandidate,
+                        candidate);
+
+                    candidates.push_back(candidate);
+                    continue;
                 }
 
                 if (isConnectionEdgeOnInnerWireOfFace(
                         nextFaceIndex,
                         nextEdgeIndex))
                 {
-                    candidate.type = HoleEndCandidateType::Open;
+                    candidate.type =
+                        HoleEndCandidateType::Open;
 
                     setAxialPositionFromAnyEdge(
                         sourceWallCandidate,
                         candidate);
 
-                    return candidate;
+                    candidates.push_back(candidate);
+                    continue;
                 }
 
-                candidate.type = HoleEndCandidateType::Bottom;
+                candidate.type =
+                    HoleEndCandidateType::Bottom;
 
-                OccQtCore::CollectionUtil::addUnique(
+                CollectionUtil::addUnique(
                     candidate.geometryRefs.faceIndices,
                     nextFaceIndex);
 
@@ -485,23 +502,25 @@ namespace OccQtCore::Feature
                     sourceWallCandidate,
                     candidate);
 
-                return candidate;
+                candidates.push_back(candidate);
             }
         }
 
-        if (!foundNextConnection &&
+        if (candidates.empty() &&
+            !foundNextConnection &&
             transitionFaceData->info.kind == SurfaceKind::Cone)
         {
             auto candidate =
                 makeBaseEndCandidateFromWall(sourceWallCandidate);
 
-            candidate.type = HoleEndCandidateType::Bottom;
+            candidate.type =
+                HoleEndCandidateType::Bottom;
 
-            OccQtCore::CollectionUtil::addUnique(
+            CollectionUtil::addUnique(
                 candidate.geometryRefs.faceIndices,
                 transitionFaceIndex);
 
-            OccQtCore::CollectionUtil::addUnique(
+            CollectionUtil::addUnique(
                 candidate.geometryRefs.edgeIndices,
                 wallConnectionEdgeIndex);
 
@@ -509,9 +528,9 @@ namespace OccQtCore::Feature
                 sourceWallCandidate,
                 candidate);
 
-            return candidate;
+            candidates.push_back(candidate);
         }
 
-        return std::nullopt;
+        return candidates;
     }
 }

@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cmath>
 
 #include "Feature/HoleCandidateBuilder.h"
 #include "Geometry/SurfaceUtil.h"

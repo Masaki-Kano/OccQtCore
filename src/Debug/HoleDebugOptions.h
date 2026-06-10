@@ -3,25 +3,40 @@
 
 namespace OccQtCore::Debug
 {
+    enum class HoleDebugDisplayScope
+    {
+        AllCandidates,
+        SelectedCandidate
+    };
+
+    struct HoleDebugSelectedCandidate
+    {
+        enum class Type
+        {
+            None,
+            Wall,
+            End,
+            Segment,
+            Hole
+        };
+
+        Type type = Type::None;
+        int index = -1;
+    };
+
     struct HoleDebugDisplayOptions
     {
-        int targetSegmentIndex = -1;
-        int targetWallCandidateIndex = -1;
+        HoleDebugDisplayScope scope =
+            HoleDebugDisplayScope::SelectedCandidate;
 
-        bool showWallFaces = true;
-
-        bool showRepresentativeEnds = true;
-        bool showRawEnds = false;
-
-        bool showOpenEnds = true;
-        bool showBottomEnds = true;
-        bool showWallConnectionEnds = true;
+        HoleDebugSelectedCandidate selectedCandidate;
     };
 
     struct HoleDebugLogOptions
     {
-        bool logWalls = false;
-        bool logEnds = false;
+        bool logSummary = true;
+        bool logWalls = true;
+        bool logEnds = true;
         bool logSegments = true;
         bool logCandidates = true;
     };

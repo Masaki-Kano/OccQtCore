@@ -63,13 +63,12 @@ private:
     void setupHoleDebugPanelConnections();
 
     // 穴認識デバッグ制御
-    void setHoleDebugEnabled(bool enabled);
     void buildHoleDebugData();
     void rebuildHoleDebugData();
     void logHoleDebugInfo();
 
-    void applyHoleDebugDisplayOptions(
-        const OccQtCore::Debug::HoleDebugDisplayOptions& options);
+    void applyHoleDebugDisplayOptions(const OccQtCore::Debug::HoleDebugDisplayOptions& options);
+    void applyHoleDebugSelectedCandidate(const OccQtCore::Debug::HoleDebugSelectedCandidate& selected);
 
     void refreshHoleDebugDisplay();
     void clearHoleDebugDisplay();
@@ -90,13 +89,9 @@ private:
     OccQtCore::SelectionInfo m_selectionInfo;
     QString m_lastOpenDirectory;
 
-    bool m_isHoleDebugEnabled = false;
-    bool m_hasHoleDebugData = false;
+    bool m_hasHoleRecognitionResult = false;
 
-    std::vector<OccQtCore::Feature::HoleWallCandidate> m_holeWallCandidates;
-    std::vector<OccQtCore::Feature::HoleEndCandidate> m_holeEndCandidates;
-    std::vector<OccQtCore::Feature::HoleSegmentCandidate> m_holeSegmentCandidates;
-    std::vector<OccQtCore::Feature::HoleCandidate> m_holeCandidates;
+    OccQtCore::Feature::HoleRecognitionResult m_holeRecognitionResult;
 
     OccQtCore::Debug::HoleDebugDisplayOptions m_holeDebugDisplayOptions;
     OccQtCore::Debug::HoleDebugLogOptions m_holeDebugLogOptions;

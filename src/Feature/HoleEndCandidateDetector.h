@@ -1,7 +1,6 @@
 #ifndef HOLEENDCANDIDATEDETECTOR_H
 #define HOLEENDCANDIDATEDETECTOR_H
 
-#include <optional>
 #include <vector>
 
 #include "Feature/HoleRecognitionTypes.h"
@@ -24,17 +23,17 @@ namespace OccQtCore::Feature
         std::vector<HoleEndCandidate> detect() const;
 
     private:
-        std::optional<HoleEndCandidate> buildFromWallConnection(
+        std::vector<HoleEndCandidate> buildFromWallConnection(
             const HoleWallCandidate& sourceWallCandidate,
             int adjacentFaceIndex,
             int connectionEdgeIndex) const;
 
-        std::optional<HoleEndCandidate> buildDirectConnection(
+        std::vector<HoleEndCandidate> buildDirectConnection(
             const HoleWallCandidate& sourceWallCandidate,
             int adjacentFaceIndex,
             int connectionEdgeIndex) const;
 
-        std::optional<HoleEndCandidate> buildThroughTransitionSurface(
+        std::vector<HoleEndCandidate> buildThroughTransitionSurface(
             const HoleWallCandidate& sourceWallCandidate,
             int transitionFaceIndex,
             int wallConnectionEdgeIndex) const;

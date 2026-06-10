@@ -329,13 +329,10 @@ void MainWindow::showHoleDebugPanel()
 
         m_holeDebugPanel->setWindowFlag(Qt::Tool, true);
         m_holeDebugPanel->setWindowTitle("穴認識デバッグ");
-        m_holeDebugPanel->resize(360, 420);
+        m_holeDebugPanel->resize(900, 650);
 
         m_holeDebugPanel->setDisplayOptions(
             m_holeDebugDisplayOptions);
-
-        m_holeDebugPanel->setDebugEnabled(
-            m_isHoleDebugEnabled);
 
         setupHoleDebugPanelConnections();
     }
@@ -354,97 +351,67 @@ void MainWindow::setupHoleDebugPanelConnections()
 
     connect(
         m_holeDebugPanel,
-        &HoleDebugPanel::debugEnabledChanged,
-        this,
-        &MainWindow::setHoleDebugEnabled);
-
-    connect(
-        m_holeDebugPanel,
         &HoleDebugPanel::displayOptionsChanged,
         this,
         &MainWindow::applyHoleDebugDisplayOptions);
 
     connect(
         m_holeDebugPanel,
-        &HoleDebugPanel::refreshRequested,
+        &HoleDebugPanel::buildRequested,
+        this,
+        &MainWindow::buildHoleDebugData);
+
+    connect(
+        m_holeDebugPanel,
+        &HoleDebugPanel::refreshDisplayRequested,
         this,
         &MainWindow::refreshHoleDebugDisplay);
 
     connect(
         m_holeDebugPanel,
-        &HoleDebugPanel::rebuildRequested,
+        &HoleDebugPanel::clearDisplayRequested,
         this,
-        &MainWindow::rebuildHoleDebugData);
-}
+        &MainWindow::clearHoleDebugDisplay);
 
-void MainWindow::setHoleDebugEnabled(bool enabled)
-{
-    if (m_isHoleDebugEnabled == enabled)
-    {
-        return;
-    }
+    connect(
+        m_holeDebugPanel,
+        &HoleDebugPanel::exportDetailLogRequested,
+        this,
+        &MainWindow::logHoleDebugInfo);
 
-    m_isHoleDebugEnabled = enabled;
-
-    if (!m_isHoleDebugEnabled)
-    {
-        clearHoleDebugDisplay();
-        return;
-    }
-
-    if (!m_hasHoleDebugData)
-    {
-        buildHoleDebugData();
-        logHoleDebugInfo();
-    }
-
-    refreshHoleDebugDisplay();
+    connect(
+        m_holeDebugPanel,
+        &HoleDebugPanel::selectedCandidateChanged,
+        this,
+        &MainWindow::applyHoleDebugSelectedCandidate);
 }
 
 void MainWindow::buildHoleDebugData()
 {
+    m_hasHoleRecognitionResult = false;
+    m_holeRecognitionResult = {};
+
     const auto& model = m_document.geometryModel();
 
     OccQtCore::Feature::HoleFeatureRecognizer recognizer;
 
-    m_holeWallCandidates =
-        recognizer.detectWallCandidates(model);
+    m_holeRecognitionResult = recognizer.recognizeCandidates(model);
 
-    m_holeEndCandidates =
-        recognizer.detectEndCandidates(
-            model,
-            m_holeWallCandidates
-        );
+    m_hasHoleRecognitionResult = true;
 
-    m_holeSegmentCandidates =
-        recognizer.buildSegmentCandidates(
-            model,
-            m_holeWallCandidates,
-            m_holeEndCandidates);
-
-    m_holeCandidates = recognizer.buildHoleCandidatesFromSegments(
-        m_holeWallCandidates,
-        m_holeEndCandidates,
-        m_holeSegmentCandidates);
-
-    m_hasHoleDebugData = true;
-}
-
-void MainWindow::rebuildHoleDebugData()
-{
-    m_hasHoleDebugData = false;
-
-    m_holeWallCandidates.clear();
-    m_holeEndCandidates.clear();
-    m_holeSegmentCandidates.clear();
-
-    buildHoleDebugData();
-    logHoleDebugInfo();
-
-    if (m_isHoleDebugEnabled)
+    if (m_holeDebugPanel != nullptr)
     {
-        refreshHoleDebugDisplay();
+        m_holeDebugPanel->setStatusText(
+            QString("状態: 生成済み  Wall=%1  End=%2  Segment=%3  Hole=%4")
+                .arg(m_holeRecognitionResult.wallCandidates.size())
+                .arg(m_holeRecognitionResult.endCandidates.size())
+                .arg(m_holeRecognitionResult.segmentCandidates.size())
+                .arg(m_holeRecognitionResult.holeCandidates.size()));
+
+        m_holeDebugPanel->setRecognitionResult(m_holeRecognitionResult);
     }
+
+    refreshHoleDebugDisplay();
 }
 
 void MainWindow::logHoleDebugInfo()
@@ -454,17 +421,23 @@ void MainWindow::logHoleDebugInfo()
         return;
     }
 
+    if (!m_hasHoleRecognitionResult)
+    {
+        m_logReporter->logActionFailed(
+            "穴認識デバックログ出力",
+            "穴認識結果が生成されていません");
+
+        return;
+    }
+
     const auto& model = m_document.geometryModel();
 
-    m_logReporter->logActionStarted("穴認識デバッグ生成");
+    m_logReporter->logActionStarted("穴認識デバックログ出力");
 
-    OccQtCore::Feature::HoleRecognitionResult result;
-    result.wallCandidates = m_holeWallCandidates;
-    result.endCandidates = m_holeEndCandidates;
-    result.segmentCandidates = m_holeSegmentCandidates;
-    result.holeCandidates = m_holeCandidates;
-
-    OccQtCore::HoleRecognitionLogReport report{model, result};
+    OccQtCore::HoleRecognitionLogReport report{
+        model,
+        m_holeRecognitionResult
+    };
 
     report.outputSummary = true;
     report.outputWallCandidates = m_holeDebugLogOptions.logWalls;
@@ -474,15 +447,24 @@ void MainWindow::logHoleDebugInfo()
 
     m_logReporter->logHoleRecognition(report);
 
-    m_logReporter->logActionFinished("穴認識デバッグ生成");
+    m_logReporter->logActionFinished("穴認識デバッグログ出力");
 }
 
-void MainWindow::applyHoleDebugDisplayOptions(
-    const OccQtCore::Debug::HoleDebugDisplayOptions& options)
+void MainWindow::applyHoleDebugDisplayOptions(const OccQtCore::Debug::HoleDebugDisplayOptions& options)
 {
     m_holeDebugDisplayOptions = options;
 
-    if (m_isHoleDebugEnabled)
+    if (m_hasHoleRecognitionResult)
+    {
+        refreshHoleDebugDisplay();
+    }
+}
+
+void MainWindow::applyHoleDebugSelectedCandidate(const OccQtCore::Debug::HoleDebugSelectedCandidate& selected)
+{
+    m_holeDebugDisplayOptions.selectedCandidate = selected;
+
+    if (m_hasHoleRecognitionResult)
     {
         refreshHoleDebugDisplay();
     }
@@ -492,8 +474,7 @@ void MainWindow::refreshHoleDebugDisplay()
 {
     clearHoleDebugDisplay();
 
-    if (!m_isHoleDebugEnabled ||
-        !m_hasHoleDebugData)
+    if (!m_hasHoleRecognitionResult)
     {
         return;
     }
@@ -503,7 +484,7 @@ void MainWindow::refreshHoleDebugDisplay()
 
 void MainWindow::clearHoleDebugDisplay()
 {
-    if (!m_occView)
+    if (m_occView == nullptr)
     {
         return;
     }
@@ -518,12 +499,13 @@ void MainWindow::displayHoleDebugData()
         return;
     }
 
-    if (!m_hasHoleDebugData)
+    if (!m_hasHoleRecognitionResult)
     {
         return;
     }
 
     const auto& model = m_document.geometryModel();
+    const auto& result = m_holeRecognitionResult;
     const auto& options = m_holeDebugDisplayOptions;
 
     HoleDebugShapeSet shapes;
@@ -558,38 +540,25 @@ void MainWindow::displayHoleDebugData()
         std::vector<TopoDS_Shape>* targetFaces = nullptr;
         std::vector<TopoDS_Shape>* targetEdges = nullptr;
 
-        if (end.type == OccQtCore::Feature::HoleEndCandidateType::Open)
+        switch (end.type)
         {
-            if (!options.showOpenEnds)
-            {
-                return;
-            }
-
+        case OccQtCore::Feature::HoleEndCandidateType::Open:
             targetFaces = &shapes.openFaces;
             targetEdges = &shapes.openEdges;
-        }
-        else if (end.type == OccQtCore::Feature::HoleEndCandidateType::Bottom)
-        {
-            if (!options.showBottomEnds)
-            {
-                return;
-            }
+            break;
 
+        case OccQtCore::Feature::HoleEndCandidateType::Bottom:
             targetFaces = &shapes.bottomFaces;
             targetEdges = &shapes.bottomEdges;
-        }
-        else if (end.type == OccQtCore::Feature::HoleEndCandidateType::WallConnection)
-        {
-            if (!options.showWallConnectionEnds)
-            {
-                return;
-            }
+            break;
 
+        case OccQtCore::Feature::HoleEndCandidateType::WallConnection:
             targetFaces = &shapes.connectionFaces;
             targetEdges = &shapes.connectionEdges;
-        }
-        else
-        {
+            break;
+
+        case OccQtCore::Feature::HoleEndCandidateType::Unknown:
+        default:
             return;
         }
 
@@ -604,59 +573,110 @@ void MainWindow::displayHoleDebugData()
         }
     };
 
-    for (const auto& segment : m_holeSegmentCandidates)
+    auto appendWall =
+        [&](int wallIndex)
     {
-        if (options.targetSegmentIndex >= 0 &&
-            segment.index != options.targetSegmentIndex)
+        if (wallIndex < 0 ||
+            wallIndex >= static_cast<int>(result.wallCandidates.size()))
         {
-            continue;
+            return;
         }
 
-        if (options.targetWallCandidateIndex >= 0 &&
-            segment.wallCandidateIndex != options.targetWallCandidateIndex)
+        const auto& wall =
+            result.wallCandidates[wallIndex];
+
+        for (int faceIndex : wall.geometryRefs.faceIndices)
         {
-            continue;
+            appendFaceShape(shapes.wallFaces, faceIndex);
+        }
+    };
+
+    auto appendEnd =
+        [&](int endIndex)
+    {
+        if (endIndex < 0 ||
+            endIndex >= static_cast<int>(result.endCandidates.size()))
+        {
+            return;
         }
 
-        if (options.showWallFaces &&
-            segment.wallCandidateIndex >= 0 &&
-            segment.wallCandidateIndex < static_cast<int>(m_holeWallCandidates.size()))
-        {
-            const auto& wall =
-                m_holeWallCandidates[segment.wallCandidateIndex];
+        appendEndShapes(result.endCandidates[endIndex]);
+    };
 
-            for (int faceIndex : wall.geometryRefs.faceIndices)
-            {
-                appendFaceShape(shapes.wallFaces, faceIndex);
-            }
+    auto appendSegment =
+        [&](int segmentIndex)
+    {
+        if (segmentIndex < 0 ||
+            segmentIndex >= static_cast<int>(result.segmentCandidates.size()))
+        {
+            return;
         }
 
-        // Raw End 表示は代表End表示の上位モードとして扱う。
-        // showRawEnds=true のときは、代表化前のEndCandidateを全部見る。
-        if (options.showRawEnds)
-        {
-            for (const auto& end : m_holeEndCandidates)
-            {
-                if (end.wallCandidateIndex != segment.wallCandidateIndex)
-                {
-                    continue;
-                }
+        const auto& segment =
+            result.segmentCandidates[segmentIndex];
 
-                appendEndShapes(end);
-            }
+        appendWall(segment.wallCandidateIndex);
+
+        for (int endIndex : segment.endCandidateIndices)
+        {
+            appendEnd(endIndex);
         }
-        else if (options.showRepresentativeEnds)
-        {
-            for (int endIndex : segment.endCandidateIndices)
-            {
-                if (endIndex < 0 ||
-                    endIndex >= static_cast<int>(m_holeEndCandidates.size()))
-                {
-                    continue;
-                }
+    };
 
-                appendEndShapes(m_holeEndCandidates[endIndex]);
-            }
+    auto appendHole =
+        [&](int holeIndex)
+    {
+        if (holeIndex < 0 ||
+            holeIndex >= static_cast<int>(result.holeCandidates.size()))
+        {
+            return;
+        }
+
+        const auto& hole =
+            result.holeCandidates[holeIndex];
+
+        for (int segmentIndex : hole.segmentCandidateIndices)
+        {
+            appendSegment(segmentIndex);
+        }
+    };
+
+    using Scope = OccQtCore::Debug::HoleDebugDisplayScope;
+    using SelectedType = OccQtCore::Debug::HoleDebugSelectedCandidate::Type;
+
+    const auto& selected =
+        options.selectedCandidate;
+
+    if (options.scope == Scope::AllCandidates)
+    {
+        for (const auto& segment : result.segmentCandidates)
+        {
+            appendSegment(segment.index);
+        }
+    }
+    else
+    {
+        switch (selected.type)
+        {
+        case SelectedType::Hole:
+            appendHole(selected.index);
+            break;
+
+        case SelectedType::Segment:
+            appendSegment(selected.index);
+            break;
+
+        case SelectedType::Wall:
+            appendWall(selected.index);
+            break;
+
+        case SelectedType::End:
+            appendEnd(selected.index);
+            break;
+
+        case SelectedType::None:
+        default:
+            break;
         }
     }
 
