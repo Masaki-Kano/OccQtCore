@@ -1,8 +1,5 @@
 #include "Feature/HoleSegmentCandidateBuilder.h"
 
-#include <algorithm>
-#include <cmath>
-
 #include "Core/CollectionUtil.h"
 
 namespace
@@ -90,81 +87,7 @@ namespace OccQtCore::Feature
 
     std::vector<int> HoleSegmentCandidateBuilder::selectRepresentativeEndIndices(const std::vector<int>& sourceEndIndices) const
     {
-        struct EndGroup
-        {
-            double axialPosition = 0.0;
-            int representativeEndIndex = -1;
-        };
-
-        std::vector<EndGroup> groups;
-
-        for (int endIndex : sourceEndIndices)
-        {
-            if (!isValidEndIndex(endIndex))
-            {
-                continue;
-            }
-
-            const auto& end = m_endCandidates[endIndex];
-
-            if (!end.hasAxialPosition)
-            {
-                continue;
-            }
-
-            auto groupIt = std::find_if(
-                groups.begin(),
-                groups.end(),
-                [&](const EndGroup& group)
-                {
-                    return std::abs(group.axialPosition - end.axialPosition) <
-                           SegmentEndAxialTolerance;
-                });
-
-            if (groupIt == groups.end())
-            {
-                groups.push_back(
-                    EndGroup{
-                             end.axialPosition,
-                             endIndex });
-
-                continue;
-            }
-
-            const auto& currentRepresentative =
-                m_endCandidates[groupIt->representativeEndIndex];
-
-            if (isBetterRepresentativeEnd(
-                    currentRepresentative,
-                    end))
-            {
-                groupIt->representativeEndIndex = endIndex;
-            }
-        }
-
-        std::sort(
-            groups.begin(),
-            groups.end(),
-            [](const EndGroup& lhs, const EndGroup& rhs)
-            {
-                return lhs.axialPosition < rhs.axialPosition;
-            });
-
-        std::vector<int> selectedEndIndices;
-
-        if (!groups.empty())
-        {
-            selectedEndIndices.push_back(
-                groups.front().representativeEndIndex);
-        }
-
-        if (groups.size() >= 2)
-        {
-            selectedEndIndices.push_back(
-                groups.back().representativeEndIndex);
-        }
-
-        return selectedEndIndices;
+        return sourceEndIndices;
     }
 
     void HoleSegmentCandidateBuilder::countEndTypes(

@@ -91,6 +91,37 @@ namespace
 
         return text;
     }
+
+    QString formatReachability(
+        const OccQtCore::Feature::HoleReachability& reachability)
+    {
+        QString text;
+
+        text += QString("  Segment[%1] <-> Segment[%2]\n")
+                    .arg(reachability.lhsSegmentCandidateIndex)
+                    .arg(reachability.rhsSegmentCandidateIndex);
+
+        text += QString("    End[%1] <-> End[%2]\n")
+                    .arg(reachability.lhsEndCandidateIndex)
+                    .arg(reachability.rhsEndCandidateIndex);
+
+        text += QString("    Reason: %1\n")
+                    .arg(holeReachabilityReasonDisplayName(reachability.reason));
+
+        text += QString("    Shared Faces: %1\n")
+                    .arg(formatIndexList(
+                        reachability.sharedGeometryRefs.faceIndices));
+
+        text += QString("    Shared Edges: %1\n")
+                    .arg(formatIndexList(
+                        reachability.sharedGeometryRefs.edgeIndices));
+
+        text += QString("    Shared Vertices: %1\n")
+                    .arg(formatIndexList(
+                        reachability.sharedGeometryRefs.vertexIndices));
+
+        return text;
+    }
 }
 
 HoleDebugPanel::HoleDebugPanel(QWidget* parent)
@@ -398,6 +429,21 @@ QString HoleDebugPanel::buildHoleDetailText(int index) const
     text += QString("Segments: %1\n")
                 .arg(formatIndexList(hole.segmentCandidateIndices));
 
+    text += "\n";
+    text += "Reachabilities:\n";
+
+    if (hole.reachabilities.empty())
+    {
+        text += "  なし\n";
+    }
+    else
+    {
+        for (const auto& reachability : hole.reachabilities)
+        {
+            text += formatReachability(reachability);
+        }
+    }
+
     return text;
 }
 
@@ -478,28 +524,6 @@ QString HoleDebugPanel::buildEndDetailText(int index) const
                 .arg(OccQtCore::Feature::holeEndCandidateTypeDisplayName(end.type));
     text += QString("Wall: %1\n")
                 .arg(end.wallCandidateIndex);
-    text += QString("Radius: %1\n")
-                .arg(end.radius, 0, 'f', 4);
-
-    text += "\n";
-    text += QString("Center: %1\n")
-                .arg(formatPoint(end.center));
-    text += QString("AxisDirection: %1\n")
-                .arg(formatDirection(end.axisDirection));
-    text += QString("NormalDirection: %1\n")
-                .arg(formatDirection(end.normalDirection));
-
-    text += "\n";
-    text += "AxialPosition: ";
-    if (end.hasAxialPosition)
-    {
-        text += QString::number(end.axialPosition, 'f', 4);
-    }
-    else
-    {
-        text += "N/A";
-    }
-    text += "\n";
 
     text += "\n";
     text += formatGeometryRefs(end.geometryRefs);

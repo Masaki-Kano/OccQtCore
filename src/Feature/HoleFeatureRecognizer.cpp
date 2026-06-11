@@ -29,6 +29,7 @@ namespace OccQtCore::Feature
 
         const auto holeCandidates =
             buildHoleCandidatesFromSegments(
+                model,
                 wallCandidates,
                 endCandidates,
                 segmentCandidates);
@@ -56,7 +57,7 @@ namespace OccQtCore::Feature
 
         result.segmentCandidates = buildSegmentCandidates(model, result.wallCandidates, result.endCandidates);
 
-        result.holeCandidates = buildHoleCandidatesFromSegments(result.wallCandidates, result.endCandidates, result.segmentCandidates);
+        result.holeCandidates = buildHoleCandidatesFromSegments(model, result.wallCandidates, result.endCandidates, result.segmentCandidates);
 
         return result;
     }
@@ -96,11 +97,13 @@ namespace OccQtCore::Feature
 
     std::vector<HoleCandidate>
     HoleFeatureRecognizer::buildHoleCandidatesFromSegments(
+        const GeometryModel& model,
         const std::vector<HoleWallCandidate>& wallCandidates,
         const std::vector<HoleEndCandidate>& endCandidates,
         const std::vector<HoleSegmentCandidate>& segmentCandidates) const
     {
         HoleCandidateBuilder builder(
+            model,
             wallCandidates,
             endCandidates,
             segmentCandidates);

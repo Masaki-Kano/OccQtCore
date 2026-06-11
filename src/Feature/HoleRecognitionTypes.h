@@ -94,9 +94,14 @@ namespace OccQtCore::Feature
      *
      * HoleWallCandidate の境界接続から生成される穴端候補。
      *
-     * Open / Bottom / Step などの端種別は持つが、
+     * Open / Bottom / WallConnection などの端種別は持つが、
      * 最終出力用の Hole::End ではなく、
      * 認識途中で index 参照を持つ内部表現。
+     *
+     * この構造体は端の「位置」を表さない。
+     * 位置、軸方向範囲、中心点などは、利用側が
+     * WallCandidate / GeometryRefs / CandidateAxis から
+     * 文脈に応じて計算する。
      */
     struct HoleEndCandidate
     {
@@ -112,8 +117,8 @@ namespace OccQtCore::Feature
          * Bottom:
          *   底Face、遷移Face、壁との接続Edgeなど。
          *
-         * Step:
-         *   段差Face、接続Edgeなど。
+         * WallConnection:
+         *   他Wallや段差候補との接続を示すFace/Edgeなど。
          */
         GeometryRefs geometryRefs;
 
@@ -126,21 +131,24 @@ namespace OccQtCore::Feature
         int wallCandidateIndex = -1;
 
         /**
+         * @brief 由来WallCandidate上の境界ループ番号
+         *
+         * HoleEndCandidateDetectorがWallCandidateの境界Edge群を
+         * 円周方向の閉路/連結成分に分けたときのローカルindex
+         *
+         * 同じwallCandidateIndexかつ同じwallBoundaryLoopIndexの候補は、
+         * 同じWall端領域から生成された候補としてマージ対象となる
+         *
+         */
+        int wallBoundaryLoopIndex = -1;
+
+        /**
          * @brief 穴端候補種別
          *
          * 最終出力用の Hole::EndType ではなく、認識途中の分類。
          * WallConnection は後続工程で Step などに解釈される可能性がある。
          */
         HoleEndCandidateType type = HoleEndCandidateType::Unknown;
-
-        gp_Pnt center;
-        gp_Dir axisDirection;
-        gp_Dir normalDirection;
-
-        double radius = 0.0;
-
-        double axialPosition = 0.0;
-        bool hasAxialPosition = false;
     };
 
     /**
@@ -159,6 +167,42 @@ namespace OccQtCore::Feature
         std::vector<int> endCandidateIndices;
 
         Hole::Type type = Hole::Type::Unknown;
+    };
+
+    enum class HoleReachabilityReason
+    {
+        Unknown,
+        SharedGeometryRef,
+        SharedAdjacentFace
+    };
+
+    inline const char* holeReachabilityReasonDisplayName(HoleReachabilityReason reason)
+    {
+        switch (reason)
+        {
+        case HoleReachabilityReason::SharedGeometryRef:
+            return "SharedGeometryRef";
+
+        case HoleReachabilityReason::SharedAdjacentFace:
+            return "SharedAdjacentFace";
+
+        case HoleReachabilityReason::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
+
+    struct HoleReachability
+    {
+        int lhsSegmentCandidateIndex = -1;
+        int rhsSegmentCandidateIndex = -1;
+
+        int lhsEndCandidateIndex = -1;
+        int rhsEndCandidateIndex = -1;
+
+        HoleReachabilityReason reason = HoleReachabilityReason::Unknown;
+
+        GeometryRefs sharedGeometryRefs;
     };
 
     /**
@@ -183,6 +227,8 @@ namespace OccQtCore::Feature
         int index = -1;
         std::vector<int> segmentCandidateIndices;
         Hole::Type type = Hole::Type::Unknown;
+
+        std::vector<HoleReachability> reachabilities;
     };
 
     /**

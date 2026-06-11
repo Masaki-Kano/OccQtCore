@@ -95,15 +95,12 @@ namespace OccQtCore
         for (const auto& candidate : result.endCandidates)
         {
             const QString message =
-                QString("EndCandidate[%1]: Type=%2, Wall=%3, Faces=%4, Edges=%5, Center=%6, Axis=%7, Radius=%8")
+                QString("EndCandidate[%1]: Type=%2, Wall=%3, Faces=%4, Edges=%5")
                     .arg(candidate.index)
                     .arg(Feature::holeEndCandidateTypeDisplayName(candidate.type))
                     .arg(candidate.wallCandidateIndex)
                     .arg(LF::formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
-                    .arg(LF::formatEdgeIndexList(model, candidate.geometryRefs.edgeIndices))
-                    .arg(LF::formatPoint(candidate.center))
-                    .arg(LF::formatDirection(candidate.axisDirection))
-                    .arg(candidate.radius, 0, 'f', 3);
+                    .arg(LF::formatEdgeIndexList(model, candidate.geometryRefs.edgeIndices));
 
             m_logger->info(message);
         }
@@ -159,17 +156,6 @@ namespace OccQtCore
                 endMessage += QString(" End[%1]: Type=%2")
                                     .arg(end.index)
                                     .arg(Feature::holeEndCandidateTypeDisplayName(end.type));
-
-                endMessage += ", Axial=";
-
-                if (end.hasAxialPosition)
-                {
-                    endMessage += QString::number(end.axialPosition, 'f', 4);
-                }
-                else
-                {
-                    endMessage += "N/A";
-                }
 
                 endMessage += QString(", Faces=%1").arg(LF::formatFaceIndexList(model, end.geometryRefs.faceIndices));
 

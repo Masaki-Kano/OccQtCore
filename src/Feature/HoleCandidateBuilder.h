@@ -8,12 +8,18 @@
 
 #include "Feature/HoleRecognitionTypes.h"
 
+namespace OccQtCore
+{
+    class GeometryModel;
+}
+
 namespace OccQtCore::Feature
 {
     class HoleCandidateBuilder
     {
     public:
         HoleCandidateBuilder(
+            const GeometryModel& model,
             const std::vector<HoleWallCandidate>& wallCandidates,
             const std::vector<HoleEndCandidate>& endCandidates,
             const std::vector<HoleSegmentCandidate>& segmentCandidates);
@@ -21,14 +27,6 @@ namespace OccQtCore::Feature
         std::vector<HoleCandidate> build() const;
 
     private:
-        enum class SegmentConnectionKind
-        {
-            Unknown,
-            SharedEndGeometry,
-            ShoulderPlane,
-            AxialRangeNear
-        };
-
         struct CandidateAxis
         {
             gp_Pnt point;
@@ -36,88 +34,63 @@ namespace OccQtCore::Feature
             bool isValid = false;
         };
 
-        struct SegmentRange
-        {
-            int segmentCandidateIndex = -1;
-
-            double minAxial = 0.0;
-            double maxAxial = 0.0;
-
-            int minEndCandidateIndex = -1;
-            int maxEndCandidateIndex = -1;
-
-            bool isValid = false;
-        };
-
-        struct SegmentConnection
-        {
-            int currentSegmentCandidateIndex = -1;
-            int nextSegmentCandidateIndex = -1;
-
-            int currentEndCandidateIndex = -1;
-            int nextEndCandidateIndex = -1;
-
-            double axialRangeGap = 0.0;
-
-            SegmentConnectionKind kind = SegmentConnectionKind::Unknown;
-        };
-
-        struct SegmentChain
-        {
-            int index = -1;
-            std::vector<int> segmentCandidateIndices;
-        };
-
     private:
         std::vector<std::vector<int>> buildSameAxisSegmentGroups() const;
 
-        CandidateAxis buildCandidateAxis(
-            const std::vector<int>& segmentCandidateIndices) const;
+        CandidateAxis buildCandidateAxis(const std::vector<int>& segmentCandidateIndices) const;
 
-        SegmentRange buildSegmentRange(
-            const HoleSegmentCandidate& segment,
-            const CandidateAxis& candidateAxis) const;
-
-        std::vector<SegmentRange> buildSegmentRanges(
-            const std::vector<int>& segmentCandidateIndices,
-            const CandidateAxis& candidateAxis) const;
-
-        std::vector<SegmentConnection> buildSegmentConnections(
-            const std::vector<SegmentRange>& segmentRanges) const;
-
-        SegmentConnection buildSegmentConnection(
-            const SegmentRange& currentRange,
-            const SegmentRange& nextRange) const;
-
-        SegmentConnectionKind classifySegmentConnection(
-            const SegmentRange& currentRange,
-            const SegmentRange& nextRange) const;
-
-        std::vector<SegmentChain> buildSegmentChains(
-            const std::vector<SegmentRange>& segmentRanges,
-            const std::vector<SegmentConnection>& connections) const;
-
-        HoleCandidate buildCandidateFromChain(
-            int candidateIndex,
-            const SegmentChain& chain) const;
-
-        bool isSameAxisSegment(
-            const HoleSegmentCandidate& lhs,
-            const HoleSegmentCandidate& rhs) const;
-
-        bool isWallOnCandidateAxis(
+        std::vector<std::vector<int>> buildReachableSegmentGroups(
+            const std::vector<int>& sameAxisSegmentIndices,
             const CandidateAxis& candidateAxis,
-            const HoleWallCandidate& wallCandidate) const;
+            std::vector<HoleReachability>& reachabilities) const;
+
+        HoleCandidate buildCandidateFromSegmentGroup(int candidateIndex,
+                                                     const std::vector<int>& segmentCandidateIndices,
+                                                     const std::vector<HoleReachability>& reachabilities) const;
+
+        bool tryBuildSegmentReachability(
+            int lhsSegmentCandidateIndex,
+            int rhsSegmentCandidateIndex,
+            const CandidateAxis& candidateAxis,
+            HoleReachability& reachability) const;
+
+        bool tryBuildEndReachability(
+            int lhsEndCandidateIndex,
+            int rhsEndCandidateIndex,
+            const CandidateAxis& candidateAxis,
+            HoleReachability& reachability) const;
+
+        bool tryBuildSharedGeometryRefReachability(
+            const HoleEndCandidate& lhsEnd,
+            const HoleEndCandidate& rhsEnd,
+            HoleReachability& reachability) const;
+
+        bool tryBuildSharedAdjacentFaceReachability(
+            const HoleEndCandidate& lhsEnd,
+            const HoleEndCandidate& rhsEnd,
+            const CandidateAxis& candidateAxis,
+            HoleReachability& reachability) const;
+
+        std::vector<int> collectAdjacentHolePathFaceIndicesOfEnd(const HoleEndCandidate& end, const CandidateAxis& candidateAxis) const;
+
+        bool isAllowedHolePathFace(int faceIndex, const CandidateAxis& candidateAxis) const;
+
+        std::vector<HoleReachability> filterReachabilitiesForSegmentGroup(
+            const std::vector<int>& segmentCandidateIndices,
+            const std::vector<HoleReachability>& reachabilities) const;
+
+    private:
+        bool isSameAxisSegment(const HoleSegmentCandidate& lhs, const HoleSegmentCandidate& rhs) const;
+
+        bool isWallOnCandidateAxis(const CandidateAxis& candidateAxis, const HoleWallCandidate& wallCandidate) const;
 
         bool isValidSegmentIndex(int index) const;
         bool isValidWallIndex(int index) const;
         bool isValidEndIndex(int index) const;
 
-        bool hasSharedEndGeometry(
-            const HoleEndCandidate& lhs,
-            const HoleEndCandidate& rhs) const;
-
     private:
+        const GeometryModel& m_model;
+
         const std::vector<HoleWallCandidate>& m_wallCandidates;
         const std::vector<HoleEndCandidate>& m_endCandidates;
         const std::vector<HoleSegmentCandidate>& m_segmentCandidates;

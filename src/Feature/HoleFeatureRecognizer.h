@@ -99,6 +99,7 @@ namespace OccQtCore::Feature
          */
 
         std::vector<HoleCandidate> buildHoleCandidatesFromSegments(
+            const GeometryModel& model,
             const std::vector<HoleWallCandidate>& wallCandidates,
             const std::vector<HoleEndCandidate>& endCandidates,
             const std::vector<HoleSegmentCandidate>& segmentCandidates) const;

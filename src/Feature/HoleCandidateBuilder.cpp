@@ -1,47 +1,81 @@
-#include <algorithm>
-
 #include "Feature/HoleCandidateBuilder.h"
+
+#include <algorithm>
+#include <cmath>
+
+#include "Geometry/GeometryModel.h"
 #include "Geometry/SurfaceUtil.h"
+#include "Geometry/TopologyQuery.h"
+#include "Core/CollectionUtil.h"
 
 namespace
 {
     constexpr double AxisLineTolerance = 1.0e-4;
     constexpr double DirectionTolerance = 1.0e-6;
-    constexpr double AxialRangeGapTolerance = 0.6;
+    constexpr double HolePathPlaneAxisDotTolerance = 0.99;
 
-    bool containsIndex(
-        const std::vector<int>& indices,
-        int target)
+    class DisjointSet
     {
-        return std::find(
-                   indices.begin(),
-                   indices.end(),
-                   target) != indices.end();
-    }
-
-    bool hasSharedIndex(
-        const std::vector<int>& lhs,
-        const std::vector<int>& rhs)
-    {
-        for (const int index : lhs)
+    public:
+        explicit DisjointSet(int size)
+            : m_parent(size)
+            , m_rank(size, 0)
         {
-            if (containsIndex(rhs, index))
+            for (int i = 0; i < size; ++i)
             {
-                return true;
+                m_parent[i] = i;
             }
         }
 
-        return false;
-    }
+        int find(int value)
+        {
+            if (m_parent[value] == value)
+            {
+                return value;
+            }
+
+            m_parent[value] = find(m_parent[value]);
+            return m_parent[value];
+        }
+
+        void unite(int lhs, int rhs)
+        {
+            int lhsRoot = find(lhs);
+            int rhsRoot = find(rhs);
+
+            if (lhsRoot == rhsRoot)
+            {
+                return;
+            }
+
+            if (m_rank[lhsRoot] < m_rank[rhsRoot])
+            {
+                std::swap(lhsRoot, rhsRoot);
+            }
+
+            m_parent[rhsRoot] = lhsRoot;
+
+            if (m_rank[lhsRoot] == m_rank[rhsRoot])
+            {
+                ++m_rank[lhsRoot];
+            }
+        }
+
+    private:
+        std::vector<int> m_parent;
+        std::vector<int> m_rank;
+    };
 }
 
 namespace OccQtCore::Feature
 {
     HoleCandidateBuilder::HoleCandidateBuilder(
+        const GeometryModel& model,
         const std::vector<HoleWallCandidate>& wallCandidates,
         const std::vector<HoleEndCandidate>& endCandidates,
         const std::vector<HoleSegmentCandidate>& segmentCandidates)
-        : m_wallCandidates(wallCandidates)
+        : m_model(model)
+        , m_wallCandidates(wallCandidates)
         , m_endCandidates(endCandidates)
         , m_segmentCandidates(segmentCandidates)
     {
@@ -51,41 +85,37 @@ namespace OccQtCore::Feature
     {
         std::vector<HoleCandidate> candidates;
 
-        const auto sameAxisGroup =
-            buildSameAxisSegmentGroups();
+        const auto sameAxisGroups = buildSameAxisSegmentGroups();
 
-        for (const auto& group : sameAxisGroup)
+        for (const auto& sameAxisGroup : sameAxisGroups)
         {
-            const auto candidateAxis =
-                buildCandidateAxis(group);
+            const auto candidateAxis = buildCandidateAxis(sameAxisGroup);
 
             if (!candidateAxis.isValid)
             {
                 continue;
             }
 
-            auto segmentRanges = buildSegmentRanges(group, candidateAxis);
+            std::vector<HoleReachability> reachabilities;
 
-            if (segmentRanges.empty())
+            const auto reachableGroups =
+                buildReachableSegmentGroups(
+                    sameAxisGroup,
+                    candidateAxis,
+                    reachabilities);
+
+            for (const auto& reachableGroup : reachableGroups)
             {
-                continue;
-            }
+                const auto candidateReachabilities =
+                    filterReachabilitiesForSegmentGroup(
+                        reachableGroup,
+                        reachabilities);
 
-            std::sort(
-                segmentRanges.begin(),
-                segmentRanges.end(),
-                [](const SegmentRange& lhs, const SegmentRange& rhs)
-                {
-                    return lhs.minAxial < rhs.minAxial;
-                });
-
-            const auto connections = buildSegmentConnections(segmentRanges);
-
-            const auto chains = buildSegmentChains(segmentRanges, connections);
-
-            for (const auto& chain : chains)
-            {
-                candidates.push_back(buildCandidateFromChain(static_cast<int>(candidates.size()), chain));
+                candidates.push_back(
+                    buildCandidateFromSegmentGroup(
+                        static_cast<int>(candidates.size()),
+                        reachableGroup,
+                        candidateReachabilities));
             }
         }
 
@@ -119,12 +149,9 @@ namespace OccQtCore::Feature
                     continue;
                 }
 
-                const auto& representativeSegment =
-                    m_segmentCandidates[representativeSegmentIndex];
+                const auto& representativeSegment = m_segmentCandidates[representativeSegmentIndex];
 
-                if (isSameAxisSegment(
-                        representativeSegment,
-                        segment))
+                if (isSameAxisSegment(representativeSegment, segment))
                 {
                     group.push_back(segment.index);
                     merged = true;
@@ -200,233 +227,436 @@ namespace OccQtCore::Feature
         return axis;
     }
 
-    HoleCandidateBuilder::SegmentRange HoleCandidateBuilder::buildSegmentRange(
-        const HoleSegmentCandidate& segment,
-        const CandidateAxis& candidateAxis) const
+    std::vector<std::vector<int>> HoleCandidateBuilder::buildReachableSegmentGroups(
+        const std::vector<int>& sameAxisSegmentIndices,
+        const CandidateAxis& candidateAxis,
+        std::vector<HoleReachability>& reachabilities) const
     {
-        SegmentRange range;
-        range.segmentCandidateIndex = segment.index;
+        std::vector<std::vector<int>> groups;
 
-        if (!candidateAxis.isValid)
+        if (!candidateAxis.isValid ||
+            sameAxisSegmentIndices.empty())
         {
-            return range;
+            return groups;
         }
 
-        bool hasValue = false;
+        DisjointSet disjointSet(
+            static_cast<int>(sameAxisSegmentIndices.size()));
 
-        for (const int endIndex : segment.endCandidateIndices)
+        for (int i = 0; i < static_cast<int>(sameAxisSegmentIndices.size()); ++i)
         {
-            if (!isValidEndIndex(endIndex))
+            for (int j = i + 1; j < static_cast<int>(sameAxisSegmentIndices.size()); ++j)
             {
-                continue;
-            }
+                const int lhsSegmentIndex = sameAxisSegmentIndices[i];
+                const int rhsSegmentIndex = sameAxisSegmentIndices[j];
 
-            const auto& end = m_endCandidates[endIndex];
+                HoleReachability reachability;
 
-            const double axial = SurfaceUtil::projectPointToAxis(
-                candidateAxis.point,
-                candidateAxis.direction,
-                end.center);
-
-            if (!hasValue)
-            {
-                range.minAxial = axial;
-                range.maxAxial = axial;
-                range.minEndCandidateIndex = endIndex;
-                range.maxEndCandidateIndex = endIndex;
-                hasValue = true;
-                continue;
-            }
-
-            if (axial < range.minAxial)
-            {
-                range.minAxial = axial;
-                range.minEndCandidateIndex = endIndex;
-            }
-
-            if (axial > range.maxAxial)
-            {
-                range.maxAxial = axial;
-                range.maxEndCandidateIndex = endIndex;
+                if (tryBuildSegmentReachability(
+                        lhsSegmentIndex,
+                        rhsSegmentIndex,
+                        candidateAxis,
+                        reachability))
+                {
+                    disjointSet.unite(i, j);
+                    reachabilities.push_back(reachability);
+                }
             }
         }
 
-        range.isValid = hasValue;
-        return range;
+        std::vector<int> roots;
+
+        for (int i = 0; i < static_cast<int>(sameAxisSegmentIndices.size()); ++i)
+        {
+            const int root = disjointSet.find(i);
+
+            auto rootIt =
+                std::find(
+                    roots.begin(),
+                    roots.end(),
+                    root);
+
+            if (rootIt == roots.end())
+            {
+                roots.push_back(root);
+                groups.push_back({});
+                rootIt = roots.end() - 1;
+            }
+
+            const int groupIndex =
+                static_cast<int>(rootIt - roots.begin());
+
+            groups[groupIndex].push_back(sameAxisSegmentIndices[i]);
+        }
+
+        return groups;
     }
 
-    std::vector<HoleCandidateBuilder::SegmentRange> HoleCandidateBuilder::buildSegmentRanges(
-        const std::vector<int>& segmentCandidateIndices,
-        const CandidateAxis& candidateAxis) const
-    {
-        std::vector<SegmentRange> ranges;
-
-        for (const int segmentIndex : segmentCandidateIndices)
-        {
-            if (!isValidSegmentIndex(segmentIndex))
-            {
-                continue;
-            }
-
-            auto range =
-                buildSegmentRange(
-                    m_segmentCandidates[segmentIndex],
-                    candidateAxis);
-
-            if (range.isValid)
-            {
-                ranges.push_back(range);
-            }
-        }
-
-        return ranges;
-    }
-
-    std::vector<HoleCandidateBuilder::SegmentConnection> HoleCandidateBuilder::buildSegmentConnections(
-        const std::vector<SegmentRange>& segmentRanges) const
-    {
-        std::vector<SegmentConnection> connections;
-
-        if (segmentRanges.size() < 2)
-        {
-            return connections;
-        }
-
-        connections.reserve(segmentRanges.size() - 1);
-
-        for (int i = 0;
-             i + 1 < static_cast<int>(segmentRanges.size());
-             ++i)
-        {
-            connections.push_back(
-                buildSegmentConnection(segmentRanges[i], segmentRanges[i + 1]));
-        }
-
-        return connections;
-    }
-
-    HoleCandidateBuilder::SegmentConnection HoleCandidateBuilder::buildSegmentConnection(
-        const SegmentRange& currentRange,
-        const SegmentRange& nextRange) const
-    {
-        SegmentConnection connection;
-
-        connection.currentSegmentCandidateIndex =
-            currentRange.segmentCandidateIndex;
-        connection.nextSegmentCandidateIndex =
-            nextRange.segmentCandidateIndex;
-
-        connection.currentEndCandidateIndex =
-            currentRange.maxEndCandidateIndex;
-        connection.nextEndCandidateIndex =
-            nextRange.minEndCandidateIndex;
-
-        connection.axialRangeGap =
-            nextRange.minAxial - currentRange.maxAxial;
-
-        connection.kind =
-            classifySegmentConnection(
-                currentRange,
-                nextRange);
-
-        return connection;
-    }
-
-    HoleCandidateBuilder::SegmentConnectionKind HoleCandidateBuilder::classifySegmentConnection(
-        const SegmentRange& currentRange,
-        const SegmentRange& nextRange) const
-    {
-        if (!currentRange.isValid || !nextRange.isValid)
-        {
-            return SegmentConnectionKind::Unknown;
-        }
-
-        const int currentEndIndex = currentRange.maxEndCandidateIndex;
-        const int nextEndIndex = nextRange.minEndCandidateIndex;
-
-        if (!isValidEndIndex(currentEndIndex) ||
-            !isValidEndIndex(nextEndIndex))
-        {
-            return SegmentConnectionKind::Unknown;
-        }
-
-        const auto& currentEnd = m_endCandidates[currentEndIndex];
-        const auto& nextEnd = m_endCandidates[nextEndIndex];
-
-        if (hasSharedEndGeometry(currentEnd, nextEnd))
-        {
-            return SegmentConnectionKind::SharedEndGeometry;
-        }
-
-        const double axialRangeGap = nextRange.minAxial - currentRange.maxAxial;
-
-        if (axialRangeGap >= 0 &&
-            axialRangeGap <= AxialRangeGapTolerance)
-        {
-            return SegmentConnectionKind::AxialRangeNear;
-        }
-
-        return SegmentConnectionKind::Unknown;
-    }
-
-    std::vector<HoleCandidateBuilder::SegmentChain> HoleCandidateBuilder::buildSegmentChains(
-        const std::vector<SegmentRange>& segmentRanges,
-        const std::vector<SegmentConnection>& connections) const
-    {
-        std::vector<SegmentChain> chains;
-
-        if (segmentRanges.empty())
-        {
-            return chains;
-        }
-
-        SegmentChain currentChain;
-        currentChain.index = 0;
-        currentChain.segmentCandidateIndices.push_back(
-            segmentRanges.front().segmentCandidateIndex);
-
-        for (const auto& connection : connections)
-        {
-            const bool isConnected =
-                connection.kind == SegmentConnectionKind::SharedEndGeometry ||
-                connection.kind == SegmentConnectionKind::ShoulderPlane ||
-                connection.kind == SegmentConnectionKind::AxialRangeNear;
-
-            if (isConnected)
-            {
-                currentChain.segmentCandidateIndices.push_back(
-                    connection.nextSegmentCandidateIndex);
-                continue;
-            }
-
-            chains.push_back(currentChain);
-
-            currentChain = SegmentChain{};
-            currentChain.index = static_cast<int>(chains.size());
-            currentChain.segmentCandidateIndices.push_back(
-                connection.nextSegmentCandidateIndex);
-        }
-
-        chains.push_back(currentChain);
-
-        return chains;
-    }
-
-    HoleCandidate HoleCandidateBuilder::buildCandidateFromChain(
+    HoleCandidate HoleCandidateBuilder::buildCandidateFromSegmentGroup(
         int candidateIndex,
-        const SegmentChain& chain) const
+        const std::vector<int>& segmentCandidateIndices,
+        const std::vector<HoleReachability>& reachabilities) const
     {
         HoleCandidate candidate;
 
         candidate.index = candidateIndex;
-        candidate.segmentCandidateIndices = chain.segmentCandidateIndices;
+        candidate.segmentCandidateIndices = segmentCandidateIndices;
+        candidate.reachabilities = reachabilities;
 
         return candidate;
     }
 
-    bool HoleCandidateBuilder::isSameAxisSegment(
-        const HoleSegmentCandidate& lhs,
-        const HoleSegmentCandidate& rhs) const
+    bool HoleCandidateBuilder::tryBuildSegmentReachability(
+        int lhsSegmentCandidateIndex,
+        int rhsSegmentCandidateIndex,
+        const CandidateAxis& candidateAxis,
+        HoleReachability& reachability) const
+    {
+        if (!candidateAxis.isValid ||
+            !isValidSegmentIndex(lhsSegmentCandidateIndex) ||
+            !isValidSegmentIndex(rhsSegmentCandidateIndex))
+        {
+            return false;
+        }
+
+        if (lhsSegmentCandidateIndex == rhsSegmentCandidateIndex)
+        {
+            return false;
+        }
+
+        const auto& lhsSegment =
+            m_segmentCandidates[lhsSegmentCandidateIndex];
+
+        const auto& rhsSegment =
+            m_segmentCandidates[rhsSegmentCandidateIndex];
+
+        if (!isValidWallIndex(lhsSegment.wallCandidateIndex) ||
+            !isValidWallIndex(rhsSegment.wallCandidateIndex))
+        {
+            return false;
+        }
+
+        const auto& lhsWall =
+            m_wallCandidates[lhsSegment.wallCandidateIndex];
+
+        const auto& rhsWall =
+            m_wallCandidates[rhsSegment.wallCandidateIndex];
+
+        if (!isWallOnCandidateAxis(candidateAxis, lhsWall) ||
+            !isWallOnCandidateAxis(candidateAxis, rhsWall))
+        {
+            return false;
+        }
+
+        for (const int lhsEndIndex : lhsSegment.endCandidateIndices)
+        {
+            if (!isValidEndIndex(lhsEndIndex))
+            {
+                continue;
+            }
+
+            for (const int rhsEndIndex : rhsSegment.endCandidateIndices)
+            {
+                if (!isValidEndIndex(rhsEndIndex))
+                {
+                    continue;
+                }
+
+                HoleReachability endReachability;
+
+                if (!tryBuildEndReachability(
+                        lhsEndIndex,
+                        rhsEndIndex,
+                        candidateAxis,
+                        endReachability))
+                {
+                    continue;
+                }
+
+                endReachability.lhsSegmentCandidateIndex =
+                    lhsSegmentCandidateIndex;
+
+                endReachability.rhsSegmentCandidateIndex =
+                    rhsSegmentCandidateIndex;
+
+                reachability = endReachability;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool HoleCandidateBuilder::tryBuildEndReachability(
+        int lhsEndCandidateIndex,
+        int rhsEndCandidateIndex,
+        const CandidateAxis& candidateAxis,
+        HoleReachability& reachability) const
+    {
+        if (!candidateAxis.isValid ||
+            !isValidEndIndex(lhsEndCandidateIndex) ||
+            !isValidEndIndex(rhsEndCandidateIndex))
+        {
+            return false;
+        }
+
+        if (lhsEndCandidateIndex == rhsEndCandidateIndex)
+        {
+            return false;
+        }
+
+        const auto& lhsEnd =
+            m_endCandidates[lhsEndCandidateIndex];
+
+        const auto& rhsEnd =
+            m_endCandidates[rhsEndCandidateIndex];
+
+        if (lhsEnd.wallCandidateIndex == rhsEnd.wallCandidateIndex)
+        {
+            return false;
+        }
+
+        reachability = HoleReachability{};
+        reachability.lhsEndCandidateIndex = lhsEndCandidateIndex;
+        reachability.rhsEndCandidateIndex = rhsEndCandidateIndex;
+
+        if (tryBuildSharedGeometryRefReachability(
+                lhsEnd,
+                rhsEnd,
+                reachability))
+        {
+            return true;
+        }
+
+        if (tryBuildSharedAdjacentFaceReachability(
+                lhsEnd,
+                rhsEnd,
+                candidateAxis,
+                reachability))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    bool HoleCandidateBuilder::tryBuildSharedGeometryRefReachability(
+        const HoleEndCandidate& lhsEnd,
+        const HoleEndCandidate& rhsEnd,
+        HoleReachability& reachability) const
+    {
+        GeometryRefs sharedRefs;
+
+        for (const int faceIndex : lhsEnd.geometryRefs.faceIndices)
+        {
+            if (CollectionUtil::contains(
+                    rhsEnd.geometryRefs.faceIndices,
+                    faceIndex))
+            {
+                CollectionUtil::addUnique(
+                    sharedRefs.faceIndices,
+                    faceIndex);
+            }
+        }
+
+        for (const int edgeIndex : lhsEnd.geometryRefs.edgeIndices)
+        {
+            if (CollectionUtil::contains(
+                    rhsEnd.geometryRefs.edgeIndices,
+                    edgeIndex))
+            {
+                CollectionUtil::addUnique(
+                    sharedRefs.edgeIndices,
+                    edgeIndex);
+            }
+        }
+
+        for (const int vertexIndex : lhsEnd.geometryRefs.vertexIndices)
+        {
+            if (CollectionUtil::contains(
+                    rhsEnd.geometryRefs.vertexIndices,
+                    vertexIndex))
+            {
+                CollectionUtil::addUnique(
+                    sharedRefs.vertexIndices,
+                    vertexIndex);
+            }
+        }
+
+        if (sharedRefs.faceIndices.empty() &&
+            sharedRefs.edgeIndices.empty() &&
+            sharedRefs.vertexIndices.empty())
+        {
+            return false;
+        }
+
+        reachability.reason =
+            HoleReachabilityReason::SharedGeometryRef;
+
+        reachability.sharedGeometryRefs =
+            sharedRefs;
+
+        return true;
+    }
+
+    bool HoleCandidateBuilder::tryBuildSharedAdjacentFaceReachability(
+        const HoleEndCandidate& lhsEnd,
+        const HoleEndCandidate& rhsEnd,
+        const CandidateAxis& candidateAxis,
+        HoleReachability& reachability) const
+    {
+        const auto lhsAdjacentFaces =
+            collectAdjacentHolePathFaceIndicesOfEnd(
+                lhsEnd,
+                candidateAxis);
+
+        const auto rhsAdjacentFaces =
+            collectAdjacentHolePathFaceIndicesOfEnd(
+                rhsEnd,
+                candidateAxis);
+
+        GeometryRefs sharedRefs;
+
+        for (const int faceIndex : lhsAdjacentFaces)
+        {
+            if (CollectionUtil::contains(
+                    rhsAdjacentFaces,
+                    faceIndex))
+            {
+                CollectionUtil::addUnique(
+                    sharedRefs.faceIndices,
+                    faceIndex);
+            }
+        }
+
+        if (sharedRefs.faceIndices.empty())
+        {
+            return false;
+        }
+
+        reachability.reason =
+            HoleReachabilityReason::SharedAdjacentFace;
+
+        reachability.sharedGeometryRefs =
+            sharedRefs;
+
+        return true;
+    }
+
+
+    std::vector<int> HoleCandidateBuilder::collectAdjacentHolePathFaceIndicesOfEnd(
+        const HoleEndCandidate& end,
+        const CandidateAxis& candidateAxis) const
+    {
+        std::vector<int> faceIndices;
+
+        if (!candidateAxis.isValid ||
+            !isValidWallIndex(end.wallCandidateIndex))
+        {
+            return faceIndices;
+        }
+
+        const auto& wall =
+            m_wallCandidates[end.wallCandidateIndex];
+
+        for (const int edgeIndex : end.geometryRefs.edgeIndices)
+        {
+            if (!TopologyQuery::isValidEdgeIndex(m_model, edgeIndex))
+            {
+                continue;
+            }
+
+            const auto connectedFaceIndices =
+                TopologyQuery::facesOfEdge(
+                    m_model,
+                    edgeIndex);
+
+            for (const int faceIndex : connectedFaceIndices)
+            {
+                if (CollectionUtil::contains(
+                        wall.geometryRefs.faceIndices,
+                        faceIndex))
+                {
+                    continue;
+                }
+
+                if (!isAllowedHolePathFace(
+                        faceIndex,
+                        candidateAxis))
+                {
+                    continue;
+                }
+
+                CollectionUtil::addUnique(
+                    faceIndices,
+                    faceIndex);
+            }
+        }
+
+        return faceIndices;
+    }
+
+    bool HoleCandidateBuilder::isAllowedHolePathFace(
+        int faceIndex,
+        const CandidateAxis& candidateAxis) const
+    {
+        if (!candidateAxis.isValid ||
+            !TopologyQuery::isValidFaceIndex(m_model, faceIndex))
+        {
+            return false;
+        }
+
+        const auto* face =
+            m_model.faceAt(faceIndex);
+
+        if (face == nullptr)
+        {
+            return false;
+        }
+
+        if (face->info.kind != SurfaceKind::Plane ||
+            !face->info.plane.has_value())
+        {
+            return false;
+        }
+
+        const double axisDot =
+            std::abs(
+                face->info.plane->normal.Dot(
+                    candidateAxis.direction));
+
+        return axisDot >= HolePathPlaneAxisDotTolerance;
+    }
+
+    std::vector<HoleReachability> HoleCandidateBuilder::filterReachabilitiesForSegmentGroup(
+        const std::vector<int>& segmentCandidateIndices,
+        const std::vector<HoleReachability>& reachabilities) const
+    {
+        std::vector<HoleReachability> filteredReachabilities;
+
+        for (const auto& reachability : reachabilities)
+        {
+            if (!CollectionUtil::contains(
+                    segmentCandidateIndices,
+                    reachability.lhsSegmentCandidateIndex))
+            {
+                continue;
+            }
+
+            if (!CollectionUtil::contains(
+                    segmentCandidateIndices,
+                    reachability.rhsSegmentCandidateIndex))
+            {
+                continue;
+            }
+
+            filteredReachabilities.push_back(reachability);
+        }
+
+        return filteredReachabilities;
+    }
+
+    bool HoleCandidateBuilder::isSameAxisSegment(const HoleSegmentCandidate& lhs, const HoleSegmentCandidate& rhs) const
     {
         if (!isValidWallIndex(lhs.wallCandidateIndex) ||
             !isValidWallIndex(rhs.wallCandidateIndex))
@@ -447,9 +677,7 @@ namespace OccQtCore::Feature
             DirectionTolerance);
     }
 
-    bool HoleCandidateBuilder::isWallOnCandidateAxis(
-        const CandidateAxis& candidateAxis,
-        const HoleWallCandidate& wallCandidate) const
+    bool HoleCandidateBuilder::isWallOnCandidateAxis(const CandidateAxis& candidateAxis, const HoleWallCandidate& wallCandidate) const
     {
         if (!candidateAxis.isValid)
         {
@@ -481,26 +709,5 @@ namespace OccQtCore::Feature
     {
         return index >= 0 &&
                index < static_cast<int>(m_endCandidates.size());
-    }
-
-    bool HoleCandidateBuilder::hasSharedEndGeometry(
-        const HoleEndCandidate& lhs,
-        const HoleEndCandidate& rhs) const
-    {
-        if (hasSharedIndex(
-                lhs.geometryRefs.faceIndices,
-                rhs.geometryRefs.faceIndices))
-        {
-            return true;
-        }
-
-        if (hasSharedIndex(
-                lhs.geometryRefs.edgeIndices,
-                rhs.geometryRefs.edgeIndices))
-        {
-            return true;
-        }
-
-        return false;
     }
 }

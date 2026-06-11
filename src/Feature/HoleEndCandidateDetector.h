@@ -26,17 +26,20 @@ namespace OccQtCore::Feature
         std::vector<HoleEndCandidate> buildFromWallConnection(
             const HoleWallCandidate& sourceWallCandidate,
             int adjacentFaceIndex,
-            int connectionEdgeIndex) const;
+            int connectionEdgeIndex,
+            int wallBoundaryLoopIndex) const;
 
         std::vector<HoleEndCandidate> buildDirectConnection(
             const HoleWallCandidate& sourceWallCandidate,
             int adjacentFaceIndex,
-            int connectionEdgeIndex) const;
+            int connectionEdgeIndex,
+            int wallBoundaryLoopIndex) const;
 
         std::vector<HoleEndCandidate> buildThroughTransitionSurface(
             const HoleWallCandidate& sourceWallCandidate,
             int transitionFaceIndex,
-            int wallConnectionEdgeIndex) const;
+            int wallConnectionEdgeIndex,
+            int wallBoundaryLoopIndex) const;
 
         bool isFaceOwnedByOtherWallCandidate(
             int faceIndex,
@@ -50,21 +53,14 @@ namespace OccQtCore::Feature
             SurfaceKind kind) const;
 
         HoleEndCandidate makeBaseEndCandidateFromWall(
-            const HoleWallCandidate& wallCandidate) const;
+            const HoleWallCandidate& wallCandidate,
+            int wallBoundaryLoopIndex) const;
 
         HoleEndCandidate makeWallConnectionEndCandidateFromWall(
             const HoleWallCandidate& wallCandidate,
             int connectionEdgeIndex,
-            int connectionFaceIndex) const;
-
-        void setAxialPositionFromEdge(
-            const HoleWallCandidate& wallCandidate,
-            int edgeIndex,
-            HoleEndCandidate& candidate) const;
-
-        void setAxialPositionFromAnyEdge(
-            const HoleWallCandidate& wallCandidate,
-            HoleEndCandidate& candidate) const;
+            int connectionFaceIndex,
+            int wallBoundaryLoopIndex) const;
 
     private:
         const GeometryModel& m_model;
