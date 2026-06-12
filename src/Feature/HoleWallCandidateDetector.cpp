@@ -189,7 +189,6 @@ namespace OccQtCore::Feature
             candidate.center = cylinder.axis.Location();
             candidate.axisDirection = cylinder.axis.Direction();
             candidate.radius = cylinder.radius;
-            candidate.depth = 0.0;
 
             rawCandidates.push_back(candidate);
         }
@@ -300,7 +299,6 @@ namespace OccQtCore::Feature
         wallCandidate.center = baseCandidate.center;
         wallCandidate.axisDirection = baseCandidate.axisDirection;
         wallCandidate.radius = baseCandidate.radius;
-        wallCandidate.depth = 0.0;
 
         return wallCandidate;
     }

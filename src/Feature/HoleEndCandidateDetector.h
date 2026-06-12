@@ -56,10 +56,9 @@ namespace OccQtCore::Feature
             const HoleWallCandidate& wallCandidate,
             int wallBoundaryLoopIndex) const;
 
-        HoleEndCandidate makeWallConnectionEndCandidateFromWall(
+        HoleEndCandidate makeConnectedEndCandidateFromWall(
             const HoleWallCandidate& wallCandidate,
             int connectionEdgeIndex,
-            int connectionFaceIndex,
             int wallBoundaryLoopIndex) const;
 
     private:

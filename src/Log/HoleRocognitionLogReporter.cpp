@@ -72,13 +72,12 @@ namespace OccQtCore
         for (const auto& candidate: result.wallCandidates)
         {
             const QString message =
-                QString("WallCandidate[%1]: Faces=%2, Center=%3, Axis=%4, Radius=%5, Depth=%6")
+                QString("WallCandidate[%1]: Faces=%2, Center=%3, Axis=%4, Radius=%5")
                     .arg(candidate.index)
                     .arg(LF::formatFaceIndexList(model, candidate.geometryRefs.faceIndices))
                     .arg(LF::formatPoint(candidate.center))
                     .arg(LF::formatDirection(candidate.axisDirection))
-                    .arg(candidate.radius, 0, 'f', 3)
-                    .arg(candidate.depth, 0, 'f', 3);
+                    .arg(candidate.radius, 0, 'f', 3);
 
             m_logger->info(message);
         }

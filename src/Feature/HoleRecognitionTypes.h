@@ -25,25 +25,9 @@ namespace OccQtCore::Feature
     enum class HoleEndCandidateType
     {
         Unknown,
-
-        /**
-         * @brief 外部に開いた端候補
-         */
         Open,
-
-        /**
-         * @brief 穴としてそこで終端している端候補
-         */
         Bottom,
-
-        /**
-         * @brief 別の穴壁候補へ接続している端候補
-         *
-         * Step 確定ではない。
-         * 同軸・別径のセグメント接続として解釈できる場合に、
-         * 後続工程で Hole::EndType::Step へ変換する。
-         */
-        WallConnection
+        Connected
     };
 
     inline const char* holeEndCandidateTypeDisplayName(HoleEndCandidateType type)
@@ -56,8 +40,8 @@ namespace OccQtCore::Feature
         case HoleEndCandidateType::Bottom:
             return "Bottom";
 
-        case HoleEndCandidateType::WallConnection:
-            return "WallConnection";
+        case HoleEndCandidateType::Connected:
+            return "Connected";
 
         case HoleEndCandidateType::Unknown:
         default:
@@ -86,7 +70,6 @@ namespace OccQtCore::Feature
         gp_Dir axisDirection;
 
         double radius = 0.0;
-        double depth = 0.0;
     };
 
     /**
@@ -165,8 +148,7 @@ namespace OccQtCore::Feature
 
         int wallCandidateIndex = -1;
         std::vector<int> endCandidateIndices;
-
-        Hole::Type type = Hole::Type::Unknown;
+        double depth = 0.0;
     };
 
     enum class HoleReachabilityReason
@@ -226,7 +208,9 @@ namespace OccQtCore::Feature
     {
         int index = -1;
         std::vector<int> segmentCandidateIndices;
-        Hole::Type type = Hole::Type::Unknown;
+
+        gp_Pnt axisPoint;
+        gp_Dir axisDirection = gp_Dir(0.0, 0.0, 1.0);
 
         std::vector<HoleReachability> reachabilities;
     };
@@ -248,6 +232,8 @@ namespace OccQtCore::Feature
         std::vector<HoleEndCandidate> endCandidates;
         std::vector<HoleSegmentCandidate> segmentCandidates;
         std::vector<HoleCandidate> holeCandidates;
+
+        std::vector<Hole::Data> holes;
     };
 }
 

@@ -1,18 +1,18 @@
 #include "Feature/HoleSegmentCandidateBuilder.h"
 
 #include "Core/CollectionUtil.h"
+#include "Geometry/GeometryModel.h"
 
-namespace
-{
-    constexpr double SegmentEndAxialTolerance = 1.0e-3;
-}
+#include <QDebug>
 
 namespace OccQtCore::Feature
 {
     HoleSegmentCandidateBuilder::HoleSegmentCandidateBuilder(
+        const GeometryModel& model,
         const std::vector<HoleWallCandidate>& wallCandidates,
         const std::vector<HoleEndCandidate>& endCandidates)
-        : m_wallCandidates(wallCandidates)
+        : m_model(model)
+        , m_wallCandidates(wallCandidates)
         , m_endCandidates(endCandidates)
     {
     }
@@ -35,7 +35,9 @@ namespace OccQtCore::Feature
                     continue;
                 }
 
-                OccQtCore::CollectionUtil::addUnique(candidate.endCandidateIndices, endCandidate.index);
+                CollectionUtil::addUnique(
+                    candidate.endCandidateIndices,
+                    endCandidate.index);
             }
 
             if (candidate.endCandidateIndices.empty())
@@ -43,15 +45,8 @@ namespace OccQtCore::Feature
                 continue;
             }
 
-            candidate.endCandidateIndices =
-                selectRepresentativeEndIndices(candidate.endCandidateIndices);
-
-            if (candidate.endCandidateIndices.empty())
-            {
-                continue;
-            }
-
-            candidate.type = classifySegmentType(candidate.endCandidateIndices);
+            candidate.depth =
+                calculateSegmentDepth(candidate);
 
             candidates.push_back(candidate);
         }
@@ -59,104 +54,108 @@ namespace OccQtCore::Feature
         return candidates;
     }
 
-    int HoleSegmentCandidateBuilder::holeEndTypePriority(HoleEndCandidateType type) const
+    double HoleSegmentCandidateBuilder::calculateSegmentDepth(const HoleSegmentCandidate& candidate) const
     {
-        switch (type)
+        if (!isValidWallIndex(candidate.wallCandidateIndex))
         {
-        case HoleEndCandidateType::Open:
-            return 3;
-
-        case HoleEndCandidateType::WallConnection:
-            return 2;
-
-        case HoleEndCandidateType::Bottom:
-            return 1;
-
-        case HoleEndCandidateType::Unknown:
-        default:
-            return 0;
+            return 0.0;
         }
-    }
 
-    bool HoleSegmentCandidateBuilder::isBetterRepresentativeEnd(
-        const HoleEndCandidate& current,
-        const HoleEndCandidate& next) const
-    {
-        return holeEndTypePriority(next.type) > holeEndTypePriority(current.type);
-    }
+        const auto& wall = m_wallCandidates[candidate.wallCandidateIndex];
 
-    std::vector<int> HoleSegmentCandidateBuilder::selectRepresentativeEndIndices(const std::vector<int>& sourceEndIndices) const
-    {
-        return sourceEndIndices;
-    }
+        std::vector<int> vertexIndices;
 
-    void HoleSegmentCandidateBuilder::countEndTypes(
-        const std::vector<int>& endCandidateIndices,
-        int& openCount,
-        int& bottomCount,
-        int& wallConnectionCount) const
-    {
-        openCount = 0;
-        bottomCount = 0;
-        wallConnectionCount = 0;
+        appendVertexIndices(wall.geometryRefs, vertexIndices);
 
-        for (int endIndex : endCandidateIndices)
+        qDebug()
+            << "Segment" << candidate.index
+            << "wall" << candidate.wallCandidateIndex
+            << "vertex count" << vertexIndices.size();
+
+        for (const int endIndex : candidate.endCandidateIndices)
         {
             if (!isValidEndIndex(endIndex))
             {
                 continue;
             }
 
-            const auto& end = m_endCandidates[endIndex];
-
-            if (end.type == HoleEndCandidateType::Open)
-            {
-                ++openCount;
-            }
-            else if (end.type == HoleEndCandidateType::Bottom)
-            {
-                ++bottomCount;
-            }
-            else if (end.type == HoleEndCandidateType::WallConnection)
-            {
-                ++wallConnectionCount;
-            }
+            appendVertexIndices(m_endCandidates[endIndex].geometryRefs, vertexIndices);
         }
+
+        CollectionUtil::sortUnique(vertexIndices);
+
+        bool hasPosition = false;
+        double minPosition = 0.0;
+        double maxPosition = 0.0;
+
+        for (const int vertexIndex : vertexIndices)
+        {
+            const auto* vertex = m_model.vertexAt(vertexIndex);
+
+            if (vertex == nullptr)
+            {
+                continue;
+            }
+
+            const double position =
+                gp_Vec(wall.center, vertex->info.point).Dot(
+                    gp_Vec(wall.axisDirection));
+
+            if (!hasPosition)
+            {
+                minPosition = position;
+                maxPosition = position;
+                hasPosition = true;
+                continue;
+            }
+
+            minPosition = std::min(minPosition, position);
+            maxPosition = std::max(maxPosition, position);
+        }
+
+        if (!hasPosition)
+        {
+            return 0.0;
+        }
+
+        return maxPosition - minPosition;
     }
 
-    Hole::Type HoleSegmentCandidateBuilder::classifySegmentType(
-        const std::vector<int>& endCandidateIndices) const
+    void HoleSegmentCandidateBuilder::appendVertexIndices(const GeometryRefs& refs, std::vector<int>& vertexIndices) const
     {
-        int openCount = 0;
-        int bottomCount = 0;
-        int wallConnectionCount = 0;
-
-        countEndTypes(
-            endCandidateIndices,
-            openCount,
-            bottomCount,
-            wallConnectionCount);
-
-        if (openCount == 2 &&
-            bottomCount == 0 &&
-            wallConnectionCount == 0)
+        for (const int vertexIndex : refs.vertexIndices)
         {
-            return Hole::Type::SimpleThrough;
+            CollectionUtil::addUnique(
+                vertexIndices,
+                vertexIndex);
         }
 
-        if (openCount == 1 &&
-            bottomCount == 1 &&
-            wallConnectionCount == 0)
-        {
-            return Hole::Type::SimpleBlind;
-        }
+        const auto& graph =
+            m_model.graph();
 
-        return Hole::Type::Unknown;
+        for (const int edgeIndex : refs.edgeIndices)
+        {
+            const auto edgeVertexIndices =
+                graph.verticesOfEdge(edgeIndex);
+
+            for (const int vertexIndex : edgeVertexIndices)
+            {
+                CollectionUtil::addUnique(
+                    vertexIndices,
+                    vertexIndex);
+            }
+        }
     }
 
     bool HoleSegmentCandidateBuilder::isValidEndIndex(int index) const
     {
         return index >= 0 &&
                index < static_cast<int>(m_endCandidates.size());
+    }
+
+    bool HoleSegmentCandidateBuilder::isValidWallIndex(int index) const
+    {
+        return index >= 0 &&
+               index < static_cast<int>(m_wallCandidates.size());
     }
 }

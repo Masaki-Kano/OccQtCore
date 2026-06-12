@@ -5,40 +5,33 @@
 
 #include "Feature/HoleRecognitionTypes.h"
 
+namespace OccQtCore
+{
+    class GeometryModel;
+}
+
 namespace OccQtCore::Feature
 {
     class HoleSegmentCandidateBuilder
     {
     public:
         HoleSegmentCandidateBuilder(
+            const GeometryModel& model,
             const std::vector<HoleWallCandidate>& wallCandidates,
             const std::vector<HoleEndCandidate>& endCandidates);
 
         std::vector<HoleSegmentCandidate> build() const;
 
     private:
-        int holeEndTypePriority(
-            HoleEndCandidateType type) const;
+        double calculateSegmentDepth(const HoleSegmentCandidate& candidate) const;
 
-        bool isBetterRepresentativeEnd(
-            const HoleEndCandidate& current,
-            const HoleEndCandidate& next) const;
-
-        std::vector<int> selectRepresentativeEndIndices(
-            const std::vector<int>& sourceEndIndices) const;
-
-        void countEndTypes(
-            const std::vector<int>& endCandidateIndices,
-            int& openCount,
-            int& bottomCount,
-            int& wallConnectionCount) const;
-
-        Hole::Type classifySegmentType(
-            const std::vector<int>& endCandidateIndices) const;
+        void appendVertexIndices(const GeometryRefs& refs, std::vector<int>& vertexIndeces) const;
 
         bool isValidEndIndex(int index) const;
+        bool isValidWallIndex(int index) const;
 
     private:
+        const GeometryModel& m_model;
         const std::vector<HoleWallCandidate>& m_wallCandidates;
         const std::vector<HoleEndCandidate>& m_endCandidates;
     };

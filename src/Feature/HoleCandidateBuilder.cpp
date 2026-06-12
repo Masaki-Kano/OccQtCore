@@ -115,6 +115,7 @@ namespace OccQtCore::Feature
                     buildCandidateFromSegmentGroup(
                         static_cast<int>(candidates.size()),
                         reachableGroup,
+                        candidateAxis,
                         candidateReachabilities));
             }
         }
@@ -295,12 +296,17 @@ namespace OccQtCore::Feature
     HoleCandidate HoleCandidateBuilder::buildCandidateFromSegmentGroup(
         int candidateIndex,
         const std::vector<int>& segmentCandidateIndices,
+        const CandidateAxis& candidateAxis,
         const std::vector<HoleReachability>& reachabilities) const
     {
         HoleCandidate candidate;
 
         candidate.index = candidateIndex;
         candidate.segmentCandidateIndices = segmentCandidateIndices;
+
+        candidate.axisPoint = candidateAxis.point;
+        candidate.axisDirection = candidateAxis.direction;
+
         candidate.reachabilities = reachabilities;
 
         return candidate;

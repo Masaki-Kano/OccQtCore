@@ -381,9 +381,9 @@ void MainWindow::setupHoleDebugPanelConnections()
 
     connect(
         m_holeDebugPanel,
-        &HoleDebugPanel::selectedCandidateChanged,
+        &HoleDebugPanel::selectedItemChanged,
         this,
-        &MainWindow::applyHoleDebugSelectedCandidate);
+        &MainWindow::applyHoleDebugSelectedItem);
 }
 
 void MainWindow::buildHoleDebugData()
@@ -439,11 +439,7 @@ void MainWindow::logHoleDebugInfo()
         m_holeRecognitionResult
     };
 
-    report.outputSummary = true;
-    report.outputWallCandidates = m_holeDebugLogOptions.logWalls;
-    report.outputEndCandidates = m_holeDebugLogOptions.logEnds;
-    report.outputSegmentCandidates = m_holeDebugLogOptions.logSegments;
-    report.outputHoleCandidates = m_holeDebugLogOptions.logCandidates;
+    // TODO: あとでログをそろえる
 
     m_logReporter->logHoleRecognition(report);
 
@@ -460,9 +456,10 @@ void MainWindow::applyHoleDebugDisplayOptions(const OccQtCore::Debug::HoleDebugD
     }
 }
 
-void MainWindow::applyHoleDebugSelectedCandidate(const OccQtCore::Debug::HoleDebugSelectedCandidate& selected)
+void MainWindow::applyHoleDebugSelectedItem(
+    const OccQtCore::Debug::HoleDebugSelectedItem& selected)
 {
-    m_holeDebugDisplayOptions.selectedCandidate = selected;
+    m_holeDebugDisplayOptions.selectedItem = selected;
 
     if (m_hasHoleRecognitionResult)
     {
@@ -534,57 +531,25 @@ void MainWindow::displayHoleDebugData()
         targetShapes.push_back(edgeData->shape);
     };
 
-    auto appendEndShapes =
-        [&](const OccQtCore::Feature::HoleEndCandidate& end)
+    auto appendGeometryRefs =
+        [&](const OccQtCore::Feature::GeometryRefs& refs,
+            std::vector<TopoDS_Shape>& targetFaces,
+            std::vector<TopoDS_Shape>& targetEdges)
     {
-        std::vector<TopoDS_Shape>* targetFaces = nullptr;
-        std::vector<TopoDS_Shape>* targetEdges = nullptr;
-
-        switch (end.type)
+        for (int faceIndex : refs.faceIndices)
         {
-        case OccQtCore::Feature::HoleEndCandidateType::Open:
-            targetFaces = &shapes.openFaces;
-            targetEdges = &shapes.openEdges;
-            break;
-
-        case OccQtCore::Feature::HoleEndCandidateType::Bottom:
-            targetFaces = &shapes.bottomFaces;
-            targetEdges = &shapes.bottomEdges;
-            break;
-
-        case OccQtCore::Feature::HoleEndCandidateType::WallConnection:
-            targetFaces = &shapes.connectionFaces;
-            targetEdges = &shapes.connectionEdges;
-            break;
-
-        case OccQtCore::Feature::HoleEndCandidateType::Unknown:
-        default:
-            return;
+            appendFaceShape(targetFaces, faceIndex);
         }
 
-        for (int faceIndex : end.geometryRefs.faceIndices)
+        for (int edgeIndex : refs.edgeIndices)
         {
-            appendFaceShape(*targetFaces, faceIndex);
-        }
-
-        for (int edgeIndex : end.geometryRefs.edgeIndices)
-        {
-            appendEdgeShape(*targetEdges, edgeIndex);
+            appendEdgeShape(targetEdges, edgeIndex);
         }
     };
 
     auto appendWall =
-        [&](int wallIndex)
+        [&](const OccQtCore::Feature::Hole::Wall& wall)
     {
-        if (wallIndex < 0 ||
-            wallIndex >= static_cast<int>(result.wallCandidates.size()))
-        {
-            return;
-        }
-
-        const auto& wall =
-            result.wallCandidates[wallIndex];
-
         for (int faceIndex : wall.geometryRefs.faceIndices)
         {
             appendFaceShape(shapes.wallFaces, faceIndex);
@@ -592,66 +557,158 @@ void MainWindow::displayHoleDebugData()
     };
 
     auto appendEnd =
-        [&](int endIndex)
+        [&](const OccQtCore::Feature::Hole::End& end)
     {
-        if (endIndex < 0 ||
-            endIndex >= static_cast<int>(result.endCandidates.size()))
+        std::vector<TopoDS_Shape>* targetFaces = nullptr;
+        std::vector<TopoDS_Shape>* targetEdges = nullptr;
+
+        switch (end.endType)
         {
+        case OccQtCore::Feature::Hole::EndType::Open:
+            targetFaces = &shapes.openFaces;
+            targetEdges = &shapes.openEdges;
+            break;
+
+        case OccQtCore::Feature::Hole::EndType::Bottom:
+            targetFaces = &shapes.bottomFaces;
+            targetEdges = &shapes.bottomEdges;
+            break;
+
+        case OccQtCore::Feature::Hole::EndType::Connected:
+            targetFaces = &shapes.connectionFaces;
+            targetEdges = &shapes.connectionEdges;
+            break;
+
+        case OccQtCore::Feature::Hole::EndType::Unknown:
+        default:
             return;
         }
 
-        appendEndShapes(result.endCandidates[endIndex]);
+        appendGeometryRefs(
+            end.geometryRefs,
+            *targetFaces,
+            *targetEdges);
     };
 
-    auto appendSegment =
-        [&](int segmentIndex)
+    auto appendConnection =
+        [&](const OccQtCore::Feature::Hole::ElementConnection& connection)
     {
-        if (segmentIndex < 0 ||
-            segmentIndex >= static_cast<int>(result.segmentCandidates.size()))
+        appendGeometryRefs(
+            connection.geometryRefs,
+            shapes.connectionFaces,
+            shapes.connectionEdges);
+    };
+
+    auto appendElement =
+        [&](const OccQtCore::Feature::Hole::Element& element)
+    {
+        appendWall(element.wall);
+
+        for (const auto& end : element.ends)
         {
-            return;
-        }
-
-        const auto& segment =
-            result.segmentCandidates[segmentIndex];
-
-        appendWall(segment.wallCandidateIndex);
-
-        for (int endIndex : segment.endCandidateIndices)
-        {
-            appendEnd(endIndex);
+            appendEnd(end);
         }
     };
 
     auto appendHole =
-        [&](int holeIndex)
+        [&](const OccQtCore::Feature::Hole::Data& hole)
     {
-        if (holeIndex < 0 ||
-            holeIndex >= static_cast<int>(result.holeCandidates.size()))
+        for (const auto& element : hole.elements)
         {
-            return;
+            appendElement(element);
         }
 
-        const auto& hole =
-            result.holeCandidates[holeIndex];
-
-        for (int segmentIndex : hole.segmentCandidateIndices)
+        for (const auto& connection : hole.elementConnections)
         {
-            appendSegment(segmentIndex);
+            appendConnection(connection);
         }
     };
 
+    auto holeAt =
+        [&](int holeIndex) -> const OccQtCore::Feature::Hole::Data*
+    {
+        if (holeIndex < 0 ||
+            holeIndex >= static_cast<int>(result.holes.size()))
+        {
+            return nullptr;
+        }
+
+        return &result.holes[holeIndex];
+    };
+
+    auto elementAt =
+        [&](int holeIndex,
+            int elementIndex) -> const OccQtCore::Feature::Hole::Element*
+    {
+        const auto* hole = holeAt(holeIndex);
+        if (hole == nullptr)
+        {
+            return nullptr;
+        }
+
+        if (elementIndex < 0 ||
+            elementIndex >= static_cast<int>(hole->elements.size()))
+        {
+            return nullptr;
+        }
+
+        return &hole->elements[elementIndex];
+    };
+
+    auto endAt =
+        [&](int holeIndex,
+            int elementIndex,
+            int endIndex) -> const OccQtCore::Feature::Hole::End*
+    {
+        const auto* element =
+            elementAt(
+                holeIndex,
+                elementIndex);
+
+        if (element == nullptr)
+        {
+            return nullptr;
+        }
+
+        if (endIndex < 0 ||
+            endIndex >= static_cast<int>(element->ends.size()))
+        {
+            return nullptr;
+        }
+
+        return &element->ends[endIndex];
+    };
+
+    auto connectionAt =
+        [&](int holeIndex,
+            int connectionIndex) -> const OccQtCore::Feature::Hole::ElementConnection*
+    {
+        const auto* hole = holeAt(holeIndex);
+        if (hole == nullptr)
+        {
+            return nullptr;
+        }
+
+        if (connectionIndex < 0 ||
+            connectionIndex >= static_cast<int>(hole->elementConnections.size()))
+        {
+            return nullptr;
+        }
+
+        return &hole->elementConnections[connectionIndex];
+    };
+
     using Scope = OccQtCore::Debug::HoleDebugDisplayScope;
-    using SelectedType = OccQtCore::Debug::HoleDebugSelectedCandidate::Type;
+    using SelectedType = OccQtCore::Debug::HoleDebugSelectedItem::Type;
 
     const auto& selected =
-        options.selectedCandidate;
+        options.selectedItem;
 
-    if (options.scope == Scope::AllCandidates)
+    if (options.scope == Scope::All)
     {
-        for (const auto& segment : result.segmentCandidates)
+        for (const auto& hole : result.holes)
         {
-            appendSegment(segment.index);
+            appendHole(hole);
         }
     }
     else
@@ -659,20 +716,63 @@ void MainWindow::displayHoleDebugData()
         switch (selected.type)
         {
         case SelectedType::Hole:
-            appendHole(selected.index);
-            break;
+        {
+            const auto* hole =
+                holeAt(selected.holeIndex);
 
-        case SelectedType::Segment:
-            appendSegment(selected.index);
+            if (hole != nullptr)
+            {
+                appendHole(*hole);
+            }
+
             break;
+        }
+
+        case SelectedType::Element:
+        {
+            const auto* element =
+                elementAt(
+                    selected.holeIndex,
+                    selected.elementIndex);
+
+            if (element != nullptr)
+            {
+                appendElement(*element);
+            }
+
+            break;
+        }
 
         case SelectedType::Wall:
-            appendWall(selected.index);
+        {
+            const auto* element =
+                elementAt(
+                    selected.holeIndex,
+                    selected.elementIndex);
+
+            if (element != nullptr)
+            {
+                appendWall(element->wall);
+            }
+
             break;
+        }
 
         case SelectedType::End:
-            appendEnd(selected.index);
+        {
+            const auto* end =
+                endAt(
+                    selected.holeIndex,
+                    selected.elementIndex,
+                    selected.childIndex);
+
+            if (end != nullptr)
+            {
+                appendEnd(*end);
+            }
+
             break;
+        }
 
         case SelectedType::None:
         default:

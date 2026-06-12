@@ -68,7 +68,7 @@ private:
     void logHoleDebugInfo();
 
     void applyHoleDebugDisplayOptions(const OccQtCore::Debug::HoleDebugDisplayOptions& options);
-    void applyHoleDebugSelectedCandidate(const OccQtCore::Debug::HoleDebugSelectedCandidate& selected);
+    void applyHoleDebugSelectedItem(const OccQtCore::Debug::HoleDebugSelectedItem& selected);
 
     void refreshHoleDebugDisplay();
     void clearHoleDebugDisplay();

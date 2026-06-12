@@ -14,24 +14,29 @@
 
 namespace
 {
-    constexpr int CandidateTypeRole = Qt::UserRole + 1;
-    constexpr int CandidateIndexRole = Qt::UserRole + 2;
+    constexpr int ItemTypeRole = Qt::UserRole + 1;
+    constexpr int HoleIndexRole = Qt::UserRole + 2;
+    constexpr int ElementIndexRole = Qt::UserRole + 3;
+    constexpr int ChildIndexRole = Qt::UserRole + 4;
 
-    using RecognitionResult = OccQtCore::Feature::HoleRecognitionResult;
-    using SelectType = OccQtCore::Debug::HoleDebugSelectedCandidate::Type;
+    using SelectType = OccQtCore::Debug::HoleDebugSelectedItem::Type;
 
-    void setCandidateData(
+    void setItemData(
         QTreeWidgetItem* item,
         SelectType type,
-        int index)
+        int holeIndex,
+        int elementIndex = -1,
+        int childIndex = -1)
     {
         if (item == nullptr)
         {
             return;
         }
 
-        item->setData(0, CandidateTypeRole, static_cast<int>(type));
-        item->setData(0, CandidateIndexRole, index);
+        item->setData(0, ItemTypeRole, static_cast<int>(type));
+        item->setData(0, HoleIndexRole, holeIndex);
+        item->setData(0, ElementIndexRole, elementIndex);
+        item->setData(0, ChildIndexRole, childIndex);
     }
 
     QString formatIndexList(const std::vector<int>& indices)
@@ -147,11 +152,11 @@ OccQtCore::Debug::HoleDebugDisplayOptions HoleDebugPanel::displayOptions() const
 
     if (ui->radioShowAllCandidates->isChecked())
     {
-        options.scope = HoleDebugDisplayScope::AllCandidates;
+        options.scope = HoleDebugDisplayScope::All;
     }
     else
     {
-        options.scope = HoleDebugDisplayScope::SelectedCandidate;
+        options.scope = HoleDebugDisplayScope::Selected;
     }
 
     return options;
@@ -163,11 +168,11 @@ void HoleDebugPanel::setDisplayOptions(const OccQtCore::Debug::HoleDebugDisplayO
 
     switch (options.scope)
     {
-    case HoleDebugDisplayScope::AllCandidates:
+    case HoleDebugDisplayScope::All:
         ui->radioShowAllCandidates->setChecked(true);
         break;
 
-    case HoleDebugDisplayScope::SelectedCandidate:
+    case HoleDebugDisplayScope::Selected:
     default:
         ui->radioShowSelected->setChecked(true);
         break;
@@ -182,11 +187,11 @@ void HoleDebugPanel::setStatusText(const QString& text)
 void HoleDebugPanel::setRecognitionResult(const OccQtCore::Feature::HoleRecognitionResult& result)
 {
     m_result = result;
-    m_hasRexult = true;
+    m_hasResult = true;
 
-    populateCandidateTree(result);
+    populateHoleTree(result);
 
-    ui->editSelectedDetail->setPlainText("候補一覧から項目を選択してください。");
+    ui->editSelectedDetail->setPlainText("穴フィーチャ一覧から項目を選択してください。");
 }
 
 void HoleDebugPanel::setupInitialState()
@@ -195,11 +200,11 @@ void HoleDebugPanel::setupInitialState()
 
     ui->radioShowSelected->setChecked(true);
 
-    ui->treeCandidates->setHeaderLabel("候補");
+    ui->treeCandidates->setHeaderLabel("穴フィーチャ");
 
     ui->editSelectedDetail->setReadOnly(true);
     ui->editSelectedDetail->setPlainText(
-        "候補一覧から項目を選択してください。");
+        "穴フィーチャー一覧から項目を選択してください。");
 }
 
 void HoleDebugPanel::setupConnections()
@@ -254,8 +259,8 @@ void HoleDebugPanel::setupConnections()
         {
             updateSelectionDetail(current);
 
-            emit selectedCandidateChanged(
-                selectedCandidateFromItem(current));
+            emit selectedItemChanged(
+                selectedItemFromTreeItem(current));
         });
 }
 
@@ -264,269 +269,370 @@ void HoleDebugPanel::emitDisplayOptionsChanged()
     emit displayOptionsChanged(displayOptions());
 }
 
-void HoleDebugPanel::populateCandidateTree(const OccQtCore::Feature::HoleRecognitionResult& result)
+void HoleDebugPanel::populateHoleTree(const OccQtCore::Feature::HoleRecognitionResult& result)
 {
     ui->treeCandidates->clear();
 
-    for (const auto& hole : result.holeCandidates)
+    for (const auto& hole : result.holes)
     {
         auto* holeItem = new QTreeWidgetItem(
             ui->treeCandidates,
             QStringList{
-                QString("HoleCandidate[%1]  Segments=%2")
+                QString("Hole[%1] %2")
                 .arg(hole.index)
-                    .arg(hole.segmentCandidateIndices.size())
+                .arg(OccQtCore::Feature::Hole::holeTypeDisplayName(hole.holeType))
             });
 
-        setCandidateData(holeItem, SelectType::Hole, hole.index);
+        setItemData(holeItem, SelectType::Hole, hole.index);
 
-        for (int segmentIndex : hole.segmentCandidateIndices)
+        for (const auto& element : hole.elements)
         {
-            if (segmentIndex < 0 ||
-                segmentIndex >= static_cast<int>(result.segmentCandidates.size()))
-            {
-                continue;
-            }
-
-            const auto& segment = result.segmentCandidates[segmentIndex];
-
-            auto* segmentItem = new QTreeWidgetItem(
+            auto* elementItem = new QTreeWidgetItem(
                 holeItem,
                 QStringList{
-                    QString("Segment[%1]")
-                    .arg(segment.index)
+                    QString("Element[%1] R=%2 Depth=%3")
+                    .arg(element.index)
+                    .arg(element.wall.radius, 0, 'f', 3)
+                    .arg(element.depth, 0, 'f', 3)
                 });
 
-            setCandidateData(
-                segmentItem,
-                SelectType::Segment,
-                segment.index);
+            setItemData(elementItem, SelectType::Element, hole.index, element.index);
 
-            if (segment.wallCandidateIndex >= 0 &&
-                segment.wallCandidateIndex < static_cast<int>(result.wallCandidates.size()))
+            for (int endIndex = 0; endIndex < static_cast<int>(element.ends.size()); ++endIndex)
             {
-                const auto& wall = result.wallCandidates[segment.wallCandidateIndex];
-
-                auto* wallItem = new QTreeWidgetItem(
-                    segmentItem,
-                    QStringList{
-                        QString("Wall[%1]")
-                        .arg(wall.index)
-                    });
-
-                setCandidateData(wallItem, SelectType::Wall, wall.index);
-            }
-
-            for (int endIndex : segment.endCandidateIndices)
-            {
-                if (endIndex < 0 ||
-                    endIndex >= static_cast<int>(result.endCandidates.size()))
-                {
-                    continue;
-                }
-
-                const auto& end = result.endCandidates[endIndex];
+                const auto& end = element.ends[endIndex];
 
                 auto* endItem = new QTreeWidgetItem(
-                    segmentItem,
+                    elementItem,
                     QStringList{
                         QString("End[%1] %2")
-                        .arg(end.index)
-                        .arg(OccQtCore::Feature::holeEndCandidateTypeDisplayName(end.type))
+                        .arg(endIndex)
+                        .arg(OccQtCore::Feature::Hole::endTypeDisplayName(end.endType))
                     });
 
-                setCandidateData(endItem, SelectType::End, end.index);
+                setItemData(endItem, SelectType::End, hole.index, element.index, endIndex);
             }
-        }
 
-        ui->treeCandidates->expandAll();
+            constexpr int wallIndex = 0;
+
+            auto* wallItem = new QTreeWidgetItem(
+                elementItem,
+                QStringList{
+                    QString("Wall[%1] R=%2")
+                    .arg(wallIndex)
+                    .arg(element.wall.radius, 0, 'f', 3)
+                });
+
+            setItemData(wallItem, SelectType::Wall, hole.index, element.index, wallIndex);
+        }
     }
+
+    ui->treeCandidates->expandAll();
 }
 
-OccQtCore::Debug::HoleDebugSelectedCandidate HoleDebugPanel::selectedCandidateFromItem(QTreeWidgetItem* item) const
+OccQtCore::Debug::HoleDebugSelectedItem HoleDebugPanel::selectedItemFromTreeItem(QTreeWidgetItem* item) const
 {
-    OccQtCore::Debug::HoleDebugSelectedCandidate selected;
+    OccQtCore::Debug::HoleDebugSelectedItem selected;
 
     if (item == nullptr)
     {
         return selected;
     }
 
-    const QVariant typeValue = item->data(0, CandidateTypeRole);
-    const QVariant indexValue = item->data(0, CandidateIndexRole);
+    const QVariant typeValue = item->data(0, ItemTypeRole);
 
-    if (!typeValue.isValid() ||
-        !indexValue.isValid())
+    if (!typeValue.isValid())
     {
         return selected;
     }
 
-    selected.type = static_cast<OccQtCore::Debug::HoleDebugSelectedCandidate::Type>(typeValue.toInt());
+    selected.type = static_cast<OccQtCore::Debug::HoleDebugSelectedItem::Type>(typeValue.toInt());
 
-    selected.index = indexValue.toInt();
+    selected.holeIndex = item->data(0, HoleIndexRole).toInt();
+
+    selected.elementIndex = item->data(0, ElementIndexRole).toInt();
+
+    selected.childIndex = item->data(0, ChildIndexRole).toInt();
 
     return selected;
 }
 
 void HoleDebugPanel::updateSelectionDetail(QTreeWidgetItem* item)
 {
-    const auto selected = selectedCandidateFromItem(item);
+    const auto selected = selectedItemFromTreeItem(item);
 
-    if (!m_hasRexult)
+    if (!m_hasResult)
     {
         ui->editSelectedDetail->setPlainText("穴認識結果がありません。");
         return;
     }
 
-    QString typeText;
-
-    using Type = OccQtCore::Debug::HoleDebugSelectedCandidate::Type;
+    using Type = OccQtCore::Debug::HoleDebugSelectedItem::Type;
 
     switch (selected.type)
     {
     case Type::Hole:
-        ui->editSelectedDetail->setPlainText(buildHoleDetailText(selected.index));
+        ui->editSelectedDetail->setPlainText(buildHoleDetailText(selected.holeIndex));
         break;
 
-    case Type::Segment:
-        ui->editSelectedDetail->setPlainText(buildSegmentDetailText(selected.index));
-        break;
-
-    case Type::Wall:
-        ui->editSelectedDetail->setPlainText(buildWallDetailText(selected.index));
+    case Type::Element:
+        ui->editSelectedDetail->setPlainText(buildElementDetailText(selected.holeIndex, selected.elementIndex));
         break;
 
     case Type::End:
-        ui->editSelectedDetail->setPlainText(buildEndDetailText(selected.index));
+        ui->editSelectedDetail->setPlainText(buildEndDetailText(selected.holeIndex, selected.elementIndex, selected.childIndex));
+        break;
+
+    case Type::Wall:
+        ui->editSelectedDetail->setPlainText(buildWallDetailText(selected.holeIndex, selected.childIndex));
         break;
 
     case Type::None:
     default:
-        ui->editSelectedDetail->setPlainText("候補一覧から候補を選択してください。");
-        return;
+        ui->editSelectedDetail->setPlainText("穴フィーチャ一覧から項目を選択してください。");
     }
 }
 
-QString HoleDebugPanel::buildHoleDetailText(int index) const
+QString HoleDebugPanel::buildHoleDetailText(int holeIndex) const
 {
-    if (index < 0 ||
-        index >= static_cast<int>(m_result.holeCandidates.size()))
+    if (holeIndex < 0 ||
+        holeIndex >= static_cast<int>(m_result.holes.size()))
     {
-        return QString("HoleCandidate[%1] は存在しません。").arg(index);
+        return QString("Hole[%1] は存在しません。").arg(holeIndex);
     }
 
-    const auto& hole =
-        m_result.holeCandidates[index];
+    const auto& hole = m_result.holes[holeIndex];
 
     QString text;
 
-    text += "種別: 穴候補\n";
+    text += "種別: 穴フィーチャ\n";
     text += QString("Index: %1\n").arg(hole.index);
-    text += QString("Type: %1\n")
-                .arg(static_cast<int>(hole.type));
+    text += QString("HoleType: %1\n").arg(OccQtCore::Feature::Hole::holeTypeDisplayName(hole.holeType));
 
     text += "\n";
-    text += QString("Segments: %1\n")
-                .arg(formatIndexList(hole.segmentCandidateIndices));
+    text += QString("AxisPoint: %1\n").arg(formatPoint(hole.axisPoint));
+    text += QString("AxisDirextion: %1\n").arg(formatDirection(hole.axisDirection));
 
     text += "\n";
-    text += "Reachabilities:\n";
+    text += QString("Elements: %1\n").arg(hole.elements.size());
 
-    if (hole.reachabilities.empty())
+    text += "\n";
+    text += "Source Data:\n";
+    text += QString("   SourceHoleCandidateIndex: %1\n").arg(hole.sourceHoleCandidateIndex);
+
+    if (hole.sourceHoleCandidateIndex >= 0 &&
+        hole.sourceHoleCandidateIndex < static_cast<int>(m_result.holeCandidates.size()))
     {
-        text += "  なし\n";
-    }
-    else
-    {
-        for (const auto& reachability : hole.reachabilities)
+        const auto& candidate =
+            m_result.holeCandidates[hole.sourceHoleCandidateIndex];
+
+        text += QString("  SourceSegments: %1\n")
+                    .arg(formatIndexList(candidate.segmentCandidateIndices));
+
+        text += "\n";
+        text += "  Reachabilities:\n";
+
+        if (candidate.reachabilities.empty())
         {
-            text += formatReachability(reachability);
+            text += "    なし\n";
+        }
+        else
+        {
+            for (const auto& reachability : candidate.reachabilities)
+            {
+                text += formatReachability(reachability);
+            }
         }
     }
 
     return text;
 }
 
-QString HoleDebugPanel::buildSegmentDetailText(int index) const
+QString HoleDebugPanel::buildElementDetailText(int holeIndex, int elementIndex) const
 {
-    if (index < 0 ||
-        index >= static_cast<int>(m_result.segmentCandidates.size()))
+    if (holeIndex < 0 ||
+        holeIndex >= static_cast<int>(m_result.holes.size()))
     {
-        return QString("Segment[%1] は存在しません。").arg(index);
+        return QString("Hole[%1] は存在しません。").arg(holeIndex);
     }
 
-    const auto& segment =
-        m_result.segmentCandidates[index];
+    const auto& hole = m_result.holes[holeIndex];
+
+    if (elementIndex < 0 ||
+        elementIndex >= static_cast<int>(hole.elements.size()))
+    {
+        return QString("Element[%1] は存在しません。").arg(elementIndex);
+    }
+
+    const auto& element =
+        hole.elements[elementIndex];
 
     QString text;
 
-    text += "種別: 穴区間\n";
-    text += QString("Index: %1\n").arg(segment.index);
-    text += QString("Type: %1\n")
-                .arg(static_cast<int>(segment.type));
+    text += "種別: 穴要素\n";
+    text += QString("HoleIndex: %1\n").arg(hole.index);
+    text += QString("Index: %1\n").arg(element.index);
+    text += QString("Depth: %1\n").arg(element.depth, 0, 'f', 4);
+    text += QString("EndCount: %1\n").arg(element.ends.size());
 
     text += "\n";
-    text += QString("Wall: %1\n")
-                .arg(segment.wallCandidateIndex);
+    text += "Wall:\n";
+    text += QString("  Radius: %1\n").arg(element.wall.radius, 0, 'f', 4);
+    text += QString("  Center: %1\n").arg(formatPoint(element.wall.center));
+    text += QString("  AxisDirection: %1\n")
+                .arg(formatDirection(element.wall.axisDirection));
 
-    text += QString("Ends: %1\n")
-                .arg(formatIndexList(segment.endCandidateIndices));
+    text += "\n";
+    text += "Source Data:\n";
+    text += QString("  SourceSegmentCandidateIndex: %1\n")
+                .arg(element.sourceSegmentCandidateIndex);
+
+    if (element.sourceSegmentCandidateIndex >= 0 &&
+        element.sourceSegmentCandidateIndex < static_cast<int>(m_result.segmentCandidates.size()))
+    {
+        const auto& segment =
+            m_result.segmentCandidates[element.sourceSegmentCandidateIndex];
+
+        text += QString("  SourceWallCandidateIndex: %1\n")
+                    .arg(segment.wallCandidateIndex);
+
+        text += QString("  SourceEndCandidateIndices: %1\n")
+                    .arg(formatIndexList(segment.endCandidateIndices));
+    }
 
     return text;
 }
 
-QString HoleDebugPanel::buildWallDetailText(int index) const
+QString HoleDebugPanel::buildWallDetailText(
+    int holeIndex,
+    int elementIndex) const
 {
-    if (index < 0 ||
-        index >= static_cast<int>(m_result.wallCandidates.size()))
+    if (holeIndex < 0 ||
+        holeIndex >= static_cast<int>(m_result.holes.size()))
     {
-        return QString("Wall[%1] は存在しません。").arg(index);
+        return QString("Hole[%1] は存在しません。").arg(holeIndex);
     }
 
+    const auto& hole =
+        m_result.holes[holeIndex];
+
+    if (elementIndex < 0 ||
+        elementIndex >= static_cast<int>(hole.elements.size()))
+    {
+        return QString("Element[%1] は存在しません。").arg(elementIndex);
+    }
+
+    const auto& element =
+        hole.elements[elementIndex];
+
     const auto& wall =
-        m_result.wallCandidates[index];
+        element.wall;
 
     QString text;
 
-    text += "種別: 穴壁面\n";
-    text += QString("Index: %1\n").arg(wall.index);
+    text += "種別: 穴壁\n";
+    text += QString("HoleIndex: %1\n").arg(hole.index);
+    text += QString("ElementIndex: %1\n").arg(elementIndex);
+    text += "Index: 0\n";
+
     text += QString("Radius: %1\n").arg(wall.radius, 0, 'f', 4);
-    text += QString("Depth: %1\n").arg(wall.depth, 0, 'f', 4);
 
     text += "\n";
     text += QString("Center: %1\n")
                 .arg(formatPoint(wall.center));
+
     text += QString("AxisDirection: %1\n")
                 .arg(formatDirection(wall.axisDirection));
 
     text += "\n";
+    text += "GeometryRefs:\n";
     text += formatGeometryRefs(wall.geometryRefs);
+
+    text += "\n";
+    text += "Source Data:\n";
+    text += QString("  SourceSegmentCandidateIndex: %1\n")
+                .arg(element.sourceSegmentCandidateIndex);
+
+    if (element.sourceSegmentCandidateIndex >= 0 &&
+        element.sourceSegmentCandidateIndex < static_cast<int>(m_result.segmentCandidates.size()))
+    {
+        const auto& segment =
+            m_result.segmentCandidates[element.sourceSegmentCandidateIndex];
+
+        text += QString("  SourceWallCandidateIndex: %1\n")
+                    .arg(segment.wallCandidateIndex);
+    }
 
     return text;
 }
 
-QString HoleDebugPanel::buildEndDetailText(int index) const
+QString HoleDebugPanel::buildEndDetailText(
+    int holeIndex,
+    int elementIndex,
+    int endIndex) const
 {
-    if (index < 0 ||
-        index >= static_cast<int>(m_result.endCandidates.size()))
+    if (holeIndex < 0 ||
+        holeIndex >= static_cast<int>(m_result.holes.size()))
     {
-        return QString("End[%1] は存在しません。").arg(index);
+        return QString("Hole[%1] は存在しません。").arg(holeIndex);
+    }
+
+    const auto& hole =
+        m_result.holes[holeIndex];
+
+    if (elementIndex < 0 ||
+        elementIndex >= static_cast<int>(hole.elements.size()))
+    {
+        return QString("Element[%1] は存在しません。").arg(elementIndex);
+    }
+
+    const auto& element =
+        hole.elements[elementIndex];
+
+    if (endIndex < 0 ||
+        endIndex >= static_cast<int>(element.ends.size()))
+    {
+        return QString("End[%1] は存在しません。").arg(endIndex);
     }
 
     const auto& end =
-        m_result.endCandidates[index];
+        element.ends[endIndex];
 
     QString text;
 
-    text += "種別: 穴端部\n";
-    text += QString("Index: %1\n").arg(end.index);
-    text += QString("Type: %1\n")
-                .arg(OccQtCore::Feature::holeEndCandidateTypeDisplayName(end.type));
-    text += QString("Wall: %1\n")
-                .arg(end.wallCandidateIndex);
+    text += "種別: 穴端\n";
+    text += QString("HoleIndex: %1\n").arg(hole.index);
+    text += QString("ElementIndex: %1\n").arg(element.index);
+    text += QString("Index: %1\n").arg(endIndex);
+    text += QString("EndType: %1\n")
+                .arg(OccQtCore::Feature::Hole::endTypeDisplayName(
+                    end.endType));
 
     text += "\n";
+    text += "GeometryRefs:\n";
     text += formatGeometryRefs(end.geometryRefs);
+
+    text += "\n";
+    text += "Source Data:\n";
+    text += QString("  SourceEndCandidateIndex: %1\n")
+                .arg(end.sourceEndCandidateIndex);
+
+    if (end.sourceEndCandidateIndex >= 0 &&
+        end.sourceEndCandidateIndex < static_cast<int>(m_result.endCandidates.size()))
+    {
+        const auto& sourceEnd =
+            m_result.endCandidates[end.sourceEndCandidateIndex];
+
+        text += QString("  SourceType: %1\n")
+                    .arg(OccQtCore::Feature::holeEndCandidateTypeDisplayName(
+                        sourceEnd.type));
+
+        text += QString("  SourceWallCandidateIndex: %1\n")
+                    .arg(sourceEnd.wallCandidateIndex);
+
+        text += QString("  WallBoundaryLoopIndex: %1\n")
+                    .arg(sourceEnd.wallBoundaryLoopIndex);
+    }
 
     return text;
 }

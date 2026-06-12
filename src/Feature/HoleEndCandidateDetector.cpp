@@ -128,7 +128,7 @@ namespace
         case Type::Open:
             return 3;
 
-        case Type::WallConnection:
+        case Type::Connected:
             return 2;
 
         case Type::Bottom:
@@ -321,10 +321,9 @@ namespace OccQtCore::Feature
                 sourceWallCandidate.index))
         {
             return {
-                makeWallConnectionEndCandidateFromWall(
+                makeConnectedEndCandidateFromWall(
                     sourceWallCandidate,
                     connectionEdgeIndex,
-                    adjacentFaceIndex,
                     wallBoundaryLoopIndex)
             };
         }
@@ -441,10 +440,9 @@ namespace OccQtCore::Feature
         return candidate;
     }
 
-    HoleEndCandidate HoleEndCandidateDetector::makeWallConnectionEndCandidateFromWall(
+    HoleEndCandidate HoleEndCandidateDetector::makeConnectedEndCandidateFromWall(
         const HoleWallCandidate& wallCandidate,
         int connectionEdgeIndex,
-        int connectedFaceIndex,
         int wallBoundaryLoopIndex) const
     {
         auto candidate =
@@ -453,15 +451,11 @@ namespace OccQtCore::Feature
                 wallBoundaryLoopIndex);
 
         candidate.type =
-            HoleEndCandidateType::WallConnection;
+            HoleEndCandidateType::Connected;
 
-        OccQtCore::CollectionUtil::addUnique(
+        CollectionUtil::addUnique(
             candidate.geometryRefs.edgeIndices,
             connectionEdgeIndex);
-
-        OccQtCore::CollectionUtil::addUnique(
-            candidate.geometryRefs.faceIndices,
-            connectedFaceIndex);
 
         return candidate;
     }
@@ -541,11 +535,7 @@ namespace OccQtCore::Feature
                         sourceWallCandidate.index))
                 {
                     candidate.type =
-                        HoleEndCandidateType::WallConnection;
-
-                    CollectionUtil::addUnique(
-                        candidate.geometryRefs.faceIndices,
-                        nextFaceIndex);
+                        HoleEndCandidateType::Connected;
 
                     candidates.push_back(candidate);
                     continue;

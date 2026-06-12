@@ -6,6 +6,7 @@
 #include "Feature/HoleEndCandidateDetector.h"
 #include "Feature/HoleCandidateBuilder.h"
 #include "Feature/HoleSegmentCandidateBuilder.h"
+#include "Feature/HoleDataBuilder.h"
 
 namespace OccQtCore::Feature
 {
@@ -59,6 +60,8 @@ namespace OccQtCore::Feature
 
         result.holeCandidates = buildHoleCandidatesFromSegments(model, result.wallCandidates, result.endCandidates, result.segmentCandidates);
 
+        result.holes = buildHoleDataFromCandidates(result.wallCandidates, result.endCandidates, result.segmentCandidates, result.holeCandidates);
+
         return result;
     }
 
@@ -86,9 +89,8 @@ namespace OccQtCore::Feature
         const std::vector<HoleWallCandidate>& wallCandidates,
         const std::vector<HoleEndCandidate>& endCandidates) const
     {
-        (void)model;
-
         HoleSegmentCandidateBuilder builder(
+            model,
             wallCandidates,
             endCandidates);
 
@@ -107,6 +109,21 @@ namespace OccQtCore::Feature
             wallCandidates,
             endCandidates,
             segmentCandidates);
+
+        return builder.build();
+    }
+
+    std::vector<Hole::Data> HoleFeatureRecognizer::buildHoleDataFromCandidates(
+        const std::vector<HoleWallCandidate>& wallCandidates,
+        const std::vector<HoleEndCandidate>& endCandidates,
+        const std::vector<HoleSegmentCandidate>& segmentCandidates,
+        const std::vector<HoleCandidate>& holeCandidates) const
+    {
+        HoleDataBuilder builder(
+            wallCandidates,
+            endCandidates,
+            segmentCandidates,
+            holeCandidates);
 
         return builder.build();
     }

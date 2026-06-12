@@ -44,9 +44,11 @@ namespace OccQtCore::Feature
             const CandidateAxis& candidateAxis,
             std::vector<HoleReachability>& reachabilities) const;
 
-        HoleCandidate buildCandidateFromSegmentGroup(int candidateIndex,
-                                                     const std::vector<int>& segmentCandidateIndices,
-                                                     const std::vector<HoleReachability>& reachabilities) const;
+        HoleCandidate buildCandidateFromSegmentGroup(
+            int candidateIndex,
+            const std::vector<int>& segmentCandidateIndices,
+            const CandidateAxis& candidateAxis,
+            const std::vector<HoleReachability>& reachabilities) const;
 
         bool tryBuildSegmentReachability(
             int lhsSegmentCandidateIndex,

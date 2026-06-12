@@ -5,40 +5,48 @@ namespace OccQtCore::Debug
 {
     enum class HoleDebugDisplayScope
     {
-        AllCandidates,
-        SelectedCandidate
+        All,
+        Selected
     };
 
-    struct HoleDebugSelectedCandidate
+    struct HoleDebugSelectedItem
     {
         enum class Type
         {
             None,
+
+            Hole,
+            Element,
             Wall,
             End,
-            Segment,
-            Hole
         };
 
         Type type = Type::None;
-        int index = -1;
+
+        int holeIndex = -1;
+        int elementIndex = -1;
+        int childIndex = -1;
     };
 
     struct HoleDebugDisplayOptions
     {
         HoleDebugDisplayScope scope =
-            HoleDebugDisplayScope::SelectedCandidate;
+            HoleDebugDisplayScope::Selected;
 
-        HoleDebugSelectedCandidate selectedCandidate;
+        HoleDebugSelectedItem selectedItem;
     };
 
     struct HoleDebugLogOptions
     {
         bool logSummary = true;
+
+        bool logHoles = true;
+        bool logElements = true;
         bool logWalls = true;
         bool logEnds = true;
-        bool logSegments = true;
-        bool logCandidates = true;
+        bool logConnections = true;
+
+        bool logSourceCandidates = true;
     };
 }
 
