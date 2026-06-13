@@ -71,6 +71,7 @@
     </item>
    </layout>
   </widget>
+  <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
@@ -118,24 +119,10 @@
     <addaction name="actionDumpGeometryAnalysisLog"/>
     <addaction name="actionDumpGeometryDetailDiagnosticsLog"/>
    </widget>
-   <widget class="QMenu" name="menuFeatureRecog">
-    <property name="title">
-     <string>フィーチャ認識</string>
-    </property>
-    <widget class="QMenu" name="menuHole">
-     <property name="title">
-      <string>穴</string>
-     </property>
-     <addaction name="actionHoleDebug"/>
-    </widget>
-    <addaction name="menuHole"/>
-   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
-   <addaction name="menuFeatureRecog"/>
    <addaction name="menuAnalysis"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen">
    <property name="text">
     <string>開く</string>
@@ -187,11 +174,6 @@
   <action name="actionDumpGeometryDetailDiagnosticsLog">
    <property name="text">
     <string>形状詳細診断ログ出力</string>
-   </property>
-  </action>
-  <action name="actionHoleDebug">
-   <property name="text">
-    <string>穴認識デバック</string>
    </property>
   </action>
  </widget>

@@ -69,25 +69,10 @@ qt_add_executable(OccQtCore
     src/Geometry/TopologyQuery.cpp
     src/Geometry/SurfaceUtil.h
     src/Geometry/SurfaceUtil.cpp
-    src/Feature/HoleRecognitionTypes.h
-
 
     src/View/DisplayTypes.h
     src/View/DisplayStyle.h
     src/View/DisplayStyle.cpp
-    src/Debug/HoleDebugOptions.h
-    src/Debug/HoleDebugPanel.h
-    src/Debug/HoleDebugPanelcpp.cpp
-    src/Debug/HoleDebugPanel.ui
-    src/Feature/HoleEndCandidateDetector.h
-    src/Feature/HoleEndCandidateDetector.cpp
-    src/Feature/HoleCandidateBuilder.h
-    src/Feature/HoleCandidateBuilder.h
-    src/Feature/HoleCandidateBuilder.cpp
-    src/Feature/HoleSegmentCandidateBuilder.h
-    src/Feature/HoleSegmentCandidateBuilder.cpp
-    src/Feature/HoleWallCandidateDetector.cpp
-    src/Feature/HoleWallCandidateDetector.h
     src/Log/LogFormatUtil.h
     src/Log/LogFormatUtil.cpp
     src/Log/HoleRecognitionLogReporter.h

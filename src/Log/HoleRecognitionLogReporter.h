@@ -1,7 +1,7 @@
 #ifndef HOLERECOGNITIONLOGREPORTER_H
 #define HOLERECOGNITIONLOGREPORTER_H
 
-#include "Feature/HoleRecognitionTypes.h"
+#include "Feature/HoleRecognitionModel.h"
 
 namespace OccQtCore
 {
@@ -14,10 +14,12 @@ namespace OccQtCore
         const Feature::HoleRecognitionResult& result;
 
         bool outputSummary = true;
-        bool outputWallCandidates = true;
-        bool outputEndCandidates = true;
-        bool outputSegmentCandidates = true;
-        bool outputHoleCandidates = true;
+        bool outputWalls = true;
+
+        bool outputSections = false;
+        bool outputTraces = false;
+        bool outputConnections = false;
+        bool outputAssemblies = false;
     };
 
     class HoleRecognitionLogReporter
@@ -29,16 +31,8 @@ namespace OccQtCore
 
     private:
         void logSummary(const HoleRecognitionLogReport& report) const;
+        void logWalls(const HoleRecognitionLogReport& report) const;
 
-        void logWallCandidates(const HoleRecognitionLogReport& report) const;
-
-        void logEndCandidates(const HoleRecognitionLogReport& report) const;
-
-        void logSegmentCandidates(const HoleRecognitionLogReport& report) const;
-
-        void logHoleCandidates(const HoleRecognitionLogReport& report) const;
-
-    private:
         AppLogger* m_logger = nullptr;
     };
 }

@@ -322,6 +322,23 @@ namespace OccQtCore::Feature
 
         std::string explanation;
     };
+
+    /**
+     * @brief 穴認識結果
+     *
+     * V2穴認識で生成された中間データ一式。
+     *
+     * HoleWall から始まり、HoleSection / GeometryTrace /
+     * HoleTerminal / HoleConnection / HoleAssembly へ展開される。
+     */
+    struct HoleRecognitionResult
+    {
+        std::vector<HoleWall> walls;
+        std::vector<HoleSection> sections;
+        std::vector<HoleTerminal> terminals;
+        std::vector<HoleConnection> connections;
+        std::vector<HoleAssembly> assemblies;
+    };
 }
 
 #endif // HOLERECOGNITIONMODEL_H
