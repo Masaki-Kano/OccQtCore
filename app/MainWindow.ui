@@ -119,9 +119,16 @@
     <addaction name="actionDumpGeometryAnalysisLog"/>
     <addaction name="actionDumpGeometryDetailDiagnosticsLog"/>
    </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>ツール</string>
+    </property>
+    <addaction name="actionHoleDebug"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
    <addaction name="menuAnalysis"/>
+   <addaction name="menuTools"/>
   </widget>
   <action name="actionOpen">
    <property name="text">
@@ -174,6 +181,11 @@
   <action name="actionDumpGeometryDetailDiagnosticsLog">
    <property name="text">
     <string>形状詳細診断ログ出力</string>
+   </property>
+  </action>
+  <action name="actionHoleDebug">
+   <property name="text">
+    <string>穴認識デバック</string>
    </property>
   </action>
  </widget>

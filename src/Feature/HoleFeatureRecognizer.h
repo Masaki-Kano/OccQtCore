@@ -24,6 +24,8 @@ namespace OccQtCore::Feature
          */
         HoleRecognitionResult recognize(const GeometryModel& model) const;
 
+        HoleRecognitionResult recognizeCandidates(const GeometryModel& model) const;
+
     };
 }
 

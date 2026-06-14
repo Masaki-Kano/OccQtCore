@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>HoleDebugPanel</class>
+ <widget class="QWidget" name="HoleDebugPanel">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QWidget" name="buttonArea" native="true">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QPushButton" name="btnBuild">
+        <property name="text">
+         <string>ビルド</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnExportLog">
+        <property name="text">
+         <string>クリア</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnClear">
+        <property name="text">
+         <string>ログ出力</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="statusArea" native="true">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <item>
+       <widget class="QLabel" name="lblStatus">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>準備</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="mainArea" native="true">
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QSplitter" name="splitterMain">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <widget class="QTreeWidget" name="treeItems">
+         <column>
+          <property name="text">
+           <string notr="true">1</string>
+          </property>
+         </column>
+        </widget>
+        <widget class="QPlainTextEdit" name="plainDetail">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -82,6 +82,7 @@ qt_add_executable(OccQtCore
     src/Feature/HoleRecognitionModel.h
     src/Feature/HoleWallBuilder.h
     src/Feature/HoleWallBuilder.cpp
+    src/Debug/HoleDebugPanel.h src/Debug/HoleDebugPanel.cpp src/Debug/HoleDebugPanel.ui
 )
 
 target_include_directories(OccQtCore

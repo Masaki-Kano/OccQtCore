@@ -9,6 +9,8 @@
 #include "Core/DocumentData.h"
 #include "Core/SelectionInfo.h"
 
+#include "Feature/HoleRecognitionModel.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -22,6 +24,8 @@ class LogPanel;
 class OccView;
 struct PickResult;
 }
+
+class HoleDebugPanel;
 
 class MainWindow : public QMainWindow
 {
@@ -49,6 +53,14 @@ private:
     void dumpGeometryAnalysisLog();
     void dumpGeometryDetailDiagnosticsLog();
 
+    // 穴認識デバック
+    void showHoleDebugPanel();
+    void buildHoleDebugData();
+    void clearHoleDebugDisplay();
+    void exportHoleDebugLog();
+    void applyHoleWallSelection(int wallIndex);
+    void clearHoleDebugSelection();
+
 
 private:
     Ui::MainWindow* ui = nullptr;
@@ -60,5 +72,8 @@ private:
     OccQtCore::DocumentData m_document;
     OccQtCore::SelectionInfo m_selectionInfo;
     QString m_lastOpenDirectory;
+
+    HoleDebugPanel* m_holeDebugPanel = nullptr;
+    OccQtCore::Feature::HoleRecognitionResult m_holeDebugResult;
 };
 #endif // MAINWINDOW_H

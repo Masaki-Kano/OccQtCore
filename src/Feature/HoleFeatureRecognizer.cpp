@@ -15,7 +15,16 @@ namespace OccQtCore::Feature
         // V2 の HoleAssembly / HoleFeature 生成までできたら、
         // Hole::Data へ変換する。
         return {};
+    }
 
-        return {};
+    HoleRecognitionResult HoleFeatureRecognizer::recognizeCandidates(
+        const GeometryModel& model) const
+    {
+        HoleRecognitionResult result;
+
+        HoleWallBuilder wallBuilder;
+        result.walls = wallBuilder.build(model);
+
+        return result;
     }
 }

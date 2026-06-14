@@ -21,6 +21,9 @@
 #include "Log/LogPanel.h"
 #include "IO/StepLoader.h"
 
+#include "Debug/HoleDebugPanel.h"
+#include "Feature/HoleFeatureRecognizer.h"
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -158,6 +161,9 @@ void MainWindow::setupConnections()
             this,
             &MainWindow::dumpGeometryDetailDiagnosticsLog);
 
+    // メニューツール
+    connect(ui->actionHoleDebug, &QAction::triggered, this, &MainWindow::showHoleDebugPanel);
+
     // ピック
     connect(m_occView,
             &OccQtCore::OccView::shapePicked,
@@ -294,5 +300,114 @@ void MainWindow::dumpGeometryDetailDiagnosticsLog()
     m_logReporter->logGeometry(report);
 
     m_logReporter->logActionFinished("形状詳細診断ログ出力");
+}
+
+void MainWindow::showHoleDebugPanel()
+{
+    if (!m_holeDebugPanel)
+    {
+        m_holeDebugPanel = new HoleDebugPanel(this);
+        m_holeDebugPanel->setWindowFlag(Qt::Window, true);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::buildRequested,
+                this,
+                &MainWindow::buildHoleDebugData);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::clearRequested,
+                this,
+                &MainWindow::clearHoleDebugDisplay);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::exportLogRequested,
+                this,
+                &MainWindow::exportHoleDebugLog);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::wallSelected,
+                this,
+                &MainWindow::applyHoleWallSelection);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::selectionCleared,
+                this,
+                &MainWindow::clearHoleDebugSelection);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::wallSelected,
+                this,
+                &MainWindow::applyHoleWallSelection);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::selectionCleared,
+                this,
+                &MainWindow::clearHoleDebugSelection);
+    }
+
+    m_holeDebugPanel->show();
+    m_holeDebugPanel->raise();
+    m_holeDebugPanel->activateWindow();
+}
+
+void MainWindow::buildHoleDebugData()
+{
+    const auto& geometryModel = m_document.geometryModel();
+
+    OccQtCore::Feature::HoleFeatureRecognizer recognizer;
+    m_holeDebugResult = recognizer.recognizeCandidates(geometryModel);
+
+    if (m_holeDebugPanel)
+    {
+        m_holeDebugPanel->setRecognitionResult(m_holeDebugResult);
+    }
+}
+
+void MainWindow::clearHoleDebugDisplay()
+{
+    // まず空でOK。あとで3D表示クリアを入れる。
+}
+
+void MainWindow::exportHoleDebugLog()
+{
+    // まず空でOK。あとでログ出力を入れる。
+}
+
+void MainWindow::applyHoleWallSelection(int wallIndex)
+{
+    if (wallIndex < 0 ||
+        wallIndex >= static_cast<int>(m_holeDebugResult.walls.size()))
+    {
+        clearHoleDebugSelection();
+        return;
+    }
+
+    const auto& wall = m_holeDebugResult.walls[wallIndex];
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
+
+    const auto& geometryModel = m_document.geometryModel();
+
+    const auto wallStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::HoleWallFace);
+
+    for (const int faceIndex : wall.geometryRefs.faceIndices)
+    {
+
+        const auto& face = geometryModel.faceAt(faceIndex);
+
+        m_occView->displayShape(
+            face->shape,
+            OccQtCore::DisplayLayer::AnalysisHoleWall,
+            wallStyle);
+    }
+
+    m_occView->redraw();
+}
+
+void MainWindow::clearHoleDebugSelection()
+{
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
+    m_occView->redraw();
 }
 

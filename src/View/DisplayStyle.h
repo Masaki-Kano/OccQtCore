@@ -14,20 +14,7 @@ struct DisplayStyle
         DefaultShape,
         PickHighlightFace,
 
-        AnalysisCandidateWire,
-        AnalysisComponentEdge,
-        AnalysisAdjacentFace,
-
         HoleWallFace,
-
-        HoleOpenFace,
-        HoleOpenEdge,
-
-        HoleBottomFace,
-        HoleBottomEdge,
-
-        HoleConnectionFace,
-        HoleConnectionEdge
     };
 
     Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);
