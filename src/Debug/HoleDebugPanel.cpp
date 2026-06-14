@@ -114,6 +114,7 @@ void HoleDebugPanel::onClearClicked()
 
 void HoleDebugPanel::onExportLogClicked()
 {
+    qDebug() << "HoleDebugPanel::onExportLogClicked";
     emit exportLogRequested();
 }
 

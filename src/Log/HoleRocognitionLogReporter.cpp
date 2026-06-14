@@ -36,6 +36,29 @@ namespace OccQtCore
         // Sections / Traces / Connections / Assemblies は後で追加。
     }
 
+    QString HoleRecognitionLogReporter::formatHoleRecognition(const HoleRecognitionLogReport& report) const
+    {
+        QString text;
+        QTextStream out(&text);
+
+        out << "Hole Recognition Debug Log\n";
+        out << "==========================\n\n";
+
+        if (report.outputSummary)
+        {
+            appendSummary(text, report);
+        }
+
+        if (report.outputWalls)
+        {
+            appendWalls(text, report);
+        }
+
+        // Sections / Traces / Connections / Assemblies は後で追加。
+
+        return text;
+    }
+
     void HoleRecognitionLogReporter::logSummary(const HoleRecognitionLogReport& report) const
     {
         const auto& result = report.result;
@@ -72,4 +95,89 @@ namespace OccQtCore
             m_logger->info(message);
         }
     }
+
+    void HoleRecognitionLogReporter::appendSummary(QString& text, const HoleRecognitionLogReport& report) const
+    {
+        const auto& result = report.result;
+
+        QTextStream out(&text);
+
+        out << "Summary\n";
+        out << "-------\n";
+        out << "Walls: " << static_cast<int>(result.walls.size()) << "\n";
+        out << "Sections: " << static_cast<int>(result.sections.size()) << "\n";
+        out << "Terminals: " << static_cast<int>(result.terminals.size()) << "\n";
+        out << "Connections: " << static_cast<int>(result.connections.size()) << "\n";
+        out << "Assemblies: " << static_cast<int>(result.assemblies.size()) << "\n";
+        out << "\n";
+    }
+
+    void HoleRecognitionLogReporter::appendWalls(
+        QString& text,
+        const HoleRecognitionLogReport& report) const
+    {
+        const auto& result = report.result;
+
+        QTextStream out(&text);
+
+        out << "Walls\n";
+        out << "-----\n";
+        out << "Count: " << static_cast<int>(result.walls.size()) << "\n\n";
+
+        for (int i = 0; i < static_cast<int>(result.walls.size()); ++i)
+        {
+            out << formatWall(result.walls[i], i);
+            out << "\n";
+        }
+    }
+
+    QString HoleRecognitionLogReporter::formatWall(
+        const Feature::HoleWall& wall,
+        int displayIndex) const
+    {
+        QString text;
+        QTextStream out(&text);
+
+        out << "Wall[" << displayIndex << "]\n";
+        out << "  Index: " << wall.index << "\n";
+
+        out << "  GeometryRefs:\n";
+        out << "    Faces: " << formatIntList(wall.geometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << formatIntList(wall.geometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << formatIntList(wall.geometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << formatIntList(wall.geometryRefs.vertexIndices) << "\n";
+
+        out << "  Geometry:\n";
+        out << "    AxisPoint: "
+            << LF::formatPoint(wall.axisPoint) << "\n";
+        out << "    AxisDirection: "
+            << LF::formatDirection(wall.axisDirection) << "\n";
+        out << "    Radius: "
+            << QString::number(wall.radius, 'f', 4) << "\n";
+        out << "    AxialMin: "
+            << QString::number(wall.axialMin, 'f', 4) << "\n";
+        out << "    AxialMax: "
+            << QString::number(wall.axialMax, 'f', 4) << "\n";
+
+        return text;
+    }
+
+    QString HoleRecognitionLogReporter::formatIntList(
+        const std::vector<int>& values) const
+    {
+        if (values.empty())
+        {
+            return "なし";
+        }
+
+        QStringList texts;
+
+        for (const int value : values)
+        {
+            texts << QString::number(value);
+        }
+
+        return texts.join(", ");
+    }
+
 }

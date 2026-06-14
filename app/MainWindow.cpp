@@ -2,9 +2,11 @@
 #include <QVBoxLayout>
 #include <QSizePolicy>
 #include <QTimer>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QDir>
+#include <QTextStream>
 
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
@@ -370,7 +372,54 @@ void MainWindow::clearHoleDebugDisplay()
 
 void MainWindow::exportHoleDebugLog()
 {
-    // まず空でOK。あとでログ出力を入れる。
+    qDebug() << "MainWindow::exportHoleDebugLog";
+
+    const QString defaultPath =
+        QDir(defaultOpenDirectory()).filePath("HoleRecognitionDebug.log");
+
+    const QString filePath = QFileDialog::getSaveFileName(
+        this,
+        tr("Export Hole Debug Log"),
+        defaultPath,
+        tr("Log Files (*.log);;Text Files (*.txt);;All Files (*.*)"));
+
+    if (filePath.isEmpty())
+    {
+        return;
+    }
+
+    OccQtCore::HoleRecognitionLogReport report{
+        m_document.geometryModel(),
+        m_holeDebugResult
+    };
+
+    report.outputSummary = true;
+    report.outputWalls = true;
+
+    OccQtCore::HoleRecognitionLogReporter reporter(m_logger);
+    const QString text = reporter.formatHoleRecognition(report);
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        if (m_logger)
+        {
+            m_logger->info(
+                QString("穴認識デバッグログ出力失敗: %1").arg(filePath));
+        }
+        return;
+    }
+
+    QTextStream out(&file);
+    out << text;
+
+    file.close();
+
+    if (m_logger)
+    {
+        m_logger->info(
+            QString("穴認識デバッグログ出力完了: %1").arg(filePath));
+    }
 }
 
 void MainWindow::applyHoleWallSelection(int wallIndex)

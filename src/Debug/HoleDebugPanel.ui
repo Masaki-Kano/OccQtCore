@@ -31,14 +31,14 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="btnExportLog">
+       <widget class="QPushButton" name="btnClear">
         <property name="text">
          <string>クリア</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="btnClear">
+       <widget class="QPushButton" name="btnExportLog">
         <property name="text">
          <string>ログ出力</string>
         </property>
