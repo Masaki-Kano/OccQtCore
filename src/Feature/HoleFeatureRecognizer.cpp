@@ -1,5 +1,6 @@
 #include "Feature/HoleFeatureRecognizer.h"
 #include "Feature/HoleWallBuilder.h"
+#include "Feature/HoleWallBoundaryBuilder.h"
 
 #include "Geometry/GeometryModel.h"
 #include "Geometry/TopologyQuery.h"
@@ -24,6 +25,9 @@ namespace OccQtCore::Feature
 
         HoleWallBuilder wallBuilder;
         result.walls = wallBuilder.build(model);
+
+        HoleWallBoundaryBuilder boundaryBuilder;
+        result.wallBoundaries = boundaryBuilder.build(model, result.walls);
 
         return result;
     }

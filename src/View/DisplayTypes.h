@@ -12,9 +12,7 @@ namespace OccQtCore
 
         Analysis,
         AnalysisHoleWall,
-        AnalysisHoleOpen,
-        AnalysisHoleBottom,
-        AnalysisHoleConnection,
+        AnalysisHoleBoundary,
 
         Helper,
         Temporary

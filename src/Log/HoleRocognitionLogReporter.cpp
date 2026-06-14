@@ -54,7 +54,10 @@ namespace OccQtCore
             appendWalls(text, report);
         }
 
-        // Sections / Traces / Connections / Assemblies は後で追加。
+        if (report.outputWallBoundaries)
+        {
+            appendWallBoundaries(text, report);
+        }
 
         return text;
     }
@@ -65,10 +68,7 @@ namespace OccQtCore
 
         m_logger->info("========== 穴フィーチャ認識レポート ==========");
         m_logger->info(QString("穴壁数: %1").arg(result.walls.size()));
-        m_logger->info(QString("穴セクション数: %1").arg(result.sections.size()));
-        m_logger->info(QString("穴終端解釈数: %1").arg(result.terminals.size()));
-        m_logger->info(QString("穴接続解釈数: %1").arg(result.connections.size()));
-        m_logger->info(QString("穴アセンブリ数: %1").arg(result.assemblies.size()));
+        m_logger->info(QString("穴壁境界数: %1").arg(result.wallBoundaries.size()));
         m_logger->info("=====================================");
     }
 
@@ -105,10 +105,7 @@ namespace OccQtCore
         out << "Summary\n";
         out << "-------\n";
         out << "Walls: " << static_cast<int>(result.walls.size()) << "\n";
-        out << "Sections: " << static_cast<int>(result.sections.size()) << "\n";
-        out << "Terminals: " << static_cast<int>(result.terminals.size()) << "\n";
-        out << "Connections: " << static_cast<int>(result.connections.size()) << "\n";
-        out << "Assemblies: " << static_cast<int>(result.assemblies.size()) << "\n";
+        out << "WallBoundaries: " << static_cast<int>(result.wallBoundaries.size()) << "\n";
         out << "\n";
     }
 
@@ -127,6 +124,25 @@ namespace OccQtCore
         for (int i = 0; i < static_cast<int>(result.walls.size()); ++i)
         {
             out << formatWall(result.walls[i], i);
+            out << "\n";
+        }
+    }
+
+    void HoleRecognitionLogReporter::appendWallBoundaries(
+        QString& text,
+        const HoleRecognitionLogReport& report) const
+    {
+        const auto& result = report.result;
+
+        QTextStream out(&text);
+
+        out << "Wall Boundaries\n";
+        out << "---------------\n";
+        out << "Count: " << static_cast<int>(result.wallBoundaries.size()) << "\n\n";
+
+        for (int i = 0; i < static_cast<int>(result.wallBoundaries.size()); ++i)
+        {
+            out << formatWallBoundary(result.wallBoundaries[i], i);
             out << "\n";
         }
     }
@@ -178,6 +194,89 @@ namespace OccQtCore
         }
 
         return texts.join(", ");
+    }
+
+    QString HoleRecognitionLogReporter::formatWallBoundary(
+        const Feature::HoleWallBoundary& boundary,
+        int displayIndex) const
+    {
+        QString text;
+        QTextStream out(&text);
+
+        out << "Boundary[" << displayIndex << "]\n";
+        out << "  Index: " << boundary.index << "\n";
+        out << "  WallIndex: " << boundary.wallIndex << "\n";
+        out << "  Kind: " << toString(boundary.kind) << "\n";
+        out << "  TraceStatus: " << toString(boundary.traceStatus) << "\n";
+
+        out << "  GeometryRefs:\n";
+        out << "    Faces: " << formatIntList(boundary.geometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << formatIntList(boundary.geometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << formatIntList(boundary.geometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << formatIntList(boundary.geometryRefs.vertexIndices) << "\n";
+
+        out << "  AdjacentGeometryRefs:\n";
+        out << "    Faces: " << formatIntList(boundary.adjacentGeometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << formatIntList(boundary.adjacentGeometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << formatIntList(boundary.adjacentGeometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << formatIntList(boundary.adjacentGeometryRefs.vertexIndices) << "\n";
+
+        out << "  AxialRange: ["
+            << QString::number(boundary.axialMin, 'f', 4) << ", "
+            << QString::number(boundary.axialMax, 'f', 4) << "]\n";
+
+        out << "  AxialPosition: "
+            << QString::number(boundary.axialPosition, 'f', 4) << "\n";
+
+        out << "  CircumferentialCoverage: "
+            << QString::number(boundary.circumferentialCoverage, 'f', 4) << "\n";
+
+        if (!boundary.note.empty())
+        {
+            out << "  Note: " << QString::fromStdString(boundary.note) << "\n";
+        }
+
+        return text;
+    }
+
+    QString HoleRecognitionLogReporter::toString(
+        Feature::HoleWallBoundaryKind kind) const
+    {
+        switch (kind)
+        {
+        case Feature::HoleWallBoundaryKind::Unknown:
+            return "Unknown";
+        case Feature::HoleWallBoundaryKind::AxialEnd:
+            return "AxialEnd";
+        case Feature::HoleWallBoundaryKind::LateralConnection:
+            return "LateralConnection";
+        case Feature::HoleWallBoundaryKind::InternalWallSplit:
+            return "InternalWallSplit";
+        case Feature::HoleWallBoundaryKind::Broken:
+            return "Broken";
+        case Feature::HoleWallBoundaryKind::Ambiguous:
+            return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
+
+    QString HoleRecognitionLogReporter::toString(
+        Feature::HoleWallBoundaryTraceStatus status) const
+    {
+        switch (status)
+        {
+        case Feature::HoleWallBoundaryTraceStatus::Unknown:
+            return "Unknown";
+        case Feature::HoleWallBoundaryTraceStatus::Traceable:
+            return "Traceable";
+        case Feature::HoleWallBoundaryTraceStatus::Ignored:
+            return "Ignored";
+        case Feature::HoleWallBoundaryTraceStatus::NotTraceable:
+            return "NotTraceable";
+        }
+
+        return "Unknown";
     }
 
 }

@@ -31,13 +31,14 @@ signals:
     void exportLogRequested();
 
     void wallSelected(int wallIndex);
+    void boundarySelected(int boundaryIndex);
+
     void selectionCleared();
 
 private slots:
     void onBuildClicked();
     void onClearClicked();
     void onExportLogClicked();
-    void onTreeItemSelectionChanged();
     void onTreeCurrentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
 
 private:
@@ -45,17 +46,23 @@ private:
     {
         Unknown = 0,
         WallsRoot,
-        Wall
+        Wall,
+
+        WallBoundariesRoot,
+        WallBoundary
     };
 
     void setupConnections();
 
     void populateTree();
     QTreeWidgetItem* populateWallsRoot();
+    QTreeWidgetItem* populateWallBoundariesRoot();
 
     void showSelectedItemDetail();
     void showWallsRootDetail();
     void showWallDetail(int wallIndex);
+    void showWallBoundariesRootDetail();
+    void showWallBoundaryDetail(int boundaryIndex);
 
 private:
     Ui::HoleDebugPanel *ui;

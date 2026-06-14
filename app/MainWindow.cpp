@@ -342,6 +342,11 @@ void MainWindow::showHoleDebugPanel()
                 &MainWindow::applyHoleWallSelection);
 
         connect(m_holeDebugPanel,
+                &HoleDebugPanel::boundarySelected,
+                this,
+                &MainWindow::applyHoleBoundarySelection);
+
+        connect(m_holeDebugPanel,
                 &HoleDebugPanel::selectionCleared,
                 this,
                 &MainWindow::clearHoleDebugSelection);
@@ -434,6 +439,7 @@ void MainWindow::applyHoleWallSelection(int wallIndex)
     const auto& wall = m_holeDebugResult.walls[wallIndex];
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
 
     const auto& geometryModel = m_document.geometryModel();
 
@@ -442,7 +448,6 @@ void MainWindow::applyHoleWallSelection(int wallIndex)
 
     for (const int faceIndex : wall.geometryRefs.faceIndices)
     {
-
         const auto& face = geometryModel.faceAt(faceIndex);
 
         m_occView->displayShape(
@@ -454,9 +459,43 @@ void MainWindow::applyHoleWallSelection(int wallIndex)
     m_occView->redraw();
 }
 
+void MainWindow::applyHoleBoundarySelection(int boundaryIndex)
+{
+    if (boundaryIndex < 0 ||
+        boundaryIndex >= static_cast<int>(m_holeDebugResult.wallBoundaries.size()))
+    {
+        clearHoleDebugSelection();
+        return;
+    }
+
+    const auto& boundary =
+        m_holeDebugResult.wallBoundaries[boundaryIndex];
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
+
+    const auto& geometryModel = m_document.geometryModel();
+
+    const auto boundaryStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::HoleBoundaryEdge);
+
+    for (const int edgeIndex : boundary.geometryRefs.edgeIndices)
+    {
+        const auto& edge = geometryModel.edgeAt(edgeIndex);
+
+        m_occView->displayShape(
+            edge->shape,
+            OccQtCore::DisplayLayer::AnalysisHoleBoundary,
+            boundaryStyle);
+    }
+
+    m_occView->redraw();
+}
+
 void MainWindow::clearHoleDebugSelection()
 {
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
     m_occView->redraw();
 }
 

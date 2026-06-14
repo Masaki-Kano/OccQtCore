@@ -59,6 +59,7 @@ private:
     void clearHoleDebugDisplay();
     void exportHoleDebugLog();
     void applyHoleWallSelection(int wallIndex);
+    void applyHoleBoundarySelection(int boundaryIndex);
     void clearHoleDebugSelection();
 
 

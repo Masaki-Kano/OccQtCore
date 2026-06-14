@@ -17,11 +17,7 @@ namespace OccQtCore
 
         bool outputSummary = true;
         bool outputWalls = true;
-
-        bool outputSections = false;
-        bool outputTraces = false;
-        bool outputConnections = false;
-        bool outputAssemblies = false;
+        bool outputWallBoundaries = true;
     };
 
     class HoleRecognitionLogReporter
@@ -43,10 +39,14 @@ namespace OccQtCore
         // QStringへ組み立てる用
         void appendSummary(QString& text, const HoleRecognitionLogReport& report) const;
         void appendWalls(QString& text, const HoleRecognitionLogReport& report) const;
+        void appendWallBoundaries(QString& text, const HoleRecognitionLogReport& report) const;
 
         QString formatWall(const OccQtCore::Feature::HoleWall& wall, int displayIndex) const;
-
         QString formatIntList(const std::vector<int>& values) const;
+        QString formatWallBoundary(const Feature::HoleWallBoundary& boundary, int displayIndex) const;
+
+        QString toString(Feature::HoleWallBoundaryKind kind) const;
+        QString toString(Feature::HoleWallBoundaryTraceStatus status) const;
 
     private:
         AppLogger* m_logger = nullptr;

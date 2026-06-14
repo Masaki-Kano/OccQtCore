@@ -615,9 +615,7 @@ namespace OccQtCore
     void OccView::clearHoleAnalysisLayers()
     {
         clearLayer(DisplayLayer::AnalysisHoleWall);
-        clearLayer(DisplayLayer::AnalysisHoleOpen);
-        clearLayer(DisplayLayer::AnalysisHoleBottom);
-        clearLayer(DisplayLayer::AnalysisHoleConnection);
+        clearLayer(DisplayLayer::AnalysisHoleBoundary);
     }
 
     void OccView::clearAll()

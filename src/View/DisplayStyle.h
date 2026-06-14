@@ -15,6 +15,7 @@ struct DisplayStyle
         PickHighlightFace,
 
         HoleWallFace,
+        HoleBoundaryEdge
     };
 
     Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);

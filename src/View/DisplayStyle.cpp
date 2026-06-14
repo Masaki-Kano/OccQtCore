@@ -25,6 +25,12 @@ DisplayStyle DisplayStyle::preset(Preset preset)
         style.transparency = 0.55;
         style.displayMode = AIS_Shaded;
         break;
+
+    case Preset::HoleBoundaryEdge:
+        style.color = Quantity_Color(Quantity_NOC_RED);
+        style.transparency = 0.0;
+        style.displayMode = AIS_WireFrame;
+        break;
     }
 
     return style;
