@@ -28,13 +28,19 @@ namespace OccQtCore::Feature
 
         HoleWallBoundaryKind classifyBoundaryKind(
             const HoleWall& wall,
-            const HoleWallBoundary& boundary) const;
+            const HoleWallBoundary& boundary,
+            const GeometryRefs& rawAdjacentRefs) const;
 
         HoleWallBoundaryTraceStatus determineTraceStatus(HoleWallBoundaryKind kind) const;
 
         bool isFaceInWall(const HoleWall& wall, int faceIndex) const;
 
-        GeometryRefs collectAdjacentGeometryRefs(const GeometryModel& model, const HoleWall& wall, int edgeIndex) const;
+        GeometryRefs collectRawAdjacentGeometryRefs(const GeometryModel& model, int edgeIndex) const;
+
+        GeometryRefs collectOutsideAdjacentGeometryRefs(
+            const GeometryModel& model,
+            const HoleWall& wall,
+            int edgeIndex) const;
 
         void fillAxialRange(const GeometryModel& model, const HoleWall& wall, HoleWallBoundary& boundary) const;
 

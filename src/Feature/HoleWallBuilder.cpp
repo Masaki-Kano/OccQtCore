@@ -350,6 +350,7 @@ namespace OccQtCore::Feature
             return false;
         }
 
+        // 1枚Faceで360度を表す円筒は、幾何カバレッジだけでOK。
         if (group.faceIndices.size() == 1)
         {
             return hasFullCircumferentialCoverage(model, group);
@@ -396,7 +397,13 @@ namespace OccQtCore::Feature
                     }
 
                     const size_t adjacentLocalIndex =
-                        static_cast<size_t>(std::distance(group.faceIndices.begin(), adjacentIt));
+                        static_cast<size_t>(
+                            std::distance(group.faceIndices.begin(), adjacentIt));
+
+                    if (adjacentLocalIndex == i)
+                    {
+                        continue;
+                    }
 
                     adjacency[i].insert(static_cast<int>(adjacentLocalIndex));
                     adjacency[adjacentLocalIndex].insert(static_cast<int>(i));
@@ -404,16 +411,12 @@ namespace OccQtCore::Feature
             }
         }
 
-        // 円周方向の閉路なら、各Faceは軸方向Edge経由の隣接を2つ以上持つ想定。
-        for (const auto& neighbors : adjacency)
-        {
-            if (neighbors.size() < 2)
-            {
-                return false;
-            }
-        }
+        // ここでは「各Faceが隣接2つ以上」を要求しない。
+        // 2分割円筒では Face A <-> Face B となり、各Faceの隣接Face数は1になる。
+        //
+        // 円周360度を覆っているかは hasFullCircumferentialCoverage() 側で確認済み。
+        // この関数では、円周方向にFace群がバラバラでないことだけを見る。
 
-        // さらに、グループ全体が1つの連結成分であることを見る。
         std::vector<bool> visited(group.faceIndices.size(), false);
         std::vector<int> stack;
 

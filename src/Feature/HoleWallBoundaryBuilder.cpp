@@ -83,12 +83,15 @@ namespace OccQtCore::Feature
 
         boundary.geometryRefs.edgeIndices.push_back(edgeIndex);
 
+        const GeometryRefs rawAdjacentRefs =
+            collectRawAdjacentGeometryRefs(model, edgeIndex);
+
         boundary.adjacentGeometryRefs =
-            collectAdjacentGeometryRefs(model, wall, edgeIndex);
+            collectOutsideAdjacentGeometryRefs(model, wall, edgeIndex);
 
         fillAxialRange(model, wall, boundary);
 
-        boundary.kind = classifyBoundaryKind(wall, boundary);
+        boundary.kind = classifyBoundaryKind(wall, boundary, rawAdjacentRefs);
 
         boundary.traceStatus = determineTraceStatus(boundary.kind);
 
@@ -99,16 +102,15 @@ namespace OccQtCore::Feature
 
     HoleWallBoundaryKind HoleWallBoundaryBuilder::classifyBoundaryKind(
         const HoleWall& wall,
-        const HoleWallBoundary& boundary) const
+        const HoleWallBoundary& boundary,
+        const GeometryRefs& rawAdjacentRefs) const
     {
-        const auto& adjacentRefs = boundary.adjacentGeometryRefs;
-
-        if (adjacentRefs.faceIndices.empty())
+        if (rawAdjacentRefs.faceIndices.empty())
         {
             return HoleWallBoundaryKind::AxialEnd;
         }
 
-        if (!hasOutsideFace(wall, adjacentRefs))
+        if (!hasOutsideFace(wall, rawAdjacentRefs))
         {
             return HoleWallBoundaryKind::InternalWallSplit;
         }
@@ -166,7 +168,23 @@ namespace OccQtCore::Feature
         return CollectionUtil::contains(wall.geometryRefs.faceIndices, faceIndex);
     }
 
-    GeometryRefs HoleWallBoundaryBuilder::collectAdjacentGeometryRefs(
+    GeometryRefs HoleWallBoundaryBuilder::collectRawAdjacentGeometryRefs(const GeometryModel& model, int edgeIndex) const
+    {
+        GeometryRefs refs;
+
+        const auto adjacentFaces = TopologyQuery::adjacentFacesOfEdge(model, edgeIndex);
+
+        for (const int faceIndex : adjacentFaces)
+        {
+            CollectionUtil::addUnique(refs.faceIndices, faceIndex);
+        }
+
+        CollectionUtil::sortUnique(refs.faceIndices);
+
+        return refs;
+    }
+
+    GeometryRefs HoleWallBoundaryBuilder::collectOutsideAdjacentGeometryRefs(
         const GeometryModel& model,
         const HoleWall& wall,
         int edgeIndex) const
@@ -174,18 +192,17 @@ namespace OccQtCore::Feature
         GeometryRefs refs;
 
         const auto adjacentFaces =
-            TopologyQuery::adjacentFacesOfEdge(model, edgeIndex);
+            TopologyQuery::adjacentFacesOfEdgeExcludingFaces(
+                model,
+                edgeIndex,
+                wall.geometryRefs.faceIndices);
 
         for (const int faceIndex : adjacentFaces)
         {
-            // Wall内部Faceも一旦入れる。
-            // classify側で「全部Wall内部ならInternalWallSplit」と判定する。
             CollectionUtil::addUnique(refs.faceIndices, faceIndex);
         }
 
         CollectionUtil::sortUnique(refs.faceIndices);
-
-        Q_UNUSED(wall);
 
         return refs;
     }

@@ -78,6 +78,45 @@ namespace OccQtCore::Feature
         std::string note;
     };
 
+    enum class GeometryTraceEndReason
+    {
+        Unknown,
+
+        ReachedHoleWall,
+        NoHoleWallCandidate,
+        OutOfHoleContext,
+        Ambiguous,
+        LoopDetected,
+        MaxDepthReached
+    };
+
+    struct GeometryTraceNode
+    {
+        int index = -1;
+        int depth = -1;
+        int parentNodeIndex = -1;
+
+        GeometryRefs geometryRefs;
+
+        double axialMin = 0.0;
+        double axialMax = 0.0;
+
+        std::string note;
+    };
+
+    struct GeometryTrace
+    {
+        int index = -1;
+        int sourceBoundaryIndex = -1;
+        int sourceWallIndex = -1;
+
+        GeometryTraceEndReason endReason = GeometryTraceEndReason::Unknown;
+
+        std::vector<GeometryTraceNode> nodes;
+
+        std::string note;
+    };
+
     /**
      * @brief 穴認識結果
      *
@@ -90,6 +129,7 @@ namespace OccQtCore::Feature
     {
         std::vector<HoleWall> walls;
         std::vector<HoleWallBoundary> wallBoundaries;
+        std::vector<GeometryTrace> geometryTraces;
     };
 }
 

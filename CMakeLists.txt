@@ -85,6 +85,8 @@ qt_add_executable(OccQtCore
     src/Debug/HoleDebugPanel.h src/Debug/HoleDebugPanel.cpp src/Debug/HoleDebugPanel.ui
     src/Feature/HoleWallBoundaryBuilder.h
     src/Feature/HoleWallBoundaryBuilder.cpp
+    src/Feature/HoleGeometryTraceBuilder.h
+    src/Feature/HoleGeometryTraceBuilder.cpp
 )
 
 target_include_directories(OccQtCore

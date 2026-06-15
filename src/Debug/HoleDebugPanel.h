@@ -32,6 +32,7 @@ signals:
 
     void wallSelected(int wallIndex);
     void boundarySelected(int boundaryIndex);
+    void geometryTraceNodeSelected(int traceIndex, int nodeIndex);
 
     void selectionCleared();
 
@@ -49,20 +50,28 @@ private:
         Wall,
 
         WallBoundariesRoot,
-        WallBoundary
+        WallBoundary,
+
+        GeometryTrace,
+        GeometryTraceNode
     };
 
     void setupConnections();
 
     void populateTree();
     QTreeWidgetItem* populateWallsRoot();
-    QTreeWidgetItem* populateWallBoundariesRoot();
+    QTreeWidgetItem* populateWallBoundariesRoot(QTreeWidgetItem* parentItem, int wallIndex);
+
+    void populateGeometryTracesOfBoundary(QTreeWidgetItem* boundaryItem, int boundaryIndex);
+    void populateGeometryTraceNodes(QTreeWidgetItem* traceItem, int traceIndex);
 
     void showSelectedItemDetail();
     void showWallsRootDetail();
     void showWallDetail(int wallIndex);
-    void showWallBoundariesRootDetail();
+    void showWallBoundariesRootDetail(int wallIndex);
     void showWallBoundaryDetail(int boundaryIndex);
+    void showGeometryTraceDetail(int traceIndex);
+    void showGeometryTraceNodeDetail(int traceIndex, int nodeIndex);
 
 private:
     Ui::HoleDebugPanel *ui;

@@ -60,6 +60,7 @@ private:
     void exportHoleDebugLog();
     void applyHoleWallSelection(int wallIndex);
     void applyHoleBoundarySelection(int boundaryIndex);
+    void applyHoleGeometryTraceNodeSelection(int traceInde, int nodeIndex);
     void clearHoleDebugSelection();
 
 

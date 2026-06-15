@@ -16,6 +16,7 @@ namespace
 {
     constexpr int ItemKindRole = Qt::UserRole + 1;
     constexpr int ItemIndexRole = Qt::UserRole + 2;
+    constexpr int ItemSubIndexRole = Qt::UserRole + 3;
 
     QString formatIntList(const std::vector<int>& values)
     {
@@ -86,6 +87,31 @@ namespace
             return "Ignored";
         case Status::NotTraceable:
             return "NotTraceable";
+        }
+
+        return "Unknown";
+    }
+
+    QString toString(OccQtCore::Feature::GeometryTraceEndReason reason)
+    {
+        using Reason = OccQtCore::Feature::GeometryTraceEndReason;
+
+        switch (reason)
+        {
+        case Reason::Unknown:
+            return "Unknown";
+        case Reason::ReachedHoleWall:
+            return "ReachedHoleWall";
+        case Reason::NoHoleWallCandidate:
+            return "NoHoleWallCandidate";
+        case Reason::OutOfHoleContext:
+            return "OutOfHoleContext";
+        case Reason::Ambiguous:
+            return "Ambiguous";
+        case Reason::LoopDetected:
+            return "LoopDetected";
+        case Reason::MaxDepthReached:
+            return "MaxDepthReached";
         }
 
         return "Unknown";
@@ -166,17 +192,22 @@ void HoleDebugPanel::onTreeCurrentItemChanged(
 {
     Q_UNUSED(previous);
 
-    if (!current)
+    if (current == nullptr)
     {
         ui->plainDetail->clear();
         emit selectionCleared();
         return;
     }
 
-    const auto kind = static_cast<ItemKind>(
-        current->data(0, ItemKindRole).toInt());
+    const auto kind =
+        static_cast<ItemKind>(
+            current->data(0, ItemKindRole).toInt());
 
-    const int index = current->data(0, ItemIndexRole).toInt();
+    const int index =
+        current->data(0, ItemIndexRole).toInt();
+
+    const int subIndex =
+        current->data(0, ItemSubIndexRole).toInt();
 
     switch (kind)
     {
@@ -191,13 +222,23 @@ void HoleDebugPanel::onTreeCurrentItemChanged(
         break;
 
     case ItemKind::WallBoundariesRoot:
-        showWallBoundariesRootDetail();
+        showWallBoundariesRootDetail(index);
         emit selectionCleared();
         break;
 
     case ItemKind::WallBoundary:
         showWallBoundaryDetail(index);
         emit boundarySelected(index);
+        break;
+
+    case ItemKind::GeometryTrace:
+        showGeometryTraceDetail(index);
+        emit selectionCleared();
+        break;
+
+    case ItemKind::GeometryTraceNode:
+        showGeometryTraceNodeDetail(index, subIndex);
+        emit geometryTraceNodeSelected(index, subIndex);
         break;
 
     case ItemKind::Unknown:
@@ -234,13 +275,23 @@ void HoleDebugPanel::populateTree()
 
     for (int i = 0; i < static_cast<int>(m_result.walls.size()); ++i)
     {
-        auto* wallItem = new QTreeWidgetItem(wallsRoot);
-        wallItem->setText(0, QString("Wall[%1]").arg(i));
-        wallItem->setData(0, ItemKindRole, static_cast<int>(ItemKind::Wall));
-        wallItem->setData(0, ItemIndexRole, i);
-    }
+        const auto& wall = m_result.walls[i];
 
-    populateWallBoundariesRoot();
+        auto* wallItem = new QTreeWidgetItem(wallsRoot);
+        wallItem->setText(
+            0,
+            QString("Wall[%1]").arg(wall.index));
+
+        wallItem->setData(
+            0,
+            ItemKindRole,
+            static_cast<int>(ItemKind::Wall));
+
+        // ここは TreeIndex として i を入れる
+        wallItem->setData(0, ItemIndexRole, i);
+
+        populateWallBoundariesRoot(wallItem, wall.index);
+    }
 
     wallsRoot->setExpanded(true);
 }
@@ -256,34 +307,52 @@ QTreeWidgetItem* HoleDebugPanel::populateWallsRoot()
     return wallsRoot;
 }
 
-QTreeWidgetItem* HoleDebugPanel::populateWallBoundariesRoot()
+QTreeWidgetItem* HoleDebugPanel::populateWallBoundariesRoot(
+    QTreeWidgetItem* parentItem,
+    int wallIndex)
 {
-    auto* rootItem = new QTreeWidgetItem(ui->treeItems);
+    int boundaryCount = 0;
+
+    for (const auto& boundary : m_result.wallBoundaries)
+    {
+        if (boundary.wallIndex == wallIndex)
+        {
+            ++boundaryCount;
+        }
+    }
+
+    auto* rootItem = new QTreeWidgetItem(parentItem);
 
     rootItem->setText(
         0,
-        QString("Wall Boundaries (%1)")
-            .arg(static_cast<int>(m_result.wallBoundaries.size())));
+        QString("Boundaries (%1)").arg(boundaryCount));
 
     rootItem->setData(
         0,
         ItemKindRole,
         static_cast<int>(ItemKind::WallBoundariesRoot));
 
-    rootItem->setData(0, ItemIndexRole, -1);
+    // ここは「このWall配下のBoundary一覧」という意味で wallIndex を入れてもいい
+    rootItem->setData(0, ItemIndexRole, wallIndex);
+    rootItem->setData(0, ItemSubIndexRole, -1);
 
     for (int i = 0; i < static_cast<int>(m_result.wallBoundaries.size()); ++i)
     {
         const auto& boundary = m_result.wallBoundaries[i];
 
+        if (boundary.wallIndex != wallIndex)
+        {
+            continue;
+        }
+
         auto* boundaryItem = new QTreeWidgetItem(rootItem);
 
         boundaryItem->setText(
             0,
-            QString("Boundary[%1] Wall=%2 %3")
-                .arg(i)
-                .arg(boundary.wallIndex)
-                .arg(toString(boundary.kind)));
+            QString("Boundary[%1] %2 / %3")
+                .arg(boundary.index)
+                .arg(toString(boundary.kind))
+                .arg(toString(boundary.traceStatus)));
 
         boundaryItem->setData(
             0,
@@ -291,11 +360,104 @@ QTreeWidgetItem* HoleDebugPanel::populateWallBoundariesRoot()
             static_cast<int>(ItemKind::WallBoundary));
 
         boundaryItem->setData(0, ItemIndexRole, i);
+        boundaryItem->setData(0, ItemSubIndexRole, -1);
+
+        populateGeometryTracesOfBoundary(boundaryItem, i);
     }
 
     rootItem->setExpanded(true);
 
     return rootItem;
+}
+
+void HoleDebugPanel::populateGeometryTracesOfBoundary(
+    QTreeWidgetItem* boundaryItem,
+    int boundaryIndex)
+{
+    if (boundaryItem == nullptr)
+    {
+        return;
+    }
+
+    if (boundaryIndex < 0 ||
+        boundaryIndex >= static_cast<int>(m_result.wallBoundaries.size()))
+    {
+        return;
+    }
+
+    const auto& boundary = m_result.wallBoundaries[boundaryIndex];
+
+    for (int traceIndex = 0;
+         traceIndex < static_cast<int>(m_result.geometryTraces.size());
+         ++traceIndex)
+    {
+        const auto& trace = m_result.geometryTraces[traceIndex];
+
+        if (trace.sourceBoundaryIndex != boundary.index)
+        {
+            continue;
+        }
+
+        auto* traceItem = new QTreeWidgetItem(boundaryItem);
+
+        traceItem->setText(
+            0,
+            QString("Trace[%1] %2")
+                .arg(trace.index)
+                .arg(toString(trace.endReason)));
+
+        traceItem->setData(
+            0,
+            ItemKindRole,
+            static_cast<int>(ItemKind::GeometryTrace));
+
+        traceItem->setData(0, ItemIndexRole, traceIndex);
+        traceItem->setData(0, ItemSubIndexRole, -1);
+
+        populateGeometryTraceNodes(traceItem, traceIndex);
+    }
+}
+
+void HoleDebugPanel::populateGeometryTraceNodes(
+    QTreeWidgetItem* traceItem,
+    int traceIndex)
+{
+    if (traceItem == nullptr)
+    {
+        return;
+    }
+
+    if (traceIndex < 0 ||
+        traceIndex >= static_cast<int>(m_result.geometryTraces.size()))
+    {
+        return;
+    }
+
+    const auto& trace = m_result.geometryTraces[traceIndex];
+
+    for (int nodeIndex = 0;
+         nodeIndex < static_cast<int>(trace.nodes.size());
+         ++nodeIndex)
+    {
+        const auto& node = trace.nodes[nodeIndex];
+
+        auto* nodeItem = new QTreeWidgetItem(traceItem);
+
+        nodeItem->setText(
+            0,
+            QString("Node[%1] depth=%2 Faces=%3")
+                .arg(node.index)
+                .arg(node.depth)
+                .arg(formatIntList(node.geometryRefs.faceIndices)));
+
+        nodeItem->setData(
+            0,
+            ItemKindRole,
+            static_cast<int>(ItemKind::GeometryTraceNode));
+
+        nodeItem->setData(0, ItemIndexRole, traceIndex);
+        nodeItem->setData(0, ItemSubIndexRole, nodeIndex);
+    }
 }
 
 void HoleDebugPanel::showWallsRootDetail()
@@ -335,13 +497,23 @@ void HoleDebugPanel::showWallDetail(int wallIndex)
     ui->plainDetail->setPlainText(text);
 }
 
-void HoleDebugPanel::showWallBoundariesRootDetail()
+void HoleDebugPanel::showWallBoundariesRootDetail(int wallIndex)
 {
+    int count = 0;
+
+    for (const auto& boundary : m_result.wallBoundaries)
+    {
+        if (boundary.wallIndex == wallIndex)
+        {
+            ++count;
+        }
+    }
+
     QString text;
 
-    text += "種別: 穴壁境界一覧\n";
-    text += QString("Count: %1\n")
-                .arg(static_cast<int>(m_result.wallBoundaries.size()));
+    text += "種別: WallBoundariesRoot\n";
+    text += QString("WallIndex: %1\n").arg(wallIndex);
+    text += QString("BoundaryCount: %1\n").arg(count);
 
     ui->plainDetail->setPlainText(text);
 }
@@ -406,7 +578,97 @@ void HoleDebugPanel::showWallBoundaryDetail(int boundaryIndex)
     ui->plainDetail->setPlainText(text);
 }
 
+void HoleDebugPanel::showGeometryTraceDetail(int traceIndex)
+{
+    if (traceIndex < 0 ||
+        traceIndex >= static_cast<int>(m_result.geometryTraces.size()))
+    {
+        ui->plainDetail->setPlainText("Invalid geometry trace index.");
+        return;
+    }
 
+    const auto& trace = m_result.geometryTraces[traceIndex];
+
+    QString text;
+
+    text += "種別: GeometryTrace\n";
+    text += QString("TreeIndex: %1\n").arg(traceIndex);
+    text += QString("TraceIndex: %1\n").arg(trace.index);
+    text += QString("SourceBoundaryIndex: %1\n")
+                .arg(trace.sourceBoundaryIndex);
+    text += QString("EndReason: %1\n")
+                .arg(toString(trace.endReason));
+    text += QString("NodeCount: %1\n")
+                .arg(static_cast<int>(trace.nodes.size()));
+
+    if (!trace.note.empty())
+    {
+        text += "\nNote:\n";
+        text += QString::fromStdString(trace.note);
+        text += "\n";
+    }
+
+    ui->plainDetail->setPlainText(text);
+}
+
+void HoleDebugPanel::showGeometryTraceNodeDetail(
+    int traceIndex,
+    int nodeIndex)
+{
+    if (traceIndex < 0 ||
+        traceIndex >= static_cast<int>(m_result.geometryTraces.size()))
+    {
+        ui->plainDetail->setPlainText("Invalid geometry trace index.");
+        return;
+    }
+
+    const auto& trace = m_result.geometryTraces[traceIndex];
+
+    if (nodeIndex < 0 ||
+        nodeIndex >= static_cast<int>(trace.nodes.size()))
+    {
+        ui->plainDetail->setPlainText("Invalid geometry trace node index.");
+        return;
+    }
+
+    const auto& node = trace.nodes[nodeIndex];
+
+    QString text;
+
+    text += "種別: GeometryTraceNode\n";
+    text += QString("TraceTreeIndex: %1\n").arg(traceIndex);
+    text += QString("TraceIndex: %1\n").arg(trace.index);
+    text += QString("NodeTreeIndex: %1\n").arg(nodeIndex);
+    text += QString("NodeIndex: %1\n").arg(node.index);
+    text += QString("Depth: %1\n").arg(node.depth);
+    text += QString("ParentNodeIndex: %1\n")
+                .arg(node.parentNodeIndex);
+
+    text += "\nGeometryRefs:\n";
+    text += QString("Faces: %1\n")
+                .arg(formatIntList(node.geometryRefs.faceIndices));
+    text += QString("Wires: %1\n")
+                .arg(formatIntList(node.geometryRefs.wireIndices));
+    text += QString("Edges: %1\n")
+                .arg(formatIntList(node.geometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n")
+                .arg(formatIntList(node.geometryRefs.vertexIndices));
+
+    text += "\nGeometry:\n";
+    text += QString("AxialMin: %1\n")
+                .arg(node.axialMin, 0, 'f', 4);
+    text += QString("AxialMax: %1\n")
+                .arg(node.axialMax, 0, 'f', 4);
+
+    if (!node.note.empty())
+    {
+        text += "\nNote:\n";
+        text += QString::fromStdString(node.note);
+        text += "\n";
+    }
+
+    ui->plainDetail->setPlainText(text);
+}
 
 
 

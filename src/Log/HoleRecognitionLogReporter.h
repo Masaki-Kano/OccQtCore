@@ -18,6 +18,7 @@ namespace OccQtCore
         bool outputSummary = true;
         bool outputWalls = true;
         bool outputWallBoundaries = true;
+        bool outputGeometryTraces = true;
     };
 
     class HoleRecognitionLogReporter
@@ -40,13 +41,17 @@ namespace OccQtCore
         void appendSummary(QString& text, const HoleRecognitionLogReport& report) const;
         void appendWalls(QString& text, const HoleRecognitionLogReport& report) const;
         void appendWallBoundaries(QString& text, const HoleRecognitionLogReport& report) const;
+        void appendGeometryTraces(QString& text, const HoleRecognitionLogReport& report) const;
 
         QString formatWall(const OccQtCore::Feature::HoleWall& wall, int displayIndex) const;
         QString formatIntList(const std::vector<int>& values) const;
         QString formatWallBoundary(const Feature::HoleWallBoundary& boundary, int displayIndex) const;
+        QString formatGeometryTrace(const Feature::GeometryTrace& trace, int treeIndex) const;
+        QString formatGeometryTraceNode(const Feature::GeometryTraceNode& node, int treeIndex) const;
 
         QString toString(Feature::HoleWallBoundaryKind kind) const;
         QString toString(Feature::HoleWallBoundaryTraceStatus status) const;
+        QString toString(Feature::GeometryTraceEndReason reason) const;
 
     private:
         AppLogger* m_logger = nullptr;

@@ -156,6 +156,30 @@ namespace OccQtCore::TopologyQuery
         return adjacentFaceIndices;
     }
 
+    std::vector<int> adjacentFacesOfEdgeExcludingFaces(
+        const GeometryModel& model,
+        int edgeIndex,
+        const std::vector<int>& excludeFaceIndices)
+    {
+        std::vector<int> adjacentFaceIndices;
+
+        const auto faceIndices = facesOfEdge(model, edgeIndex);
+
+        for (const int faceIndex : faceIndices)
+        {
+            if (CollectionUtil::contains(excludeFaceIndices, faceIndex))
+            {
+                continue;
+            }
+
+            CollectionUtil::addUnique(adjacentFaceIndices, faceIndex);
+        }
+
+        CollectionUtil::sortUnique(adjacentFaceIndices);
+
+        return adjacentFaceIndices;
+    }
+
     std::vector<int> adjacentFacesOfFace(
         const GeometryModel& model,
         int faceIndex)

@@ -332,19 +332,14 @@ void MainWindow::showHoleDebugPanel()
                 &MainWindow::applyHoleWallSelection);
 
         connect(m_holeDebugPanel,
-                &HoleDebugPanel::selectionCleared,
-                this,
-                &MainWindow::clearHoleDebugSelection);
-
-        connect(m_holeDebugPanel,
-                &HoleDebugPanel::wallSelected,
-                this,
-                &MainWindow::applyHoleWallSelection);
-
-        connect(m_holeDebugPanel,
                 &HoleDebugPanel::boundarySelected,
                 this,
                 &MainWindow::applyHoleBoundarySelection);
+
+        connect(m_holeDebugPanel,
+                &HoleDebugPanel::geometryTraceNodeSelected,
+                this,
+                &MainWindow::applyHoleGeometryTraceNodeSelection);
 
         connect(m_holeDebugPanel,
                 &HoleDebugPanel::selectionCleared,
@@ -487,6 +482,58 @@ void MainWindow::applyHoleBoundarySelection(int boundaryIndex)
             edge->shape,
             OccQtCore::DisplayLayer::AnalysisHoleBoundary,
             boundaryStyle);
+    }
+
+    m_occView->redraw();
+}
+
+void MainWindow::applyHoleGeometryTraceNodeSelection(int traceIndex, int nodeIndex)
+{
+    if (traceIndex < 0 ||
+        traceIndex >= static_cast<int>(m_holeDebugResult.geometryTraces.size()))
+    {
+        clearHoleDebugSelection();
+        return;
+    }
+
+    const auto& trace =
+        m_holeDebugResult.geometryTraces[traceIndex];
+
+    if (nodeIndex < 0 ||
+        nodeIndex >= static_cast<int>(trace.nodes.size()))
+    {
+        clearHoleDebugSelection();
+        return;
+    }
+
+    const auto& node = trace.nodes[nodeIndex];
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
+
+    const auto& geometryModel = m_document.geometryModel();
+
+    const auto traceNodeStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::HoleWallFace);
+
+    for (const int faceIndex : node.geometryRefs.faceIndices)
+    {
+        const auto& face = geometryModel.faceAt(faceIndex);
+
+        m_occView->displayShape(
+            face->shape,
+            OccQtCore::DisplayLayer::AnalysisHoleWall,
+            traceNodeStyle);
+    }
+
+    for (const int edgeIndex : node.geometryRefs.edgeIndices)
+    {
+        const auto& edge = geometryModel.edgeAt(edgeIndex);
+
+        m_occView->displayShape(
+            edge->shape,
+            OccQtCore::DisplayLayer::AnalysisHoleBoundary,
+            traceNodeStyle);
     }
 
     m_occView->redraw();

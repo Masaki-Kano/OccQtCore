@@ -72,6 +72,11 @@ namespace OccQtCore
             int edgeIndex,
             int excludeFaceIndex = -1);
 
+        std::vector<int> adjacentFacesOfEdgeExcludingFaces(
+            const GeometryModel& model,
+            int edgeIndex,
+            const std::vector<int>& excludeFaceIndices);
+
         /**
          * @brief Faceに隣接しているFaceを取得する
          *

@@ -59,6 +59,11 @@ namespace OccQtCore
             appendWallBoundaries(text, report);
         }
 
+        if (report.outputGeometryTraces)
+        {
+            appendGeometryTraces(text, report);
+        }
+
         return text;
     }
 
@@ -106,6 +111,7 @@ namespace OccQtCore
         out << "-------\n";
         out << "Walls: " << static_cast<int>(result.walls.size()) << "\n";
         out << "WallBoundaries: " << static_cast<int>(result.wallBoundaries.size()) << "\n";
+        out << "GeometryTraces: " << static_cast<int>(result.geometryTraces.size()) << "\n";
         out << "\n";
     }
 
@@ -143,6 +149,25 @@ namespace OccQtCore
         for (int i = 0; i < static_cast<int>(result.wallBoundaries.size()); ++i)
         {
             out << formatWallBoundary(result.wallBoundaries[i], i);
+            out << "\n";
+        }
+    }
+
+    void HoleRecognitionLogReporter::appendGeometryTraces(
+        QString& text,
+        const HoleRecognitionLogReport& report) const
+    {
+        const auto& result = report.result;
+
+        QTextStream out(&text);
+
+        out << "Geometry Traces\n";
+        out << "---------------\n";
+        out << "Count: " << static_cast<int>(result.geometryTraces.size()) << "\n\n";
+
+        for (int i = 0; i < static_cast<int>(result.geometryTraces.size()); ++i)
+        {
+            out << formatGeometryTrace(result.geometryTraces[i], i);
             out << "\n";
         }
     }
@@ -239,6 +264,65 @@ namespace OccQtCore
         return text;
     }
 
+    QString HoleRecognitionLogReporter::formatGeometryTrace(
+        const Feature::GeometryTrace& trace,
+        int treeIndex) const
+    {
+        QString text;
+        QTextStream out(&text);
+
+        out << "Trace[" << treeIndex << "]\n";
+        out << "  TraceIndex: " << trace.index << "\n";
+        out << "  SourceBoundaryIndex: " << trace.sourceBoundaryIndex << "\n";
+        out << "  EndReason: " << toString(trace.endReason) << "\n";
+
+        if (!trace.note.empty())
+        {
+            out << "  Note: " << QString::fromStdString(trace.note) << "\n";
+        }
+
+        out << "  Nodes\n";
+        out << "  -----\n";
+        out << "  Count: " << static_cast<int>(trace.nodes.size()) << "\n";
+
+        for (int i = 0; i < static_cast<int>(trace.nodes.size()); ++i)
+        {
+            out << formatGeometryTraceNode(trace.nodes[i], i);
+        }
+
+        return text;
+    }
+
+    QString HoleRecognitionLogReporter::formatGeometryTraceNode(
+        const Feature::GeometryTraceNode& node,
+        int treeIndex) const
+    {
+        QString text;
+        QTextStream out(&text);
+
+        out << "  Node[" << treeIndex << "]\n";
+        out << "    NodeIndex: " << node.index << "\n";
+        out << "    Depth: " << node.depth << "\n";
+        out << "    ParentNodeIndex: " << node.parentNodeIndex << "\n";
+
+        out << "    GeometryRefs:\n";
+        out << "      Faces: " << formatIntList(node.geometryRefs.faceIndices) << "\n";
+        out << "      Wires: " << formatIntList(node.geometryRefs.wireIndices) << "\n";
+        out << "      Edges: " << formatIntList(node.geometryRefs.edgeIndices) << "\n";
+        out << "      Vertices: " << formatIntList(node.geometryRefs.vertexIndices) << "\n";
+
+        out << "    Geometry:\n";
+        out << "      AxialMin: " << QString::number(node.axialMin, 'f', 4) << "\n";
+        out << "      AxialMax: " << QString::number(node.axialMax, 'f', 4) << "\n";
+
+        if (!node.note.empty())
+        {
+            out << "    Note: " << QString::fromStdString(node.note) << "\n";
+        }
+
+        return text;
+    }
+
     QString HoleRecognitionLogReporter::toString(
         Feature::HoleWallBoundaryKind kind) const
     {
@@ -274,6 +358,31 @@ namespace OccQtCore
             return "Ignored";
         case Feature::HoleWallBoundaryTraceStatus::NotTraceable:
             return "NotTraceable";
+        }
+
+        return "Unknown";
+    }
+
+    QString HoleRecognitionLogReporter::toString(OccQtCore::Feature::GeometryTraceEndReason reason) const
+    {
+        using Reason = OccQtCore::Feature::GeometryTraceEndReason;
+
+        switch (reason)
+        {
+        case Reason::Unknown:
+            return "Unknown";
+        case Reason::ReachedHoleWall:
+            return "ReachedHoleWall";
+        case Reason::NoHoleWallCandidate:
+            return "NoHoleWallCandidate";
+        case Reason::OutOfHoleContext:
+            return "OutOfHoleContext";
+        case Reason::Ambiguous:
+            return "Ambiguous";
+        case Reason::LoopDetected:
+            return "LoopDetected";
+        case Reason::MaxDepthReached:
+            return "MaxDepthReached";
         }
 
         return "Unknown";
