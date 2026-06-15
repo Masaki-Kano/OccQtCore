@@ -11,22 +11,53 @@
 
 namespace OccQtCore::Feature
 {
+    /**
+     * @brief 穴文脈ジオメトリグループ種別
+     *
+     * 穴として後段で解釈しやすいように、
+     * 生のジオメトリを幾何条件でまとめた単位の種別。
+     *
+     * ここでは Bottom / Open / Step などの穴意味は確定しない
+     */
+    enum class HoleContextGeometryGroupKind
+    {
+        Unknown,
+
+        Cylindrical,
+        Planar,
+        Conical,
+        Toroidal,
+        Mixed,
+
+        Ambiguous
+    };
+
+    enum class HoleContextTracePortKind
+    {
+        Unknown,
+
+        ExternalTransition,
+
+        InternalLoop,
+
+        Ambiguous
+    };
 
     /**
-    * @brief 穴壁
-    *
-    * CAD上で複数Faceに分割されていても、
-    * 同じ円筒壁として説明できるFace群を1つに束ねたもの。
-    *
-    * HoleWall は Face 1枚ではなく、円筒壁としての意味単位。
-    * 生の円筒Face情報は GeometryModel / FaceData / FaceInfo を参照する。
-    */
-    struct HoleWall
+     * @brief 穴文脈でまとめたジオメトリ単位
+     *
+     * 生のFace群を、穴として後段で説明しやすい幾何単位でまとめたもの。
+     * ここでは穴の最終意味は確定しない。
+     */
+    struct HoleContextGeometryGroup
     {
         int index = -1;
-        bool isValid = false;
+
+        HoleContextGeometryGroupKind kind = HoleContextGeometryGroupKind::Unknown;
 
         GeometryRefs geometryRefs;
+
+        bool hasAxis = false;
 
         gp_Pnt axisPoint;
         gp_Dir axisDirection;
@@ -35,84 +66,38 @@ namespace OccQtCore::Feature
 
         double axialMin = 0.0;
         double axialMax = 0.0;
+        double axialPosition = 0.0;
+
+        std::string note;
     };
 
-    enum class HoleWallBoundaryKind
-    {
-        Unknown,
-        AxialEnd,
-        LateralConnection,
-        InternalWallSplit,
-        Broken,
-        Ambiguous
-    };
-
-    enum class HoleWallBoundaryTraceStatus
-    {
-        Unknown,
-        Traceable,
-        Ignored,
-        NotTraceable
-    };
-
-    struct HoleWallBoundary
+    /**
+     * @brief 穴文脈トレースポート
+     *
+     * Group 上に存在する閉じた Edge ループ。
+     *
+     * sourceGroup 外へ接続するものは Trace の入口になる。
+     * sourceGroup 内だけで完結するものは内部ループとして保持できるが、
+     * Trace 起点にはしない。
+     *
+     * Port は接続先の意味までは持たない。
+     * Open / Bottom / Step などの穴意味は後段の Trace / Interpreter で確定する。
+     */
+    struct HoleContextTracePort
     {
         int index = -1;
 
-        int wallIndex = -1;
+        int sourceGroupIndex = -1;
 
-        HoleWallBoundaryKind kind = HoleWallBoundaryKind::Unknown;
-        HoleWallBoundaryTraceStatus traceStatus =
-            HoleWallBoundaryTraceStatus::Unknown;
+        HoleContextTracePortKind kind = HoleContextTracePortKind::Unknown;
 
         GeometryRefs geometryRefs;
-        GeometryRefs adjacentGeometryRefs;
 
         double axialMin = 0.0;
         double axialMax = 0.0;
-
         double axialPosition = 0.0;
 
         double circumferentialCoverage = 0.0;
-
-        std::string note;
-    };
-
-    enum class GeometryTraceEndReason
-    {
-        Unknown,
-
-        ReachedHoleWall,
-        NoHoleWallCandidate,
-        OutOfHoleContext,
-        Ambiguous,
-        LoopDetected,
-        MaxDepthReached
-    };
-
-    struct GeometryTraceNode
-    {
-        int index = -1;
-        int depth = -1;
-        int parentNodeIndex = -1;
-
-        GeometryRefs geometryRefs;
-
-        double axialMin = 0.0;
-        double axialMax = 0.0;
-
-        std::string note;
-    };
-
-    struct GeometryTrace
-    {
-        int index = -1;
-        int sourceBoundaryIndex = -1;
-        int sourceWallIndex = -1;
-
-        GeometryTraceEndReason endReason = GeometryTraceEndReason::Unknown;
-
-        std::vector<GeometryTraceNode> nodes;
 
         std::string note;
     };
@@ -127,9 +112,8 @@ namespace OccQtCore::Feature
      */
     struct HoleRecognitionResult
     {
-        std::vector<HoleWall> walls;
-        std::vector<HoleWallBoundary> wallBoundaries;
-        std::vector<GeometryTrace> geometryTraces;
+        std::vector<HoleContextGeometryGroup> contextGeometryGroups;
+        std::vector<HoleContextTracePort> contextTracePorts;
     };
 }
 

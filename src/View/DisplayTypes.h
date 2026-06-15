@@ -11,8 +11,8 @@ namespace OccQtCore
         PickHighlight,
 
         Analysis,
-        AnalysisHoleWall,
-        AnalysisHoleBoundary,
+        AnalysisContextGroup,
+        AnalysisTracePort,
 
         Helper,
         Temporary

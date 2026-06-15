@@ -327,19 +327,14 @@ void MainWindow::showHoleDebugPanel()
                 &MainWindow::exportHoleDebugLog);
 
         connect(m_holeDebugPanel,
-                &HoleDebugPanel::wallSelected,
+                &HoleDebugPanel::groupSelected,
                 this,
-                &MainWindow::applyHoleWallSelection);
+                &MainWindow::applyHoleContextGroupSelection);
 
         connect(m_holeDebugPanel,
-                &HoleDebugPanel::boundarySelected,
+                &HoleDebugPanel::tracePortSelected,
                 this,
-                &MainWindow::applyHoleBoundarySelection);
-
-        connect(m_holeDebugPanel,
-                &HoleDebugPanel::geometryTraceNodeSelected,
-                this,
-                &MainWindow::applyHoleGeometryTraceNodeSelection);
+                &MainWindow::applyHoleTracePortSelection);
 
         connect(m_holeDebugPanel,
                 &HoleDebugPanel::selectionCleared,
@@ -393,9 +388,6 @@ void MainWindow::exportHoleDebugLog()
         m_holeDebugResult
     };
 
-    report.outputSummary = true;
-    report.outputWalls = true;
-
     OccQtCore::HoleRecognitionLogReporter reporter(m_logger);
     const QString text = reporter.formatHoleRecognition(report);
 
@@ -422,118 +414,77 @@ void MainWindow::exportHoleDebugLog()
     }
 }
 
-void MainWindow::applyHoleWallSelection(int wallIndex)
+void MainWindow::applyHoleContextGroupSelection(int groupIndex)
 {
-    if (wallIndex < 0 ||
-        wallIndex >= static_cast<int>(m_holeDebugResult.walls.size()))
+    if (groupIndex < 0 ||
+        groupIndex >= static_cast<int>(m_holeDebugResult.contextGeometryGroups.size()))
     {
         clearHoleDebugSelection();
         return;
     }
 
-    const auto& wall = m_holeDebugResult.walls[wallIndex];
+    const auto& group =
+        m_holeDebugResult.contextGeometryGroups[groupIndex];
 
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
 
     const auto& geometryModel = m_document.geometryModel();
 
-    const auto wallStyle = OccQtCore::DisplayStyle::preset(
-        OccQtCore::DisplayStyle::Preset::HoleWallFace);
+    const auto groupStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::ContextGroupFace);
 
-    for (const int faceIndex : wall.geometryRefs.faceIndices)
+    for (const int faceIndex : group.geometryRefs.faceIndices)
     {
-        const auto& face = geometryModel.faceAt(faceIndex);
+        const auto* face = geometryModel.faceAt(faceIndex);
+
+        if (face == nullptr)
+        {
+            continue;
+        }
 
         m_occView->displayShape(
             face->shape,
-            OccQtCore::DisplayLayer::AnalysisHoleWall,
-            wallStyle);
+            OccQtCore::DisplayLayer::AnalysisContextGroup,
+            groupStyle);
     }
 
     m_occView->redraw();
 }
 
-void MainWindow::applyHoleBoundarySelection(int boundaryIndex)
+void MainWindow::applyHoleTracePortSelection(int portIndex)
 {
-    if (boundaryIndex < 0 ||
-        boundaryIndex >= static_cast<int>(m_holeDebugResult.wallBoundaries.size()))
+    if (portIndex < 0 ||
+        portIndex >= static_cast<int>(m_holeDebugResult.contextTracePorts.size()))
     {
         clearHoleDebugSelection();
         return;
     }
 
-    const auto& boundary =
-        m_holeDebugResult.wallBoundaries[boundaryIndex];
+    const auto& port =
+        m_holeDebugResult.contextTracePorts[portIndex];
 
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
 
     const auto& geometryModel = m_document.geometryModel();
 
-    const auto boundaryStyle = OccQtCore::DisplayStyle::preset(
-        OccQtCore::DisplayStyle::Preset::HoleBoundaryEdge);
+    const auto portStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::TracePortEdge);
 
-    for (const int edgeIndex : boundary.geometryRefs.edgeIndices)
+    for (const int edgeIndex : port.geometryRefs.edgeIndices)
     {
-        const auto& edge = geometryModel.edgeAt(edgeIndex);
+        const auto* edge = geometryModel.edgeAt(edgeIndex);
+
+        if (edge == nullptr)
+        {
+            continue;
+        }
 
         m_occView->displayShape(
             edge->shape,
-            OccQtCore::DisplayLayer::AnalysisHoleBoundary,
-            boundaryStyle);
-    }
-
-    m_occView->redraw();
-}
-
-void MainWindow::applyHoleGeometryTraceNodeSelection(int traceIndex, int nodeIndex)
-{
-    if (traceIndex < 0 ||
-        traceIndex >= static_cast<int>(m_holeDebugResult.geometryTraces.size()))
-    {
-        clearHoleDebugSelection();
-        return;
-    }
-
-    const auto& trace =
-        m_holeDebugResult.geometryTraces[traceIndex];
-
-    if (nodeIndex < 0 ||
-        nodeIndex >= static_cast<int>(trace.nodes.size()))
-    {
-        clearHoleDebugSelection();
-        return;
-    }
-
-    const auto& node = trace.nodes[nodeIndex];
-
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
-
-    const auto& geometryModel = m_document.geometryModel();
-
-    const auto traceNodeStyle = OccQtCore::DisplayStyle::preset(
-        OccQtCore::DisplayStyle::Preset::HoleWallFace);
-
-    for (const int faceIndex : node.geometryRefs.faceIndices)
-    {
-        const auto& face = geometryModel.faceAt(faceIndex);
-
-        m_occView->displayShape(
-            face->shape,
-            OccQtCore::DisplayLayer::AnalysisHoleWall,
-            traceNodeStyle);
-    }
-
-    for (const int edgeIndex : node.geometryRefs.edgeIndices)
-    {
-        const auto& edge = geometryModel.edgeAt(edgeIndex);
-
-        m_occView->displayShape(
-            edge->shape,
-            OccQtCore::DisplayLayer::AnalysisHoleBoundary,
-            traceNodeStyle);
+            OccQtCore::DisplayLayer::AnalysisTracePort,
+            portStyle);
     }
 
     m_occView->redraw();
@@ -541,8 +492,8 @@ void MainWindow::applyHoleGeometryTraceNodeSelection(int traceIndex, int nodeInd
 
 void MainWindow::clearHoleDebugSelection()
 {
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleWall);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisHoleBoundary);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
     m_occView->redraw();
 }
 

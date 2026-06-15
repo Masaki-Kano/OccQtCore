@@ -30,9 +30,8 @@ signals:
     void clearRequested();
     void exportLogRequested();
 
-    void wallSelected(int wallIndex);
-    void boundarySelected(int boundaryIndex);
-    void geometryTraceNodeSelected(int traceIndex, int nodeIndex);
+    void groupSelected(int groupTreeIndex);
+    void tracePortSelected(int portTreeIndex);
 
     void selectionCleared();
 
@@ -46,32 +45,35 @@ private:
     enum class ItemKind
     {
         Unknown = 0,
-        WallsRoot,
-        Wall,
 
-        WallBoundariesRoot,
-        WallBoundary,
+        GroupsRoot,
+        Group,
 
-        GeometryTrace,
-        GeometryTraceNode
+        TracePortsRoot,
+        TracePort,
     };
 
     void setupConnections();
 
     void populateTree();
-    QTreeWidgetItem* populateWallsRoot();
-    QTreeWidgetItem* populateWallBoundariesRoot(QTreeWidgetItem* parentItem, int wallIndex);
 
-    void populateGeometryTracesOfBoundary(QTreeWidgetItem* boundaryItem, int boundaryIndex);
-    void populateGeometryTraceNodes(QTreeWidgetItem* traceItem, int traceIndex);
+    QTreeWidgetItem* populateGroupsRoot();
 
-    void showSelectedItemDetail();
-    void showWallsRootDetail();
-    void showWallDetail(int wallIndex);
-    void showWallBoundariesRootDetail(int wallIndex);
-    void showWallBoundaryDetail(int boundaryIndex);
+    QTreeWidgetItem* populateTracePortsRoot(
+        QTreeWidgetItem* parentItem,
+        int sourceGroupIndex);
+
+    void showGroupsRootDetail();
+    void showGroupDetail(int groupTreeIndex);
+
+    void showTracePortsRootDetail(int sourceGroupIndex);
+    void showTracePortDetail(int portTreeIndex);
+
     void showGeometryTraceDetail(int traceIndex);
-    void showGeometryTraceNodeDetail(int traceIndex, int nodeIndex);
+
+    void showGeometryTraceNodeDetail(
+        int traceIndex,
+        int nodeIndex);
 
 private:
     Ui::HoleDebugPanel *ui;

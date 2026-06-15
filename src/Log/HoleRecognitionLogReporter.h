@@ -16,9 +16,8 @@ namespace OccQtCore
         const Feature::HoleRecognitionResult& result;
 
         bool outputSummary = true;
-        bool outputWalls = true;
-        bool outputWallBoundaries = true;
-        bool outputGeometryTraces = true;
+        bool outputGeometryGroup = true;
+        bool outputPort = true;
     };
 
     class HoleRecognitionLogReporter
@@ -35,23 +34,18 @@ namespace OccQtCore
     private:
         // Apploggerへ流す用
         void logSummary(const HoleRecognitionLogReport& report) const;
-        void logWalls(const HoleRecognitionLogReport& report) const;
 
         // QStringへ組み立てる用
         void appendSummary(QString& text, const HoleRecognitionLogReport& report) const;
-        void appendWalls(QString& text, const HoleRecognitionLogReport& report) const;
-        void appendWallBoundaries(QString& text, const HoleRecognitionLogReport& report) const;
-        void appendGeometryTraces(QString& text, const HoleRecognitionLogReport& report) const;
+        void appendContextGeometryGroups(QString& text, const HoleRecognitionLogReport& report) const;
+        void appendContextTracePorts(QString& text, const HoleRecognitionLogReport& report) const;
 
-        QString formatWall(const OccQtCore::Feature::HoleWall& wall, int displayIndex) const;
         QString formatIntList(const std::vector<int>& values) const;
-        QString formatWallBoundary(const Feature::HoleWallBoundary& boundary, int displayIndex) const;
-        QString formatGeometryTrace(const Feature::GeometryTrace& trace, int treeIndex) const;
-        QString formatGeometryTraceNode(const Feature::GeometryTraceNode& node, int treeIndex) const;
+        QString formatContextGeometryGroup(const Feature::HoleContextGeometryGroup& group, int displayIndex) const;
+        QString formatContextTracePort(const Feature::HoleContextTracePort& port, int displayIndex) const;
 
-        QString toString(Feature::HoleWallBoundaryKind kind) const;
-        QString toString(Feature::HoleWallBoundaryTraceStatus status) const;
-        QString toString(Feature::GeometryTraceEndReason reason) const;
+        QString toString(Feature::HoleContextGeometryGroupKind kind) const;
+        QString toString(Feature::HoleContextTracePortKind kind) const;
 
     private:
         AppLogger* m_logger = nullptr;

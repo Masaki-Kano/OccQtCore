@@ -14,8 +14,8 @@ struct DisplayStyle
         DefaultShape,
         PickHighlightFace,
 
-        HoleWallFace,
-        HoleBoundaryEdge
+        ContextGroupFace,
+        TracePortEdge
     };
 
     Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);

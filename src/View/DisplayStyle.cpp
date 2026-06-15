@@ -20,13 +20,13 @@ DisplayStyle DisplayStyle::preset(Preset preset)
         style.displayMode = AIS_Shaded;
         break;
 
-    case Preset::HoleWallFace:
+    case Preset::ContextGroupFace:
         style.color = Quantity_Color(Quantity_NOC_ORANGE);
         style.transparency = 0.55;
         style.displayMode = AIS_Shaded;
         break;
 
-    case Preset::HoleBoundaryEdge:
+    case Preset::TracePortEdge:
         style.color = Quantity_Color(Quantity_NOC_RED);
         style.transparency = 0.0;
         style.displayMode = AIS_WireFrame;

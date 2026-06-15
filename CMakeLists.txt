@@ -80,13 +80,18 @@ qt_add_executable(OccQtCore
     src/Log/GeometryLogReporter.h
     src/Log/GeometryLogReporter.cpp
     src/Feature/HoleRecognitionModel.h
-    src/Feature/HoleWallBuilder.h
-    src/Feature/HoleWallBuilder.cpp
+
+
     src/Debug/HoleDebugPanel.h src/Debug/HoleDebugPanel.cpp src/Debug/HoleDebugPanel.ui
-    src/Feature/HoleWallBoundaryBuilder.h
-    src/Feature/HoleWallBoundaryBuilder.cpp
-    src/Feature/HoleGeometryTraceBuilder.h
-    src/Feature/HoleGeometryTraceBuilder.cpp
+
+
+
+
+    src/Feature/HoleContextGeometryGrouper.h
+    src/Feature/HoleContextGeometryGrouper.cpp
+    src/Feature/HoleContextTracePortBuilder.h
+    src/Feature/HoleContextTracePortBuilder.cpp
+
 )
 
 target_include_directories(OccQtCore

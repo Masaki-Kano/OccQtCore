@@ -1,10 +1,11 @@
 #include "Feature/HoleFeatureRecognizer.h"
-#include "Feature/HoleWallBuilder.h"
-#include "Feature/HoleWallBoundaryBuilder.h"
-#include "Feature/HoleGeometryTraceBuilder.h"
+#include "Feature/HoleContextGeometryGrouper.h"
+#include "Feature/HoleContextTracePortBuilder.h"
 
 #include "Geometry/GeometryModel.h"
 #include "Geometry/TopologyQuery.h"
+
+#include <qDebug>
 
 namespace OccQtCore::Feature
 {
@@ -24,14 +25,18 @@ namespace OccQtCore::Feature
     {
         HoleRecognitionResult result;
 
-        HoleWallBuilder wallBuilder;
-        result.walls = wallBuilder.build(model);
+        HoleContextGeometryGrouper contextGrouper(model);
+        result.contextGeometryGroups = contextGrouper.group();
 
-        HoleWallBoundaryBuilder boundaryBuilder;
-        result.wallBoundaries = boundaryBuilder.build(model, result.walls);
+        HoleContextTracePortBuilder tracePortBuilder(model);
+        result.contextTracePorts =
+            tracePortBuilder.build(result.contextGeometryGroups);
 
-        HoleGeometryTraceBuilder traceBuilder(model, result.walls, result.wallBoundaries);
-        result.geometryTraces = traceBuilder.build();
+        qDebug() << "ContextGeometryGroups:"
+                 << static_cast<int>(result.contextGeometryGroups.size());
+
+        qDebug() << "ContextTracePorts:"
+                 << static_cast<int>(result.contextTracePorts.size());
 
         return result;
     }

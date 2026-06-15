@@ -58,9 +58,11 @@ private:
     void buildHoleDebugData();
     void clearHoleDebugDisplay();
     void exportHoleDebugLog();
-    void applyHoleWallSelection(int wallIndex);
-    void applyHoleBoundarySelection(int boundaryIndex);
-    void applyHoleGeometryTraceNodeSelection(int traceInde, int nodeIndex);
+
+    void applyHoleContextGroupSelection(int groupIndex);
+    void applyHoleTracePortSelection(int portIndex);
+
+
     void clearHoleDebugSelection();
 
 
