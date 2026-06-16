@@ -32,6 +32,7 @@ signals:
 
     void groupSelected(int groupTreeIndex);
     void tracePortSelected(int portTreeIndex);
+    void traceStepSelected(int traceIndex);
 
     void selectionCleared();
 
@@ -51,6 +52,9 @@ private:
 
         TracePortsRoot,
         TracePort,
+
+        TraceStepsRoot,
+        TraceStep,
     };
 
     void setupConnections();
@@ -63,17 +67,16 @@ private:
         QTreeWidgetItem* parentItem,
         int sourceGroupIndex);
 
+    QTreeWidgetItem* populateTraceStepsRoot(QTreeWidgetItem* parentItem, int sourcePortIndex);
+
     void showGroupsRootDetail();
     void showGroupDetail(int groupTreeIndex);
 
     void showTracePortsRootDetail(int sourceGroupIndex);
     void showTracePortDetail(int portTreeIndex);
 
-    void showGeometryTraceDetail(int traceIndex);
-
-    void showGeometryTraceNodeDetail(
-        int traceIndex,
-        int nodeIndex);
+    void showTraceStepsRootDetail(int sourcePortIndex);
+    void showTraceStepDetail(int stepTreeIndex);
 
 private:
     Ui::HoleDebugPanel *ui;

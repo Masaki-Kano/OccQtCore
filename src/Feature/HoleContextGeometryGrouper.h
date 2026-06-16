@@ -23,6 +23,8 @@ namespace OccQtCore::Feature
 
         std::vector<HoleContextGeometryGroup> group() const;
 
+        std::vector<HoleContextGeometryGroup> groupFromGeometryRefs(const GeometryRefs& geometryRefs, const HoleContextGeometryGroup& parentGroup) const;
+
     private:
         // 円筒形ジオメトリ単位の作業グループ
         struct CylindricalGroup
@@ -44,6 +46,14 @@ namespace OccQtCore::Feature
         bool isAxialEdgeOfCylinder(int edgeIndex, const gp_Dir& axisDirection) const;
         bool computeFaceAxialRange(const FaceData& face, const gp_Pnt& axisPoint, const gp_Dir& axisDirection, double& axialMin, double& axialMax) const;
         bool isAxialRangeConnected(double min1, double max1, double min2, double max2) const;
+
+    private:
+        // 平面系ジオメトリ関連の関数群
+        std::vector<HoleContextGeometryGroup> buildPlanarGroupsFromFaces(const std::vector<int>& faceIndices, const HoleContextGeometryGroup& parentGroup) const;
+        bool canMergePlanarFace(const HoleContextGeometryGroup& group, int faceIndex) const;
+        void mergePlanarFace(HoleContextGeometryGroup& group, int faceIndex) const;
+        HoleContextGeometryGroup createPlanarGroup(int faceIndex, const HoleContextGeometryGroup& parentGroup) const;
+        bool isSamePlane(const gp_Pnt& pointA, const gp_Dir& normalA, const gp_Pnt& pointB, const gp_Dir& normalB) const;
 
     private:
         const GeometryModel& m_model;

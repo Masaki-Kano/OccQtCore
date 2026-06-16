@@ -12,11 +12,15 @@
 #include <set>
 #include <vector>
 
+#include <gp_Vec.hxx>
+
 #include <BRep_Tool.hxx>
 #include <TopAbs.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Vertex.hxx>
+
+#include <QDebug>
 
 namespace
 {
@@ -24,6 +28,8 @@ namespace
     constexpr double AxisDistanceTolerance = 1.0e-4;
     constexpr double RadiusTolerance = 1.0e-4;
     constexpr double AxialRangeTolerance = 1.0e-4;
+    constexpr double PlaneNormalTolerance = 1.0e-6;
+    constexpr double PlaneDistanceTolerance = 1.0e-4;
 
     constexpr double TwoPi = 6.28318530717958647692;
     constexpr double CircumferentialCoverageTolerance = 1.0e-3;
@@ -73,6 +79,41 @@ namespace OccQtCore::Feature
         {
             groups.push_back(cylindricalGroup);
         }
+
+        for (int i = 0; i < static_cast<int>(groups.size()); ++i)
+        {
+            groups[i].index = i;
+        }
+
+        return groups;
+    }
+
+    std::vector<HoleContextGeometryGroup>
+    HoleContextGeometryGrouper::groupFromGeometryRefs(
+        const GeometryRefs& geometryRefs,
+        const HoleContextGeometryGroup& parentGroup) const
+    {
+        for (const int faceIndex : geometryRefs.faceIndices)
+        {
+            const auto* face = m_model.faceAt(faceIndex);
+
+            if (face == nullptr)
+            {
+                continue;
+            }
+        }
+
+        std::vector<HoleContextGeometryGroup> groups;
+
+        const auto planarGroups =
+            buildPlanarGroupsFromFaces(
+                geometryRefs.faceIndices,
+                parentGroup);
+
+        groups.insert(
+            groups.end(),
+            planarGroups.begin(),
+            planarGroups.end());
 
         for (int i = 0; i < static_cast<int>(groups.size()); ++i)
         {
@@ -659,5 +700,203 @@ namespace OccQtCore::Feature
         }
 
         return true;
+    }
+
+    std::vector<HoleContextGeometryGroup> HoleContextGeometryGrouper::buildPlanarGroupsFromFaces(
+        const std::vector<int>& faceIndices,
+        const HoleContextGeometryGroup& parentGroup) const
+    {
+        std::vector<HoleContextGeometryGroup> groups;
+
+        for (const int faceIndex : faceIndices)
+        {
+            if (!TopologyQuery::isValidFaceIndex(m_model, faceIndex))
+            {
+                continue;
+            }
+
+            const auto* face = m_model.faceAt(faceIndex);
+
+            if (face == nullptr)
+            {
+                continue;
+            }
+
+            if (face->info.kind != SurfaceKind::Plane)
+            {
+                continue;
+            }
+
+            if (!face->info.plane.has_value())
+            {
+                continue;
+            }
+
+            bool merged = false;
+
+            for (auto& group : groups)
+            {
+                if (!canMergePlanarFace(group, faceIndex))
+                {
+                    continue;
+                }
+
+                mergePlanarFace(group, faceIndex);
+                merged = true;
+                break;
+            }
+
+            if (!merged)
+            {
+                groups.push_back(
+                    createPlanarGroup(
+                        faceIndex,
+                        parentGroup));
+            }
+        }
+
+        for (int i = 0; i < static_cast<int>(groups.size()); ++i)
+        {
+            groups[i].index = i;
+        }
+
+        return groups;
+    }
+
+    bool HoleContextGeometryGrouper::canMergePlanarFace(
+        const HoleContextGeometryGroup& group,
+        int faceIndex) const
+    {
+        if (group.kind != HoleContextGeometryGroupKind::Planar)
+        {
+            return false;
+        }
+
+        if (!group.hasAxis)
+        {
+            return false;
+        }
+
+        if (!TopologyQuery::isValidFaceIndex(m_model, faceIndex))
+        {
+            return false;
+        }
+
+        const auto* face = m_model.faceAt(faceIndex);
+
+        if (face == nullptr)
+        {
+            return false;
+        }
+
+        if (face->info.kind != SurfaceKind::Plane)
+        {
+            return false;
+        }
+
+        if (!face->info.plane.has_value())
+        {
+            return false;
+        }
+
+        const auto& plane = face->info.plane.value();
+
+        return isSamePlane(group.axisPoint, group.axisDirection, plane.origin, plane.normal);
+    }
+
+    void HoleContextGeometryGrouper::mergePlanarFace(HoleContextGeometryGroup& group, int faceIndex) const
+    {
+        if (!TopologyQuery::isValidFaceIndex(m_model, faceIndex))
+        {
+            return;
+        }
+
+        CollectionUtil::addUnique(group.geometryRefs.faceIndices, faceIndex);
+    }
+
+    HoleContextGeometryGroup HoleContextGeometryGrouper::createPlanarGroup(int faceIndex, const HoleContextGeometryGroup& parentGroup) const
+    {
+        HoleContextGeometryGroup group;
+
+        group.index = -1;
+        group.kind = HoleContextGeometryGroupKind::Unknown;
+        group.hasAxis = false;
+
+        if (!TopologyQuery::isValidFaceIndex(m_model, faceIndex))
+        {
+            return group;
+        }
+
+        const auto* face = m_model.faceAt(faceIndex);
+
+        if (face == nullptr)
+        {
+            return group;
+        }
+
+        if (face->info.kind != SurfaceKind::Plane)
+        {
+            return group;
+        }
+
+        if (!face->info.plane.has_value())
+        {
+            return group;
+        }
+
+        const auto& plane = face->info.plane.value();
+
+        group.kind = HoleContextGeometryGroupKind::Planar;
+        group.geometryRefs.faceIndices.push_back(faceIndex);
+
+        // 平面では axisPoint / axisDirection を
+        // 代表点 / 法線として使う。
+        group.hasAxis = true;
+        group.axisPoint = plane.origin;
+        group.axisDirection = plane.normal;
+
+        group.note =
+            "Created as planar hole-context geometry group from trace outside geometry.";
+
+        if (parentGroup.kind == HoleContextGeometryGroupKind::Cylindrical &&
+            parentGroup.hasAxis)
+        {
+            group.note +=
+                " Parent group is cylindrical.";
+
+            if (SurfaceUtil::isSameDirectionOrReverse(
+                    group.axisDirection,
+                    parentGroup.axisDirection,
+                    AxisDirectionTolerance))
+            {
+                group.note +=
+                    " Plane normal is parallel to parent cylinder axis.";
+            }
+        }
+
+        return group;
+    }
+
+    bool HoleContextGeometryGrouper::isSamePlane(
+        const gp_Pnt& pointA,
+        const gp_Dir& normalA,
+        const gp_Pnt& pointB,
+        const gp_Dir& normalB) const
+    {
+        if (!SurfaceUtil::isSameDirectionOrReverse(
+                normalA,
+                normalB,
+                PlaneNormalTolerance))
+        {
+            return false;
+        }
+
+        const gp_Vec vectorAB(pointA, pointB);
+        const gp_Vec normalVector(normalA);
+
+        const double distance =
+            std::abs(vectorAB.Dot(normalVector));
+
+        return distance <= PlaneDistanceTolerance;
     }
 }

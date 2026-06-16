@@ -18,6 +18,7 @@ namespace OccQtCore
         bool outputSummary = true;
         bool outputGeometryGroup = true;
         bool outputPort = true;
+        bool outputTraceStep = true;
     };
 
     class HoleRecognitionLogReporter
@@ -39,13 +40,16 @@ namespace OccQtCore
         void appendSummary(QString& text, const HoleRecognitionLogReport& report) const;
         void appendContextGeometryGroups(QString& text, const HoleRecognitionLogReport& report) const;
         void appendContextTracePorts(QString& text, const HoleRecognitionLogReport& report) const;
+        void appendContextTraceSteps(QString& text, const HoleRecognitionLogReport& report) const;
 
         QString formatIntList(const std::vector<int>& values) const;
         QString formatContextGeometryGroup(const Feature::HoleContextGeometryGroup& group, int displayIndex) const;
         QString formatContextTracePort(const Feature::HoleContextTracePort& port, int displayIndex) const;
+        QString formatContextTraceStep(const Feature::HoleContextTraceStep& step, int displayIndex) const;
 
         QString toString(Feature::HoleContextGeometryGroupKind kind) const;
         QString toString(Feature::HoleContextTracePortKind kind) const;
+        QString toString(Feature::HoleContextTraceStepKind kind) const;
 
     private:
         AppLogger* m_logger = nullptr;

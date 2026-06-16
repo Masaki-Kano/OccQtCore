@@ -47,6 +47,11 @@ namespace OccQtCore
             appendContextTracePorts(text, report);
         }
 
+        if (report.outputTraceStep)
+        {
+            appendContextTraceSteps(text, report);
+        }
+
         return text;
     }
 
@@ -59,6 +64,8 @@ namespace OccQtCore
                            .arg(result.contextGeometryGroups.size()));
         m_logger->info(QString("ContextTracePorts: %1")
                            .arg(result.contextTracePorts.size()));
+        m_logger->info(QString("ContextTraceSteps: %1")
+                           .arg(result.contextTraceSteps.size()));
         m_logger->info("=====================================");
     }
 
@@ -113,6 +120,26 @@ namespace OccQtCore
         for (int i = 0; i < static_cast<int>(result.contextTracePorts.size()); ++i)
         {
             out << formatContextTracePort(result.contextTracePorts[i], i);
+            out << "\n";
+        }
+    }
+
+    void HoleRecognitionLogReporter::appendContextTraceSteps(
+        QString& text,
+        const HoleRecognitionLogReport& report) const
+    {
+        const auto& result = report.result;
+
+        QTextStream out(&text);
+
+        out << "Context Trace Steps\n";
+        out << "-------------------\n";
+        out << "Count: "
+            << static_cast<int>(result.contextTraceSteps.size()) << "\n\n";
+
+        for (int i = 0; i < static_cast<int>(result.contextTraceSteps.size()); ++i)
+        {
+            out << formatContextTraceStep(result.contextTraceSteps[i], i);
             out << "\n";
         }
     }
@@ -215,6 +242,42 @@ namespace OccQtCore
         return text;
     }
 
+    QString HoleRecognitionLogReporter::formatContextTraceStep(
+        const Feature::HoleContextTraceStep& step,
+        int displayIndex) const
+    {
+        QString text;
+        QTextStream out(&text);
+
+        out << "Step[" << displayIndex << "]\n";
+        out << "  Index: " << step.index << "\n";
+        out << "  SourceGroupIndex: " << step.sourceGroupIndex << "\n";
+        out << "  SourcePortIndex: " << step.sourcePortIndex << "\n";
+        out << "  Kind: " << toString(step.kind) << "\n";
+
+        out << "  PortGeometryRefs:\n";
+        out << "    Faces: " << formatIntList(step.portGeometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << formatIntList(step.portGeometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << formatIntList(step.portGeometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << formatIntList(step.portGeometryRefs.vertexIndices) << "\n";
+
+        out << "  OutsideGeometryRefs:\n";
+        out << "    Faces: " << formatIntList(step.outsideGeometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << formatIntList(step.outsideGeometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << formatIntList(step.outsideGeometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << formatIntList(step.outsideGeometryRefs.vertexIndices) << "\n";
+
+        out << "  AdjacentExistingGroupIndices: "
+            << formatIntList(step.adjacentExistingGroupIndices) << "\n";
+
+        if (!step.note.empty())
+        {
+            out << "  Note: " << QString::fromStdString(step.note) << "\n";
+        }
+
+        return text;
+    }
+
     QString HoleRecognitionLogReporter::toString(
         Feature::HoleContextGeometryGroupKind kind) const
     {
@@ -251,6 +314,26 @@ namespace OccQtCore
         case Feature::HoleContextTracePortKind::InternalLoop:
             return "InternalLoop";
         case Feature::HoleContextTracePortKind::Ambiguous:
+            return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
+
+    QString HoleRecognitionLogReporter::toString(
+        Feature::HoleContextTraceStepKind kind) const
+    {
+        switch (kind)
+        {
+        case Feature::HoleContextTraceStepKind::Unknown:
+            return "Unknown";
+        case Feature::HoleContextTraceStepKind::NoOutsideFace:
+            return "NoOutsideFace";
+        case Feature::HoleContextTraceStepKind::OutsideFace:
+            return "OutsideFace";
+        case Feature::HoleContextTraceStepKind::ReachedExistingGroup:
+            return "ReachedExistingGroup";
+        case Feature::HoleContextTraceStepKind::Ambiguous:
             return "Ambiguous";
         }
 

@@ -91,6 +91,8 @@ qt_add_executable(OccQtCore
     src/Feature/HoleContextGeometryGrouper.cpp
     src/Feature/HoleContextTracePortBuilder.h
     src/Feature/HoleContextTracePortBuilder.cpp
+    src/Feature/HoleContextTraceStepBuilder.h
+    src/Feature/HoleContextTraceStepBuilder.cpp
 
 )
 

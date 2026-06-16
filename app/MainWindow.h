@@ -61,6 +61,7 @@ private:
 
     void applyHoleContextGroupSelection(int groupIndex);
     void applyHoleTracePortSelection(int portIndex);
+    void applyHoleTraceStepSelection(int stepIndex);
 
 
     void clearHoleDebugSelection();

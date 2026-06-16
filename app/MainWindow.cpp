@@ -337,6 +337,11 @@ void MainWindow::showHoleDebugPanel()
                 &MainWindow::applyHoleTracePortSelection);
 
         connect(m_holeDebugPanel,
+                &HoleDebugPanel::traceStepSelected,
+                this,
+                &MainWindow::applyHoleTraceStepSelection);
+
+        connect(m_holeDebugPanel,
                 &HoleDebugPanel::selectionCleared,
                 this,
                 &MainWindow::clearHoleDebugSelection);
@@ -485,6 +490,62 @@ void MainWindow::applyHoleTracePortSelection(int portIndex)
             edge->shape,
             OccQtCore::DisplayLayer::AnalysisTracePort,
             portStyle);
+    }
+
+    m_occView->redraw();
+}
+
+void MainWindow::applyHoleTraceStepSelection(int stepIndex)
+{
+    if (stepIndex < 0 ||
+        stepIndex >= static_cast<int>(m_holeDebugResult.contextTraceSteps.size()))
+    {
+        clearHoleDebugSelection();
+        return;
+    }
+
+    const auto& step =
+        m_holeDebugResult.contextTraceSteps[stepIndex];
+
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
+    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
+
+    const auto& geometryModel = m_document.geometryModel();
+
+    const auto outsideFaceStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::ContextGroupFace);
+
+    for (const int faceIndex : step.outsideGeometryRefs.faceIndices)
+    {
+        const auto* face = geometryModel.faceAt(faceIndex);
+
+        if (face == nullptr)
+        {
+            continue;
+        }
+
+        m_occView->displayShape(
+            face->shape,
+            OccQtCore::DisplayLayer::AnalysisContextGroup,
+            outsideFaceStyle);
+    }
+
+    const auto portEdgeStyle = OccQtCore::DisplayStyle::preset(
+        OccQtCore::DisplayStyle::Preset::TracePortEdge);
+
+    for (const int edgeIndex : step.portGeometryRefs.edgeIndices)
+    {
+        const auto* edge = geometryModel.edgeAt(edgeIndex);
+
+        if (edge == nullptr)
+        {
+            continue;
+        }
+
+        m_occView->displayShape(
+            edge->shape,
+            OccQtCore::DisplayLayer::AnalysisTracePort,
+            portEdgeStyle);
     }
 
     m_occView->redraw();

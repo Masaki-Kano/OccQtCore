@@ -93,6 +93,27 @@ namespace
 
         return "Unknown";
     }
+
+    QString toString(OccQtCore::Feature::HoleContextTraceStepKind kind)
+    {
+        using Kind = OccQtCore::Feature::HoleContextTraceStepKind;
+
+        switch (kind)
+        {
+        case Kind::Unknown:
+            return "Unknown";
+        case Kind::NoOutsideFace:
+            return "NoOutsideFace";
+        case Kind::OutsideFace:
+            return "OutsideFace";
+        case Kind::ReachedExistingGroup:
+            return "ReachedExistingGroup";
+        case Kind::Ambiguous:
+            return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
 }
 
 HoleDebugPanel::HoleDebugPanel(QWidget* parent)
@@ -125,9 +146,10 @@ void HoleDebugPanel::setRecognitionResult(const OccQtCore::Feature::HoleRecognit
     populateTree();
 
     setStatusText(
-        QString("Build completed. Groups: %1, Ports: %2")
+        QString("Build completed. Groups: %1, Ports: %2, Steps: %3")
             .arg(static_cast<int>(m_result.contextGeometryGroups.size()))
-            .arg(static_cast<int>(m_result.contextTracePorts.size())));
+            .arg(static_cast<int>(m_result.contextTracePorts.size()))
+            .arg(static_cast<int>(m_result.contextTraceSteps.size())));
 }
 
 void HoleDebugPanel::clear()
@@ -209,6 +231,16 @@ void HoleDebugPanel::onTreeCurrentItemChanged(
     case ItemKind::TracePort:
         showTracePortDetail(index);
         emit tracePortSelected(index);
+        break;
+
+    case ItemKind::TraceStepsRoot:
+        showTraceStepsRootDetail(index);
+        emit selectionCleared();
+        break;
+
+    case ItemKind::TraceStep:
+        showTraceStepDetail(index);
+        emit traceStepSelected(index);
         break;
 
     case ItemKind::Unknown:
@@ -343,6 +375,68 @@ QTreeWidgetItem* HoleDebugPanel::populateTracePortsRoot(
 
         portItem->setData(0, ItemIndexRole, i);
         portItem->setData(0, ItemSubIndexRole, -1);
+
+        populateTraceStepsRoot(portItem, port.index);
+    }
+
+    rootItem->setExpanded(true);
+
+    return rootItem;
+}
+
+QTreeWidgetItem* HoleDebugPanel::populateTraceStepsRoot(
+    QTreeWidgetItem* parentItem,
+    int sourcePortIndex)
+{
+    int stepCount = 0;
+
+    for (const auto& step : m_result.contextTraceSteps)
+    {
+        if (step.sourcePortIndex == sourcePortIndex)
+        {
+            ++stepCount;
+        }
+    }
+
+    auto* rootItem = new QTreeWidgetItem(parentItem);
+
+    rootItem->setText(
+        0,
+        QString("Steps (%1)").arg(stepCount));
+
+    rootItem->setData(
+        0,
+        ItemKindRole,
+        static_cast<int>(ItemKind::TraceStepsRoot));
+
+    rootItem->setData(0, ItemIndexRole, sourcePortIndex);
+    rootItem->setData(0, ItemSubIndexRole, -1);
+
+    for (int i = 0; i < static_cast<int>(m_result.contextTraceSteps.size()); ++i)
+    {
+        const auto& step = m_result.contextTraceSteps[i];
+
+        if (step.sourcePortIndex != sourcePortIndex)
+        {
+            continue;
+        }
+
+        auto* stepItem = new QTreeWidgetItem(rootItem);
+
+        stepItem->setText(
+            0,
+            QString("Step[%1] %2 Faces=%3")
+                .arg(step.index)
+                .arg(toString(step.kind))
+                .arg(static_cast<int>(step.outsideGeometryRefs.faceIndices.size())));
+
+        stepItem->setData(
+            0,
+            ItemKindRole,
+            static_cast<int>(ItemKind::TraceStep));
+
+        stepItem->setData(0, ItemIndexRole, i);
+        stepItem->setData(0, ItemSubIndexRole, -1);
     }
 
     rootItem->setExpanded(true);
@@ -359,6 +453,8 @@ void HoleDebugPanel::showGroupsRootDetail()
                 .arg(static_cast<int>(m_result.contextGeometryGroups.size()));
     text += QString("PortCount: %1\n")
                 .arg(static_cast<int>(m_result.contextTracePorts.size()));
+    text += QString("StepCount: %1\n")
+                .arg(static_cast<int>(m_result.contextTraceSteps.size()));
 
     ui->plainDetail->setPlainText(text);
 }
@@ -473,5 +569,69 @@ void HoleDebugPanel::showTracePortDetail(int portTreeIndex)
     ui->plainDetail->setPlainText(text);
 }
 
+void HoleDebugPanel::showTraceStepsRootDetail(int sourcePortIndex)
+{
+    int count = 0;
 
+    for (const auto& step : m_result.contextTraceSteps)
+    {
+        if (step.sourcePortIndex == sourcePortIndex)
+        {
+            ++count;
+        }
+    }
 
+    QString text;
+
+    text += "種別: TraceStepsRoot\n";
+    text += QString("SourcePortIndex: %1\n").arg(sourcePortIndex);
+    text += QString("StepCount: %1\n").arg(count);
+
+    ui->plainDetail->setPlainText(text);
+}
+
+void HoleDebugPanel::showTraceStepDetail(int stepTreeIndex)
+{
+    if (stepTreeIndex < 0 ||
+        stepTreeIndex >= static_cast<int>(m_result.contextTraceSteps.size()))
+    {
+        ui->plainDetail->setPlainText("Invalid trace step index.");
+        return;
+    }
+
+    const auto& step = m_result.contextTraceSteps[stepTreeIndex];
+
+    QString text;
+
+    text += "種別: ContextTraceStep\n";
+    text += QString("TreeIndex: %1\n").arg(stepTreeIndex);
+    text += QString("StepIndex: %1\n").arg(step.index);
+    text += QString("SourceGroupIndex: %1\n").arg(step.sourceGroupIndex);
+    text += QString("SourcePortIndex: %1\n").arg(step.sourcePortIndex);
+    text += QString("Kind: %1\n").arg(toString(step.kind));
+
+    text += "\nPortGeometryRefs:\n";
+    text += QString("Faces: %1\n").arg(formatIntList(step.portGeometryRefs.faceIndices));
+    text += QString("Wires: %1\n").arg(formatIntList(step.portGeometryRefs.wireIndices));
+    text += QString("Edges: %1\n").arg(formatIntList(step.portGeometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n").arg(formatIntList(step.portGeometryRefs.vertexIndices));
+
+    text += "\nOutsideGeometryRefs:\n";
+    text += QString("Faces: %1\n").arg(formatIntList(step.outsideGeometryRefs.faceIndices));
+    text += QString("Wires: %1\n").arg(formatIntList(step.outsideGeometryRefs.wireIndices));
+    text += QString("Edges: %1\n").arg(formatIntList(step.outsideGeometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n").arg(formatIntList(step.outsideGeometryRefs.vertexIndices));
+
+    text += "\nAdjacentExistingGroupIndices:\n";
+    text += formatIntList(step.adjacentExistingGroupIndices);
+    text += "\n";
+
+    if (!step.note.empty())
+    {
+        text += "\nNote:\n";
+        text += QString::fromStdString(step.note);
+        text += "\n";
+    }
+
+    ui->plainDetail->setPlainText(text);
+}

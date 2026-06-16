@@ -102,6 +102,33 @@ namespace OccQtCore::Feature
         std::string note;
     };
 
+    enum class HoleContextTraceStepKind
+    {
+        Unknown,
+        NoOutsideFace,
+        OutsideFace,
+        ReachedExistingGroup,
+        Ambiguous
+    };
+
+    struct HoleContextTraceStep
+    {
+        int index = -1;
+
+        int sourceGroupIndex = -1;
+        int sourcePortIndex = -1;
+
+        HoleContextTraceStepKind kind = HoleContextTraceStepKind::Unknown;
+
+        GeometryRefs portGeometryRefs;
+
+        GeometryRefs outsideGeometryRefs;
+
+        std::vector<int> adjacentExistingGroupIndices;
+
+        std::string note;
+    };
+
     /**
      * @brief 穴認識結果
      *
@@ -114,6 +141,7 @@ namespace OccQtCore::Feature
     {
         std::vector<HoleContextGeometryGroup> contextGeometryGroups;
         std::vector<HoleContextTracePort> contextTracePorts;
+        std::vector<HoleContextTraceStep> contextTraceSteps;
     };
 }
 
