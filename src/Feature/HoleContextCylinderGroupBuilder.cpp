@@ -1,5 +1,6 @@
 #include "Feature/HoleContextCylindricalGroupBuilder.h"
 
+#include "Core/CollectionUtil.h"
 #include "Geometry/GeometryModel.h"
 #include "Geometry/SurfaceUtil.h"
 #include "Geometry/TopologyQuery.h"
@@ -531,15 +532,6 @@ namespace OccQtCore::Feature
 
         for (const int candidateEdgeIndex : candidateEdgeIndices)
         {
-            /*
-            if (!isAxialEdgeOfCylinder(
-                    candidateEdgeIndex,
-                    group.group.referenceDirection))
-            {
-                continue;
-            }
-            */
-
             for (const int groupFaceIndex : group.faceIndices)
             {
                 if (!TopologyQuery::isValidFaceIndex(m_model, groupFaceIndex))

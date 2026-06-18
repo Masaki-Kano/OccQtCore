@@ -23,10 +23,6 @@ namespace OccQtCore::Feature
             const Context& context) const;
 
     private:
-        const HoleContextGeometryGroup* findGroupByIndex(
-            const std::vector<HoleContextGeometryGroup>& groups,
-            int groupIndex) const;
-
         bool isSameAxisLine(
             const HoleContextGeometryGroup& lhs,
             const HoleContextGeometryGroup& rhs) const;

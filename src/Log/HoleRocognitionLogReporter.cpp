@@ -1,5 +1,6 @@
 #include <QString>
 
+#include "Feature/HoleContextQuery.h"
 #include "Log/HoleRecognitionLogReporter.h"
 #include "Log/AppLogger.h"
 #include "Log/LogFormatUtil.h"
@@ -7,6 +8,7 @@
 namespace
 {
     namespace LF = OccQtCore::LogFormatUtil;
+    namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
 }
 
 namespace OccQtCore
@@ -42,9 +44,9 @@ namespace OccQtCore
             appendSummary(text, report);
         }
 
-        if (report.outputTraceSession)
+        if (report.outputTraceRun)
         {
-            appendContextTraceSessions(text, report);
+            appendContextTraceRuns(text, report);
         }
 
         if (report.outputGeometryGroup)
@@ -161,7 +163,7 @@ namespace OccQtCore
         }
     }
 
-    void HoleRecognitionLogReporter::appendContextTraceSessions(
+    void HoleRecognitionLogReporter::appendContextTraceRuns(
         QString& text,
         const HoleRecognitionLogReport& report) const
     {
@@ -196,7 +198,7 @@ namespace OccQtCore
             for (const int stepIndex : run.traceStepIndices)
             {
                 const auto* step =
-                    findStepByIndex(result.contextTrace.steps, stepIndex);
+                    HoleContextQuery::findStepByIndex(result.contextTrace.steps, stepIndex);
 
                 if (step == nullptr)
                 {
@@ -393,7 +395,7 @@ namespace OccQtCore
         int groupIndex) const
     {
         const auto* group =
-            findGroupByIndex(result.contextGeometryGroups, groupIndex);
+            HoleContextQuery::findGroupByIndex(result.contextGeometryGroups, groupIndex);
 
         if (group == nullptr)
         {
@@ -403,36 +405,6 @@ namespace OccQtCore
         return QString("Group[%1](%2)")
             .arg(group->index)
             .arg(toString(group->kind));
-    }
-
-    const Feature::HoleContextGeometryGroup* HoleRecognitionLogReporter::findGroupByIndex(
-        const std::vector<Feature::HoleContextGeometryGroup>& groups,
-        int groupIndex) const
-    {
-        for (const auto& group : groups)
-        {
-            if (group.index == groupIndex)
-            {
-                return &group;
-            }
-        }
-
-        return nullptr;
-    }
-
-    const Feature::HoleContextTraceStep* HoleRecognitionLogReporter::findStepByIndex(
-        const std::vector<Feature::HoleContextTraceStep>& steps,
-        int stepIndex) const
-    {
-        for (const auto& step : steps)
-        {
-            if (step.index == stepIndex)
-            {
-                return &step;
-            }
-        }
-
-        return nullptr;
     }
 
     QString HoleRecognitionLogReporter::toString(

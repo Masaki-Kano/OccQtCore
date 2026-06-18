@@ -21,7 +21,7 @@ namespace OccQtCore
         bool outputGeometryGroup = true;
         bool outputPort = false;
         bool outputTraceStep = true;
-        bool outputTraceSession = true;
+        bool outputTraceRun = true;
     };
 
     class HoleRecognitionLogReporter
@@ -44,19 +44,15 @@ namespace OccQtCore
         void appendContextGeometryGroups(QString& text, const HoleRecognitionLogReport& report) const;
         void appendContextTracePorts(QString& text, const HoleRecognitionLogReport& report) const;
         void appendContextTraceSteps(QString& text, const HoleRecognitionLogReport& report) const;
-        void appendContextTraceSessions(QString& text, const HoleRecognitionLogReport& report) const;
+        void appendContextTraceRuns(QString& text, const HoleRecognitionLogReport& report) const;
         void appendGroupRefList(QTextStream& out, const Feature::HoleRecognitionResult& result, const std::vector<int>& groupIndices) const;
         void appendCylindricalWorkingGroups(QString& text, const HoleRecognitionLogReport& report) const;
-
 
         QString formatIntList(const std::vector<int>& values) const;
         QString formatContextGeometryGroup(const Feature::HoleContextGeometryGroup& group, int displayIndex) const;
         QString formatContextTracePort(const Feature::HoleContextTracePort& port, int displayIndex) const;
         QString formatContextTraceStep(const Feature::HoleContextTraceStep& step, int displayIndex) const;
         QString formatGroupRef(const Feature::HoleRecognitionResult& result, int groupIndex) const;
-
-        const Feature::HoleContextGeometryGroup* findGroupByIndex(const std::vector<Feature::HoleContextGeometryGroup>& groups, int groupIndex) const;
-        const Feature::HoleContextTraceStep* findStepByIndex(const std::vector<Feature::HoleContextTraceStep>& steps, int stepIndex) const;
 
         QString toString(Feature::HoleContextGeometryGroupKind kind) const;
         QString toString(Feature::HoleContextTracePortKind kind) const;

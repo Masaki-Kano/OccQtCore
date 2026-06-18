@@ -108,6 +108,8 @@ qt_add_executable(OccQtCore
 
 
     src/Feature/HoleRecognitionWorkingData.h
+    src/Feature/HoleContextQuery.h
+    src/Feature/HoleContextQuery.cpp
 
 )
 

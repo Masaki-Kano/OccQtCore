@@ -1,9 +1,12 @@
 #include "Feature/HoleContextTraversalPolicy.h"
 
+#include "Feature/HoleContextQuery.h"
+
 namespace OccQtCore::Feature
 {
     namespace
     {
+        namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
         constexpr int MaxContextTraceDepth = 8;
     }
 
@@ -41,7 +44,7 @@ namespace OccQtCore::Feature
             return {HoleContextTraversalDecisionKind::Stop, "null group list"};
         }
 
-        if (findGroupByIndex(*context.groups, context.sourceGroupIndex) == nullptr)
+        if (HoleContextQuery::findGroupByIndex(*context.groups, context.sourceGroupIndex) == nullptr)
         {
             return {
                 HoleContextTraversalDecisionKind::Stop,
@@ -51,7 +54,7 @@ namespace OccQtCore::Feature
 
         if (!context.observedGroupIsNewCandidate)
         {
-            if (findGroupByIndex(*context.groups, context.observedGroupIndex) == nullptr)
+            if (HoleContextQuery::findGroupByIndex(*context.groups, context.observedGroupIndex) == nullptr)
             {
                 return {
                     HoleContextTraversalDecisionKind::Stop,
@@ -116,21 +119,5 @@ namespace OccQtCore::Feature
             HoleContextTraversalDecisionKind::Continue,
             "common rules passed"
         };
-    }
-
-    const HoleContextGeometryGroup*
-    HoleContextTraversalPolicy::findGroupByIndex(
-        const std::vector<HoleContextGeometryGroup>& groups,
-        int groupIndex) const
-    {
-        for (const auto& group : groups)
-        {
-            if (group.index == groupIndex)
-            {
-                return &group;
-            }
-        }
-
-        return nullptr;
     }
 }

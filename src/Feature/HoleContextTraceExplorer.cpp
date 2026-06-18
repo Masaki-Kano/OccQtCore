@@ -6,9 +6,10 @@
 #include "Feature/HoleContextTraceStepBuilder.h"
 #include "Feature/HoleContextTraversalPolicy.h"
 #include "Feature/HoleContextConnectionPolicy.h"
+#include "Feature/HoleContextQuery.h"
+#include "Core/CollectionUtil.h"
 
 #include <set>
-#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -23,39 +24,6 @@ namespace OccQtCore::Feature
                 && refs.wireIndices.empty()
                 && refs.edgeIndices.empty()
                 && refs.vertexIndices.empty();
-        }
-
-        const HoleContextGeometryGroup* findGroupByIndex(
-            const std::vector<HoleContextGeometryGroup>& groups,
-            int groupIndex)
-        {
-            const auto it =
-                std::find_if(
-                    groups.begin(),
-                    groups.end(),
-                    [groupIndex](const HoleContextGeometryGroup& group)
-                    {
-                        return group.index == groupIndex;
-                    });
-
-            if (it == groups.end())
-            {
-                return nullptr;
-            }
-
-            return &(*it);
-        }
-
-        void addUnique(
-            std::vector<int>& values,
-            int value)
-        {
-            if (std::find(values.begin(), values.end(), value) != values.end())
-            {
-                return;
-            }
-
-            values.push_back(value);
         }
     }
 
@@ -83,7 +51,8 @@ namespace OccQtCore::Feature
 
         for (const auto& group : contextGroups)
         {
-            groupRegistry.registerOrMerge(std::move(group));
+            groupRegistry.registerOrMerge(
+                std::move(group));
         }
 
         result.contextGeometryGroups =
@@ -132,7 +101,7 @@ namespace OccQtCore::Feature
             for (const int reachedGroupIndex : workState.reachedGroupIndices)
             {
                 const auto* reachedGroup =
-                    findGroupByIndex(
+                    HoleContextQuery::findGroupByIndex(
                         groupRegistry.groups(),
                         reachedGroupIndex);
 
@@ -147,7 +116,7 @@ namespace OccQtCore::Feature
                     continue;
                 }
 
-                addUnique(
+                CollectionUtil::addUnique(
                     run.reachedWallGroupIndices,
                     reachedGroup->index);
 
@@ -203,7 +172,7 @@ namespace OccQtCore::Feature
 
         workState.visitedGroupIndices.insert(sourceGroupIndex);
 
-        addUnique(
+        CollectionUtil::addUnique(
             workState.reachedGroupIndices,
             sourceGroupIndex);
 
@@ -222,7 +191,7 @@ namespace OccQtCore::Feature
         {
             result.contextTrace.ports.push_back(port);
 
-            addUnique(
+            CollectionUtil::addUnique(
                 workState.tracePortIndices,
                 port.index);
         }
@@ -257,7 +226,7 @@ namespace OccQtCore::Feature
                 }
 
                 const auto* sourceGroup =
-                    findGroupByIndex(
+                    HoleContextQuery::findGroupByIndex(
                         groupRegistry.groups(),
                         sourceGroupIndex);
 
@@ -276,7 +245,7 @@ namespace OccQtCore::Feature
                     workState.parentGroupIndexByGroupIndex.end())
                 {
                     previousGroup =
-                        findGroupByIndex(
+                        HoleContextQuery::findGroupByIndex(
                             groupRegistry.groups(),
                             parentIt->second);
                 }
@@ -339,7 +308,7 @@ namespace OccQtCore::Feature
                     continue;
                 }
 
-                addUnique(
+                CollectionUtil::addUnique(
                     step.observedGroupIndices,
                     observedGroupIndex);
 
@@ -356,14 +325,14 @@ namespace OccQtCore::Feature
                         sourceGroupIndex;
                 }
 
-                addUnique(
+                CollectionUtil::addUnique(
                     nextGroupIndices,
                     observedGroupIndex);
             }
 
             result.contextTrace.steps.push_back(step);
 
-            addUnique(
+            CollectionUtil::addUnique(
                 workState.traceStepIndices,
                 stepIndex);
 

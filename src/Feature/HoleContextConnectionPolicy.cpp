@@ -1,9 +1,12 @@
 #include "Feature/HoleContextConnectionPolicy.h"
+#include "Feature/HoleContextQuery.h"
 
 namespace OccQtCore::Feature
 {
     namespace
     {
+        namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
+
         constexpr double AxisParallelTolerance = 1.0e-6;
         constexpr double AxisDistanceTolerance = 1.0e-3;
     }
@@ -96,21 +99,6 @@ namespace OccQtCore::Feature
                 "unsupported context connection"
             };
         }
-
-    const HoleContextGeometryGroup* HoleContextConnectionPolicy::findGroupByIndex(
-        const std::vector<HoleContextGeometryGroup>& groups,
-        int groupIndex) const
-    {
-        for (const auto& group : groups)
-        {
-            if (group.index == groupIndex)
-            {
-                return &group;
-            }
-        }
-
-        return nullptr;
-    }
 
     bool HoleContextConnectionPolicy::isSameAxisLine(
         const HoleContextGeometryGroup& lhs,

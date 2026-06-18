@@ -1,4 +1,5 @@
 #include "Debug/HoleDebugPanel.h"
+#include "Feature/HoleContextQuery.h"
 
 #include "ui_HoleDebugPanel.h"
 
@@ -12,6 +13,8 @@
 
 namespace
 {
+    namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
+
     constexpr int ItemKindRole = Qt::UserRole + 1;
     constexpr int ItemIndexRole = Qt::UserRole + 2;
     constexpr int ItemSubIndexRole = Qt::UserRole + 3;
@@ -132,6 +135,7 @@ void HoleDebugPanel::clear()
 
     ui->treeItems->clear();
     ui->plainDetail->clear();
+    ui->plainPickedGeometryDetail->clear();
 
     populateTree();
 
@@ -152,127 +156,127 @@ void HoleDebugPanel::inspectPickedFace(int faceIndex)
 
     text += "Groups containing this face:\n";
 
-    bool foundGroup = false;
+    const auto groupIndices =
+        HoleContextQuery::findGroupIndicesContainingFace(
+            m_result,
+            faceIndex);
 
-    for (const auto& group : m_result.contextGeometryGroups)
-    {
-        if (std::find(
-                group.geometryRefs.faceIndices.begin(),
-                group.geometryRefs.faceIndices.end(),
-                faceIndex) == group.geometryRefs.faceIndices.end())
-        {
-            continue;
-        }
-
-        foundGroup = true;
-
-        text += QString("  Group[%1] %2 Faces=%3\n")
-                    .arg(group.index)
-                    .arg(toString(group.kind))
-                    .arg(formatIntList(group.geometryRefs.faceIndices));
-    }
-
-    if (!foundGroup)
+    if (groupIndices.empty())
     {
         text += "  なし\n";
     }
-
-    text += "\nSteps observing this face:\n";
-
-    bool foundStep = false;
-
-    for (const auto& step : m_result.contextTrace.steps)
+    else
     {
-        const bool inOutside =
-            std::find(
-                step.outsideGeometryRefs.faceIndices.begin(),
-                step.outsideGeometryRefs.faceIndices.end(),
-                faceIndex) != step.outsideGeometryRefs.faceIndices.end();
-
-        const bool inPort =
-            std::find(
-                step.portGeometryRefs.faceIndices.begin(),
-                step.portGeometryRefs.faceIndices.end(),
-                faceIndex) != step.portGeometryRefs.faceIndices.end();
-
-        if (!inOutside && !inPort)
-        {
-            continue;
-        }
-
-        foundStep = true;
-
-        const int runIndex =
-            findRunIndexByStepIndex(step.index);
-
-        text += QString("  Step[%1] Run[%2] SourceGroup[%3] SourcePort[%4]")
-                    .arg(step.index)
-                    .arg(runIndex)
-                    .arg(step.sourceGroupIndex)
-                    .arg(step.sourcePortIndex);
-        if (inOutside)
-        {
-            text += " Outside";
-        }
-
-        if (inPort)
-        {
-            text += " Port";
-        }
-
-        text += "\n";
-    }
-
-    if (!foundStep)
-    {
-        text += "  なし\n";
-    }
-
-    text += "\nRuns reaching related groups:\n";
-
-    bool foundRun = false;
-
-    for (const auto& run : m_result.contextTrace.runs)
-    {
-        bool related = false;
-
-        for (const int groupIndex : run.reachedGroupIndices)
+        for (const int groupIndex : groupIndices)
         {
             const auto* group =
-                findGroupByGroupIndex(groupIndex);
+                HoleContextQuery::findGroupByIndex(
+                    m_result,
+                    groupIndex);
 
             if (group == nullptr)
             {
                 continue;
             }
 
-            if (std::find(
-                    group->geometryRefs.faceIndices.begin(),
-                    group->geometryRefs.faceIndices.end(),
-                    faceIndex) != group->geometryRefs.faceIndices.end())
-            {
-                related = true;
-                break;
-            }
+            text += QString("  Group[%1] %2 Faces=%3\n")
+                        .arg(group->index)
+                        .arg(toString(group->kind))
+                        .arg(formatIntList(group->geometryRefs.faceIndices));
         }
-
-        if (!related)
-        {
-            continue;
-        }
-
-        foundRun = true;
-
-        text += QString("  Run[%1] StartGroup[%2] Groups=%3 Walls=%4\n")
-                    .arg(run.index)
-                    .arg(run.startGroupIndex)
-                    .arg(static_cast<int>(run.reachedGroupIndices.size()))
-                    .arg(static_cast<int>(run.reachedWallGroupIndices.size()));
     }
 
-    if (!foundRun)
+    text += "\nSteps observing this face:\n";
+
+    const auto stepIndices =
+        HoleContextQuery::findStepIndicesReferencingFace(
+            m_result,
+            faceIndex);
+
+    if (stepIndices.empty())
     {
         text += "  なし\n";
+    }
+    else
+    {
+        for (const int stepIndex : stepIndices)
+        {
+            const auto* step =
+                HoleContextQuery::findStepByIndex(
+                    m_result,
+                    stepIndex);
+
+            if (step == nullptr)
+            {
+                continue;
+            }
+
+            const int runIndex =
+                HoleContextQuery::findRunIndexByStepIndex(
+                    m_result,
+                    step->index);
+
+            const bool inOutside =
+                HoleContextQuery::stepOutsideReferencesFace(
+                    *step,
+                    faceIndex);
+
+            const bool inPort =
+                HoleContextQuery::stepPortReferencesFace(
+                    *step,
+                    faceIndex);
+
+            text += QString("  Step[%1] Run[%2] SourceGroup[%3] SourcePort[%4]")
+                        .arg(step->index)
+                        .arg(runIndex)
+                        .arg(step->sourceGroupIndex)
+                        .arg(step->sourcePortIndex);
+
+            if (inOutside)
+            {
+                text += " Outside";
+            }
+
+            if (inPort)
+            {
+                text += " Port";
+            }
+
+            text += "\n";
+        }
+    }
+
+    text += "\nRuns reaching related groups:\n";
+
+    const auto runIndices =
+        HoleContextQuery::findRunIndicesRelatedToFace(
+            m_result,
+            faceIndex);
+
+    if (runIndices.empty())
+    {
+        text += "  なし\n";
+    }
+    else
+    {
+        for (const int runIndex : runIndices)
+        {
+            const auto* run =
+                HoleContextQuery::findRunByIndex(
+                    m_result,
+                    runIndex);
+
+            if (run == nullptr)
+            {
+                continue;
+            }
+
+            text += QString("  Run[%1] StartGroup[%2] Groups=%3 Walls=%4\n")
+                        .arg(run->index)
+                        .arg(run->startGroupIndex)
+                        .arg(static_cast<int>(run->reachedGroupIndices.size()))
+                        .arg(static_cast<int>(run->reachedWallGroupIndices.size()));
+        }
     }
 
     ui->plainPickedGeometryDetail->setPlainText(text);
@@ -327,13 +331,13 @@ void HoleDebugPanel::onTreeCurrentItemChanged(
 
     switch (kind)
     {
-    case ItemKind::TraceSessionsRoot:
-        showTraceSessionsRootDetail();
+    case ItemKind::TraceRunsRoot:
+        showTraceRunsRootDetail();
         emit selectionCleared();
         break;
 
-    case ItemKind::TraceSession:
-        showTraceSessionDetail(index);
+    case ItemKind::TraceRun:
+        showTraceRunDetail(index);
         emit selectionCleared();
         break;
 
@@ -387,8 +391,8 @@ void HoleDebugPanel::populateTree()
     ui->treeItems->clear();
     ui->plainDetail->clear();
 
-    auto* sessionsRoot = populateTraceSessionsRoot();
-    sessionsRoot->setExpanded(true);
+    auto* RunsRoot = populateTraceRunsRoot();
+    RunsRoot->setExpanded(true);
 
     auto* groupsRoot = populateGroupsRoot();
 
@@ -414,7 +418,7 @@ void HoleDebugPanel::populateTree()
     groupsRoot->setExpanded(false);
 }
 
-QTreeWidgetItem* HoleDebugPanel::populateTraceSessionsRoot()
+QTreeWidgetItem* HoleDebugPanel::populateTraceRunsRoot()
 {
     auto* rootItem = new QTreeWidgetItem(ui->treeItems);
 
@@ -426,7 +430,7 @@ QTreeWidgetItem* HoleDebugPanel::populateTraceSessionsRoot()
     rootItem->setData(
         0,
         ItemKindRole,
-        static_cast<int>(ItemKind::TraceSessionsRoot));
+        static_cast<int>(ItemKind::TraceRunsRoot));
 
     rootItem->setData(0, ItemIndexRole, -1);
     rootItem->setData(0, ItemSubIndexRole, -1);
@@ -446,12 +450,12 @@ QTreeWidgetItem* HoleDebugPanel::populateTraceSessionsRoot()
         runItem->setData(
             0,
             ItemKindRole,
-            static_cast<int>(ItemKind::TraceSession));
+            static_cast<int>(ItemKind::TraceRun));
 
         runItem->setData(0, ItemIndexRole, run.index);
         runItem->setData(0, ItemSubIndexRole, -1);
 
-        populateSessionReachedGroupsRoot(runItem, run);
+        populateRunReachedGroupsRoot(runItem, run);
     }
 
     rootItem->setExpanded(true);
@@ -459,7 +463,7 @@ QTreeWidgetItem* HoleDebugPanel::populateTraceSessionsRoot()
     return rootItem;
 }
 
-QTreeWidgetItem* HoleDebugPanel::populateSessionReachedGroupsRoot(
+QTreeWidgetItem* HoleDebugPanel::populateRunReachedGroupsRoot(
     QTreeWidgetItem* parentItem,
     const OccQtCore::Feature::HoleContextTraceRun& run)
 {
@@ -481,7 +485,9 @@ QTreeWidgetItem* HoleDebugPanel::populateSessionReachedGroupsRoot(
     for (const int groupIndex : run.reachedGroupIndices)
     {
         const auto* group =
-            findGroupByGroupIndex(groupIndex);
+            HoleContextQuery::findGroupByIndex(
+                m_result,
+                groupIndex);
 
         auto* groupItem = new QTreeWidgetItem(rootItem);
 
@@ -537,7 +543,7 @@ QTreeWidgetItem* HoleDebugPanel::populateGroupsRoot()
     return groupsRoot;
 }
 
-void HoleDebugPanel::showTraceSessionsRootDetail()
+void HoleDebugPanel::showTraceRunsRootDetail()
 {
     QString text;
 
@@ -552,10 +558,12 @@ void HoleDebugPanel::showTraceSessionsRootDetail()
     ui->plainDetail->setPlainText(text);
 }
 
-void HoleDebugPanel::showTraceSessionDetail(int runIndex)
+void HoleDebugPanel::showTraceRunDetail(int runIndex)
 {
     const auto* run =
-        findRunByRunIndex(runIndex);
+        HoleContextQuery::findRunByIndex(
+            m_result,
+            runIndex);
 
     if (run == nullptr)
     {
@@ -604,7 +612,9 @@ void HoleDebugPanel::showTraceSessionDetail(int runIndex)
 void HoleDebugPanel::showReachedGroupsRootDetail(int runIndex)
 {
     const auto* run =
-        findRunByRunIndex(runIndex);
+        HoleContextQuery::findRunByIndex(
+            m_result,
+            runIndex);
 
     if (run == nullptr)
     {
@@ -627,12 +637,14 @@ void HoleDebugPanel::showReachedGroupLinkDetail(
     int runIndex)
 {
     const auto* group =
-        findGroupByGroupIndex(groupIndex);
+        HoleContextQuery::findGroupByIndex(
+            m_result,
+            groupIndex);
 
     QString text;
 
     text += "種別: ReachedGroupLink\n";
-    text += QString("SessionIndex: %1\n").arg(runIndex);
+    text += QString("RunIndex: %1\n").arg(runIndex);
     text += QString("GroupIndex: %1\n").arg(groupIndex);
 
     if (group == nullptr)
@@ -678,7 +690,9 @@ void HoleDebugPanel::showGroupsRootDetail()
 void HoleDebugPanel::showGroupDetail(int groupIndex)
 {
     const auto* group =
-        findGroupByGroupIndex(groupIndex);
+        HoleContextQuery::findGroupByIndex(
+            m_result,
+            groupIndex);
 
     if (group == nullptr)
     {
@@ -719,48 +733,4 @@ void HoleDebugPanel::showGroupDetail(int groupIndex)
     }
 
     ui->plainDetail->setPlainText(text);
-}
-
-const OccQtCore::Feature::HoleContextTraceRun*
-HoleDebugPanel::findRunByRunIndex(int runIndex) const
-{
-    for (const auto& run : m_result.contextTrace.runs)
-    {
-        if (run.index == runIndex)
-        {
-            return &run;
-        }
-    }
-
-    return nullptr;
-}
-
-const OccQtCore::Feature::HoleContextGeometryGroup*
-HoleDebugPanel::findGroupByGroupIndex(int groupIndex) const
-{
-    for (const auto& group : m_result.contextGeometryGroups)
-    {
-        if (group.index == groupIndex)
-        {
-            return &group;
-        }
-    }
-
-    return nullptr;
-}
-
-int HoleDebugPanel::findRunIndexByStepIndex(int stepIndex) const
-{
-    for (const auto& run : m_result.contextTrace.runs)
-    {
-        if (std::find(
-                run.traceStepIndices.begin(),
-                run.traceStepIndices.end(),
-                stepIndex) != run.traceStepIndices.end())
-        {
-            return run.index;
-        }
-    }
-
-    return -1;
 }

@@ -50,13 +50,11 @@ private:
     {
         Unknown,
 
-        TraceSessionsRoot,
-        TraceSession,
+        TraceRunsRoot,
+        TraceRun,
 
         ReachedGroupsRoot,
         ReachedGroupLink,
-
-        SessionStepsRoot,
 
         GroupsRoot,
         Group,
@@ -68,9 +66,9 @@ private:
 
     void populateTree();
 
-    QTreeWidgetItem* populateTraceSessionsRoot();
+    QTreeWidgetItem* populateTraceRunsRoot();
 
-    QTreeWidgetItem* populateSessionReachedGroupsRoot(
+    QTreeWidgetItem* populateRunReachedGroupsRoot(
         QTreeWidgetItem* parentItem,
         const OccQtCore::Feature::HoleContextTraceRun& run);
 
@@ -81,31 +79,18 @@ private:
     QTreeWidgetItem* populateGroupsRoot();
 
 private:
-    void showTraceSessionsRootDetail();
-    void showTraceSessionDetail(int sessionIndex);
+    void showTraceRunsRootDetail();
+    void showTraceRunDetail(int sessionIndex);
 
     void showReachedGroupsRootDetail(int sessionIndex);
     void showReachedGroupLinkDetail(
         int groupIndex,
         int sessionIndex);
 
-    void showSessionStepsRootDetail(int sessionIndex);
-
     void showGroupsRootDetail();
     void showGroupDetail(int groupIndex);
 
     void showTraceStepDetail(int stepIndex);
-
-    const OccQtCore::Feature::HoleContextTraceRun*
-    findRunByRunIndex(int runIndex) const;
-
-    const OccQtCore::Feature::HoleContextGeometryGroup*
-    findGroupByGroupIndex(int groupIndex) const;
-
-    const OccQtCore::Feature::HoleContextTraceStep*
-    findStepByStepIndex(int stepIndex) const;
-
-    int findRunIndexByStepIndex(int stepIndex) const;
 
 private:
     Ui::HoleDebugPanel *ui;

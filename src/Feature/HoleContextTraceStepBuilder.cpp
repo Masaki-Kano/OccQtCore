@@ -1,10 +1,16 @@
 #include "Feature/HoleContextTraceStepBuilder.h"
 
 #include "Core/CollectionUtil.h"
+#include "Feature/HoleContextQuery.h"
 #include "Geometry/TopologyQuery.h"
 
 namespace OccQtCore::Feature
 {
+    namespace
+    {
+    namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
+    }
+
     HoleContextTraceStepBuilder::HoleContextTraceStepBuilder(
         const GeometryModel& model,
         const std::vector<HoleContextGeometryGroup>& groups,
@@ -44,7 +50,10 @@ namespace OccQtCore::Feature
 
     void HoleContextTraceStepBuilder::collectOutsideFaces(const HoleContextTracePort& port, HoleContextTraceStep& step) const
     {
-        const HoleContextGeometryGroup* sourceGroup = findGroupByIndex(port.sourceGroupIndex);
+        const HoleContextGeometryGroup* sourceGroup =
+            HoleContextQuery::findGroupByIndex(
+                m_groups,
+                port.sourceGroupIndex);
 
         if (sourceGroup == nullptr)
         {
@@ -53,16 +62,23 @@ namespace OccQtCore::Feature
 
         for (const int edgeIndex : port.geometryRefs.edgeIndices)
         {
-            const auto faceIndices = TopologyQuery::facesOfEdge(m_model, edgeIndex);
+            const auto faceIndices =
+                TopologyQuery::facesOfEdge(
+                    m_model,
+                    edgeIndex);
 
             for (const int faceIndex : faceIndices)
             {
-                if (isFaceInGroup(faceIndex, *sourceGroup))
+                if (HoleContextQuery::groupContainsFace(
+                        *sourceGroup,
+                        faceIndex))
                 {
                     continue;
                 }
 
-                CollectionUtil::addUnique(step.outsideGeometryRefs.faceIndices, faceIndex);
+                CollectionUtil::addUnique(
+                    step.outsideGeometryRefs.faceIndices,
+                    faceIndex);
             }
         }
 
@@ -81,28 +97,5 @@ namespace OccQtCore::Feature
 
         step.kind = HoleContextTraceStepKind::OutsideFace;
         step.note = "Found outside adjacent faces.";
-    }
-
-    const HoleContextGeometryGroup* HoleContextTraceStepBuilder::findGroupByIndex(
-        int groupIndex) const
-    {
-        for (const auto& group : m_groups)
-        {
-            if (group.index == groupIndex)
-            {
-                return &group;
-            }
-        }
-
-        return nullptr;
-    }
-
-    bool HoleContextTraceStepBuilder::isFaceInGroup(
-        int faceIndex,
-        const HoleContextGeometryGroup& group) const
-    {
-        return CollectionUtil::contains(
-            group.geometryRefs.faceIndices,
-            faceIndex);
     }
 }

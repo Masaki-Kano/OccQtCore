@@ -23,10 +23,6 @@ namespace OccQtCore::Feature
 
         void classifyStep(HoleContextTraceStep& step) const;
 
-        const HoleContextGeometryGroup* findGroupByIndex(int groupIndex) const;
-
-        bool isFaceInGroup(int faceIndex, const HoleContextGeometryGroup& group) const;
-
     private:
         const GeometryModel& m_model;
         const std::vector<HoleContextGeometryGroup>& m_groups;

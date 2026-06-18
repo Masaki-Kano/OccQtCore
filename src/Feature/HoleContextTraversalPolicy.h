@@ -47,8 +47,6 @@ namespace OccQtCore::Feature
     private:
         HoleContextTraversalDecision decideCommonStop(const Context& context) const;
 
-        const HoleContextGeometryGroup* findGroupByIndex(const std::vector<HoleContextGeometryGroup>& groups, int groupIndex) const;
-
         bool isEmptyGeometryRefs(const GeometryRefs& refs) const;
     };
 }
