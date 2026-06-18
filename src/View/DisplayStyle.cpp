@@ -15,9 +15,10 @@ DisplayStyle DisplayStyle::preset(Preset preset)
         break;
 
     case Preset::PickHighlightFace:
-        style.color = Quantity_Color(Quantity_NOC_CYAN);
-        style.transparency = 0.45;
-        style.displayMode = AIS_Shaded;
+        style.displayMode = AIS_WireFrame;
+        style.color = Quantity_Color(Quantity_NOC_YELLOW);
+        style.transparency = 0.0;
+        style.lineWidth = 4.0;
         break;
 
     case Preset::ContextGroupFace:

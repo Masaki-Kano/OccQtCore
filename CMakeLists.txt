@@ -110,6 +110,12 @@ qt_add_executable(OccQtCore
     src/Feature/HoleRecognitionWorkingData.h
     src/Feature/HoleContextQuery.h
     src/Feature/HoleContextQuery.cpp
+    src/View/DisplayObjectRegistry.h
+    src/View/DisplayObjectRegistry.cpp
+    src/View/AisDisplayManager.h
+    src/View/AisDisplayManager.cpp
+    src/View/OccPickController.h
+    src/View/OccPickController.cpp
 
 )
 

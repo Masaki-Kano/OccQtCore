@@ -7,15 +7,21 @@ namespace OccQtCore
 
     enum class DisplayLayer
     {
-        Shape,
-        PickHighlight,
+        Model,
+        PickOverlay,
+        TemporaryOverlay
+    };
 
-        Analysis,
-        AnalysisContextGroup,
-        AnalysisTracePort,
+    enum class DisplayObjectSourceKind
+    {
+        Unknown,
 
-        Helper,
-        Temporary
+        Model,
+        Pick,
+
+        DebugContextGroup,
+        DebugTracePort,
+        DebugTraceStep
     };
 
 }

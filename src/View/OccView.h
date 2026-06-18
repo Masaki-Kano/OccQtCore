@@ -1,26 +1,27 @@
 #ifndef OCCVIEW_H
 #define OCCVIEW_H
 
+#include <memory>
 #include <vector>
 
 #include <QPoint>
 #include <QWidget>
 
+#include <AIS_DisplayMode.hxx>
 #include <AIS_InteractiveContext.hxx>
-#include <AIS_InteractiveObject.hxx>
-#include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <Quantity_Color.hxx>
 #include <TopoDS_Shape.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
-#include <Quantity_Color.hxx>
-#include <AIS_DisplayMode.hxx>
-#include <Quantity_NameOfColor.hxx>
 
 #include "Core/PickResult.h"
-#include "View/DisplayTypes.h"
+#include "View/AisDisplayManager.h"
+#include "View/DisplayObjectRegistry.h"
 #include "View/DisplayStyle.h"
+#include "View/DisplayTypes.h"
+#include "View/OccPickController.h"
 
 class QMouseEvent;
 class QWheelEvent;
@@ -39,32 +40,29 @@ namespace OccQtCore
 
         QPaintEngine* paintEngine() const override;
 
-        DisplayObjectId displayObject(
-            const Handle(AIS_InteractiveObject)& object,
-            DisplayLayer layer = DisplayLayer::Shape);
-
-        DisplayObjectId displayShape(
-            const TopoDS_Shape& shape,
-            DisplayLayer layer = DisplayLayer::Shape);
-
         DisplayObjectId displayShape(
             const TopoDS_Shape& shape,
             DisplayLayer layer,
-            const DisplayStyle& style);
+            const DisplayStyle& style,
+            DisplayObjectSourceKind sourceKind = DisplayObjectSourceKind::Unknown,
+            int sourceElementIndex = -1);
 
         std::vector<DisplayObjectId> displayShapes(
             const std::vector<TopoDS_Shape>& shapes,
             DisplayLayer layer,
-            const DisplayStyle& style);
+            const DisplayStyle& style,
+            DisplayObjectSourceKind sourceKind = DisplayObjectSourceKind::Unknown,
+            int sourceElementIndex = -1);
+
+        const DisplayObjectRegistry& displayObjectRegistry() const;
 
         void removeObject(DisplayObjectId id);
+
         void clearLayer(DisplayLayer layer);
-        void clearAnalysisLayers();
-        void clearHoleAnalysisLayers();
+        void clearLayers(const std::vector<DisplayLayer>& layers);
         void clearAll();
 
         void fitAll();
-
         void viewX();
         void viewY();
         void viewZ();
@@ -74,6 +72,7 @@ namespace OccQtCore
         void setWireframeMode();
         void setShapeColor(const Quantity_Color& color);
 
+        void updateViewer();
         void redraw();
 
     signals:
@@ -104,24 +103,10 @@ namespace OccQtCore
 
         void setShapeDisplayMode(AIS_DisplayMode displayMode);
 
-        void applyDisplayStyle(
-            const Handle(AIS_InteractiveObject)& object,
-            const DisplayStyle& style);
-
         bool isClickOperation(const QPoint& releasePos) const;
-        PickedShapeType toPickedShapeType(TopAbs_ShapeEnum shapeType);
-        DisplayObjectId findDisplayObjectId(const Handle(AIS_InteractiveObject)& object) const;
         void pickAt(const QPoint& pos);
 
     private:
-        // OccView内部だけで使う表示管理情報
-        struct DisplayObject
-        {
-            DisplayObjectId id = -1;
-            DisplayLayer layer = DisplayLayer::Shape;
-            Handle(AIS_InteractiveObject) object;
-        };
-
         enum class MouseMode
         {
             None,
@@ -143,8 +128,8 @@ namespace OccQtCore
         Handle(V3d_View) m_view;
         Handle(AIS_InteractiveContext) m_context;
 
-        std::vector<DisplayObject> m_displayObjects;
-        DisplayObjectId m_nextDisplayObjectId = 1;
+        std::unique_ptr<AisDisplayManager> m_aisDisplayManager;
+        std::unique_ptr<OccPickController> m_pickController;
 
         MouseState m_mouseState;
 

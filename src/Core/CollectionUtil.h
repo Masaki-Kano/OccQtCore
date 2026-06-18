@@ -30,6 +30,85 @@ namespace OccQtCore::CollectionUtil
             std::unique(values.begin(), values.end()),
             values.end());
     }
+
+    template <typename T, typename Predicate>
+    const T* findPtr(
+        const std::vector<T>& values,
+        Predicate predicate)
+    {
+        const auto it =
+            std::find_if(
+                values.begin(),
+                values.end(),
+                predicate);
+
+        if (it == values.end())
+        {
+            return nullptr;
+        }
+
+        return &(*it);
+    }
+
+    template <typename T, typename Predicate>
+    T* findPtr(
+        std::vector<T>& values,
+        Predicate predicate)
+    {
+        const auto it =
+            std::find_if(
+                values.begin(),
+                values.end(),
+                predicate);
+
+        if (it == values.end())
+        {
+            return nullptr;
+        }
+
+        return &(*it);
+    }
+
+    template <typename T, typename Predicate>
+    void removeIf(
+        std::vector<T>& values,
+        Predicate predicate)
+    {
+        const auto it =
+            std::remove_if(
+                values.begin(),
+                values.end(),
+                predicate);
+
+        values.erase(
+            it,
+            values.end());
+    }
+
+    template <typename T, typename Predicate>
+    std::vector<T> takeIf(
+        std::vector<T>& values,
+        Predicate predicate)
+    {
+        std::vector<T> takenValues;
+
+        auto it = values.begin();
+
+        while (it != values.end())
+        {
+            if (predicate(*it))
+            {
+                takenValues.push_back(*it);
+                it = values.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        return takenValues;
+    }
 }
 
 #endif // COLLECTIONUTIL_H

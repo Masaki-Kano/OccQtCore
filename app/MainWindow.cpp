@@ -211,8 +211,15 @@ void MainWindow::openStepFile(const QString& filePath)
     m_document.setShape(result.shape);
 
     // ビュー処理
-    m_occView->clearLayer(OccQtCore::DisplayLayer::Shape);
-    m_occView->displayShape(m_document.shape(), OccQtCore::DisplayLayer::Shape);
+    m_occView->clearLayer(
+        OccQtCore::DisplayLayer::Model);
+    m_occView->displayShape(
+        m_document.shape(),
+        OccQtCore::DisplayLayer::Model,
+        OccQtCore::DisplayStyle::preset(
+            OccQtCore::DisplayStyle::Preset::DefaultShape),
+        OccQtCore::DisplayObjectSourceKind::Model,
+        -1);
     m_occView->fitAll();
 
     // ログ
@@ -223,7 +230,8 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 {
     m_selectionInfo = OccQtCore::SelectionInfo{};
 
-    m_occView->clearLayer(OccQtCore::DisplayLayer::PickHighlight);
+    m_occView->clearLayer(
+        OccQtCore::DisplayLayer::PickOverlay);
 
     if (!result.hasShape)
     {
@@ -248,6 +256,14 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
     m_selectionInfo.elementIndex = elementIndex;
     m_selectionInfo.sourceDisplayObjectId = result.sourceDisplayObjectId;
 
+    m_occView->displayShape(
+        m_selectionInfo.shape,
+        OccQtCore::DisplayLayer::PickOverlay,
+        OccQtCore::DisplayStyle::preset(
+            OccQtCore::DisplayStyle::Preset::PickHighlightFace),
+        OccQtCore::DisplayObjectSourceKind::Pick,
+        m_selectionInfo.elementIndex);
+
     m_logReporter->logSelection(m_selectionInfo);
 
     if (m_holeDebugPanel)
@@ -263,8 +279,6 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
             m_holeDebugPanel->clearPickedGeometryDetail();
         }
     }
-
-    return;
 }
 
 QString MainWindow::defaultOpenDirectory() const
@@ -455,8 +469,8 @@ void MainWindow::applyHoleContextGroupSelection(int groupIndex)
         return;
     }
 
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
+    m_occView->clearLayer(
+        OccQtCore::DisplayLayer::TemporaryOverlay);
 
     const auto& geometryModel = m_document.geometryModel();
 
@@ -474,8 +488,10 @@ void MainWindow::applyHoleContextGroupSelection(int groupIndex)
 
         m_occView->displayShape(
             face->shape,
-            OccQtCore::DisplayLayer::AnalysisContextGroup,
-            groupStyle);
+            OccQtCore::DisplayLayer::TemporaryOverlay,
+            groupStyle,
+            OccQtCore::DisplayObjectSourceKind::DebugContextGroup,
+            groupIndex);
     }
 
     m_occView->redraw();
@@ -494,8 +510,8 @@ void MainWindow::applyHoleTracePortSelection(int portIndex)
         return;
     }
 
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
+    m_occView->clearLayer(
+        OccQtCore::DisplayLayer::TemporaryOverlay);
 
     const auto& geometryModel = m_document.geometryModel();
 
@@ -513,8 +529,10 @@ void MainWindow::applyHoleTracePortSelection(int portIndex)
 
         m_occView->displayShape(
             edge->shape,
-            OccQtCore::DisplayLayer::AnalysisTracePort,
-            portStyle);
+            OccQtCore::DisplayLayer::TemporaryOverlay,
+            portStyle,
+            OccQtCore::DisplayObjectSourceKind::DebugTracePort,
+            portIndex);
     }
 
     m_occView->redraw();
@@ -533,8 +551,8 @@ void MainWindow::applyHoleTraceStepSelection(int stepIndex)
         return;
     }
 
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
+    m_occView->clearLayer(
+        OccQtCore::DisplayLayer::TemporaryOverlay);
 
     const auto& geometryModel = m_document.geometryModel();
 
@@ -552,8 +570,10 @@ void MainWindow::applyHoleTraceStepSelection(int stepIndex)
 
         m_occView->displayShape(
             face->shape,
-            OccQtCore::DisplayLayer::AnalysisContextGroup,
-            outsideFaceStyle);
+            OccQtCore::DisplayLayer::TemporaryOverlay,
+            outsideFaceStyle,
+            OccQtCore::DisplayObjectSourceKind::DebugTraceStep,
+            stepIndex);
     }
 
     const auto portEdgeStyle = OccQtCore::DisplayStyle::preset(
@@ -570,8 +590,10 @@ void MainWindow::applyHoleTraceStepSelection(int stepIndex)
 
         m_occView->displayShape(
             edge->shape,
-            OccQtCore::DisplayLayer::AnalysisTracePort,
-            portEdgeStyle);
+            OccQtCore::DisplayLayer::TemporaryOverlay,
+            portEdgeStyle,
+            OccQtCore::DisplayObjectSourceKind::DebugTraceStep,
+            stepIndex);
     }
 
     m_occView->redraw();
@@ -579,8 +601,7 @@ void MainWindow::applyHoleTraceStepSelection(int stepIndex)
 
 void MainWindow::clearHoleDebugSelection()
 {
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
-    m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
-    m_occView->redraw();
+    m_occView->clearLayer(
+        OccQtCore::DisplayLayer::TemporaryOverlay);
 }
 

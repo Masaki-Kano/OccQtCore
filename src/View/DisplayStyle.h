@@ -19,8 +19,9 @@ struct DisplayStyle
     };
 
     Quantity_Color color = Quantity_Color(Quantity_NOC_WHITE);
-    double transparency = 0.0;
     AIS_DisplayMode displayMode = AIS_Shaded;
+    double lineWidth = 1.0;
+    double transparency = 0.0;
 
     static DisplayStyle preset(Preset preset);
 };

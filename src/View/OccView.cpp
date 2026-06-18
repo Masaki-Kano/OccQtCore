@@ -1,7 +1,5 @@
 #include "OccView.h"
 
-#include <algorithm>
-
 #include <QPaintEngine>
 #include <QPaintEvent>
 #include <QResizeEvent>
@@ -9,17 +7,12 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
-#include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <Quantity_Color.hxx>
 #include <V3d_View.hxx>
-#include <V3d_TypeOfOrientation.hxx>
 #include <WNT_Window.hxx>
-
-#include "Geometry/GeometryModel.h"
 
 namespace OccQtCore
 {
@@ -229,6 +222,15 @@ namespace OccQtCore
         m_view->MustBeResized();
         m_view->Redraw();
 
+        m_aisDisplayManager =
+            std::make_unique<AisDisplayManager>(m_context);
+
+        m_pickController =
+            std::make_unique<OccPickController>(
+                m_context,
+                m_view,
+                m_aisDisplayManager.get());
+
         m_initialized = true;
     }
 
@@ -260,7 +262,7 @@ namespace OccQtCore
         }
 
         m_view->Rotation(pos.x(), pos.y());
-        m_view->Redraw();
+        redraw();
     }
 
     void OccView::updatePan(const QPoint& pos)
@@ -273,7 +275,7 @@ namespace OccQtCore
         const QPoint delta = pos - m_mouseState.lastPos;
 
         m_view->Pan(delta.x(), -delta.y());
-        m_view->Redraw();
+        redraw();
     }
 
     void OccView::endMouseOperation()
@@ -289,50 +291,24 @@ namespace OccQtCore
         }
 
         m_view->SetZoom(factor);
-        m_view->Redraw();
+        redraw();
     }
 
     void OccView::setShapeDisplayMode(AIS_DisplayMode displayMode)
     {
-        if (!isInitialized())
-        {
-            return;
-        }
-
         m_shapeStyle.displayMode = displayMode;
 
-        for (const DisplayObject& displayObject : m_displayObjects)
-        {
-            if (displayObject.layer != DisplayLayer::Shape)
-            {
-                continue;
-            }
-
-            applyDisplayStyle(displayObject.object, m_shapeStyle);
-        }
-
-        m_context->UpdateCurrentViewer();
-        redraw();
-    }
-
-    void OccView::applyDisplayStyle(
-        const Handle(AIS_InteractiveObject)& object,
-        const DisplayStyle& style)
-    {
-        if (!isInitialized())
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
         {
             return;
         }
 
-        if (object.IsNull())
-        {
-            return;
-        }
+        m_aisDisplayManager->applyStyleToLayer(
+            DisplayLayer::Model,
+            m_shapeStyle);
 
-        m_context->SetDisplayMode(object, style.displayMode, Standard_False);
-        m_context->SetColor(object, style.color, Standard_False);
-        m_context->SetTransparency(object, style.transparency, Standard_False);
-        m_context->Redisplay(object, Standard_False);
+        updateViewer();
     }
 
     bool OccView::isClickOperation(const QPoint& releasePos) const
@@ -345,176 +321,64 @@ namespace OccQtCore
         return moveDistance <= ClickMoveThreshold;
     }
 
-    PickedShapeType OccView::toPickedShapeType(TopAbs_ShapeEnum shapeType)
-    {
-        switch (shapeType)
-        {
-        case TopAbs_VERTEX:
-            return PickedShapeType::Vertex;
-
-        case TopAbs_EDGE:
-            return PickedShapeType::Edge;
-
-        case TopAbs_FACE:
-            return PickedShapeType::Face;
-
-        case TopAbs_SOLID:
-            return PickedShapeType::Solid;
-
-        default:
-            return PickedShapeType::Unknown;
-        }
-    }
-
-    DisplayObjectId OccView::findDisplayObjectId(
-        const Handle(AIS_InteractiveObject)& object) const
-    {
-        if (object.IsNull())
-        {
-            return -1;
-        }
-
-        for (const DisplayObject& displayObject : m_displayObjects)
-        {
-            if (displayObject.object == object)
-            {
-                return displayObject.id;
-            }
-        }
-
-        return -1;
-    }
-
     void OccView::pickAt(const QPoint& pos)
     {
-        if (!isInitialized())
+        if (!isInitialized() ||
+            !m_pickController)
         {
             return;
         }
 
-        PickResult result;
+        const PickResult result =
+            m_pickController->pickAt(pos);
 
-        m_context->MoveTo(pos.x(), pos.y(), m_view, Standard_True);
-
-        if (!m_context->HasDetected())
-        {
-            emit shapePicked(result);
-            return;
-        }
-
-        const Handle(AIS_InteractiveObject) pickedObject =
-            m_context->DetectedInteractive();
-
-        m_context->SelectDetected(AIS_SelectionScheme_Replace);
-        m_context->InitSelected();
-
-        if (!m_context->MoreSelected())
-        {
-            emit shapePicked(result);
-            return;
-        }
-
-        const TopoDS_Shape pickedShape = m_context->SelectedShape();
-
-        if (pickedShape.IsNull())
-        {
-            emit shapePicked(result);
-            return;
-        }
-
-        result.hasShape = true;
-        result.shape = pickedShape;
-        result.type = toPickedShapeType(pickedShape.ShapeType());
-        result.sourceDisplayObjectId = findDisplayObjectId(pickedObject);
+        updateViewer();
 
         emit shapePicked(result);
     }
 
-    DisplayObjectId OccView::displayObject(
-        const Handle(AIS_InteractiveObject)& object,
-        DisplayLayer layer)
+    const DisplayObjectRegistry& OccView::displayObjectRegistry() const
     {
-        if (object.IsNull())
+        static const DisplayObjectRegistry EmptyRegistry;
+
+        if (!m_aisDisplayManager)
         {
-            return -1;
+            return EmptyRegistry;
         }
 
-        if (!isInitialized())
-        {
-            initializeOcc();
-        }
-
-        if (!isInitialized())
-        {
-            return -1;
-        }
-
-        const DisplayObjectId id = m_nextDisplayObjectId++;
-
-        DisplayObject displayObject;
-        displayObject.id = id;
-        displayObject.layer = layer;
-        displayObject.object = object;
-
-        m_displayObjects.push_back(displayObject);
-
-        m_context->Display(object, Standard_False);
-
-        if (layer == DisplayLayer::Shape)
-        {
-            applyDisplayStyle(object, m_shapeStyle);
-        }
-
-        m_context->UpdateCurrentViewer();
-        redraw();
-
-        return id;
-    }
-
-    DisplayObjectId OccView::displayShape(
-        const TopoDS_Shape& shape,
-        DisplayLayer layer)
-    {
-        if (shape.IsNull())
-        {
-            return -1;
-        }
-
-        Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
-
-        const DisplayObjectId id = displayObject(aisShape, layer);
-
-        if (layer == DisplayLayer::Shape && isInitialized())
-        {
-            m_context->Activate(aisShape, 0);
-            m_context->Activate(aisShape, AIS_Shape::SelectionMode(TopAbs_FACE));
-            m_context->Activate(aisShape, AIS_Shape::SelectionMode(TopAbs_EDGE));
-            m_context->Activate(aisShape, AIS_Shape::SelectionMode(TopAbs_VERTEX));
-
-            m_context->UpdateCurrentViewer();
-        }
-
-        return id;
+        return m_aisDisplayManager->registry();
     }
 
     DisplayObjectId OccView::displayShape(
         const TopoDS_Shape& shape,
         DisplayLayer layer,
-        const DisplayStyle& style)
+        const DisplayStyle& style,
+        DisplayObjectSourceKind sourceKind,
+        int sourceElementIndex)
     {
-        Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
-
-        const DisplayObjectId id = displayObject(aisShape, layer);
-
-        if (id < 0 || !isInitialized())
+        if (!isInitialized())
         {
-            return id;
+            initializeOcc();
         }
 
-        applyDisplayStyle(aisShape, style);
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
+        {
+            return -1;
+        }
 
-        m_context->UpdateCurrentViewer();
-        redraw();
+        const DisplayObjectId id =
+            m_aisDisplayManager->displayShape(
+                shape,
+                layer,
+                style,
+                sourceKind,
+                sourceElementIndex);
+
+        if (id >= 0)
+        {
+            updateViewer();
+        }
 
         return id;
     }
@@ -522,122 +386,83 @@ namespace OccQtCore
     std::vector<DisplayObjectId> OccView::displayShapes(
         const std::vector<TopoDS_Shape>& shapes,
         DisplayLayer layer,
-        const DisplayStyle& style)
+        const DisplayStyle& style,
+        DisplayObjectSourceKind sourceKind,
+        int sourceElementIndex)
     {
-        std::vector<DisplayObjectId> ids;
-        ids.reserve(shapes.size());
-
-        for (const auto& shape : shapes)
+        if (!isInitialized())
         {
-            if (shape.IsNull())
-                continue;
-
-            const DisplayObjectId id = displayShape(shape, layer, style);
-
-            if (id >= 0)
-            {
-                ids.push_back(id);
-            }
+            initializeOcc();
         }
 
-        redraw();
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
+        {
+            return {};
+        }
+
+        const auto ids =
+            m_aisDisplayManager->displayShapes(
+                shapes,
+                layer,
+                style,
+                sourceKind,
+                sourceElementIndex);
+
+        if (!ids.empty())
+        {
+            updateViewer();
+        }
 
         return ids;
     }
 
     void OccView::removeObject(DisplayObjectId id)
     {
-        if (!isInitialized())
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
         {
             return;
         }
 
-        auto it = std::find_if(
-            m_displayObjects.begin(),
-            m_displayObjects.end(),
-            [id](const DisplayObject& displayObject)
-            {
-                return displayObject.id == id;
-            });
-
-        if (it == m_displayObjects.end())
-        {
-            return;
-        }
-
-        if (!it->object.IsNull())
-        {
-            m_context->Remove(it->object, Standard_False);
-        }
-
-        m_displayObjects.erase(it);
-
-        m_context->UpdateCurrentViewer();
-        redraw();
+        m_aisDisplayManager->removeObject(id);
+        updateViewer();
     }
 
     void OccView::clearLayer(DisplayLayer layer)
     {
-        if (!isInitialized())
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
         {
             return;
         }
 
-        auto it = m_displayObjects.begin();
+        m_aisDisplayManager->clearLayer(layer);
+        updateViewer();
+    }
 
-        while (it != m_displayObjects.end())
+    void OccView::clearLayers(
+        const std::vector<DisplayLayer>& layers)
+    {
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
         {
-            if (it->layer == layer)
-            {
-                if (!it->object.IsNull())
-                {
-                    m_context->Remove(it->object, Standard_False);
-                }
-
-                it = m_displayObjects.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
+            return;
         }
 
-        m_context->UpdateCurrentViewer();
-        redraw();
-    }
-
-    void OccView::clearAnalysisLayers()
-    {
-        clearLayer(DisplayLayer::Analysis);
-        clearHoleAnalysisLayers();
-    }
-
-    void OccView::clearHoleAnalysisLayers()
-    {
-        clearLayer(DisplayLayer::AnalysisContextGroup);
-        clearLayer(DisplayLayer::AnalysisTracePort);
+        m_aisDisplayManager->clearLayers(layers);
+        updateViewer();
     }
 
     void OccView::clearAll()
     {
-        if (!isInitialized())
+        if (!m_aisDisplayManager)
         {
-            m_displayObjects.clear();
             return;
         }
 
-        for (const DisplayObject& displayObject : m_displayObjects)
-        {
-            if (!displayObject.object.IsNull())
-            {
-                m_context->Remove(displayObject.object, Standard_False);
-            }
-        }
-
-        m_displayObjects.clear();
-
-        m_context->UpdateCurrentViewer();
-        redraw();
+        m_aisDisplayManager->clearAll();
+        updateViewer();
     }
 
     void OccView::fitAll()
@@ -711,22 +536,26 @@ namespace OccQtCore
     {
         m_shapeStyle.color = color;
 
-        if (!isInitialized())
+        if (!isInitialized() ||
+            !m_aisDisplayManager)
         {
             return;
         }
 
-        for (const DisplayObject& displayObject : m_displayObjects)
-        {
-            if (displayObject.layer != DisplayLayer::Shape)
-            {
-                continue;
-            }
+        m_aisDisplayManager->applyStyleToLayer(
+            DisplayLayer::Model,
+            m_shapeStyle);
 
-            applyDisplayStyle(displayObject.object, m_shapeStyle);
+        updateViewer();
+    }
+
+    void OccView::updateViewer()
+    {
+        if (!m_context.IsNull())
+        {
+            m_context->UpdateCurrentViewer();
         }
 
-        m_context->UpdateCurrentViewer();
         redraw();
     }
 
