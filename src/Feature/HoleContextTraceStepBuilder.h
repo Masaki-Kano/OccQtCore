@@ -21,15 +21,11 @@ namespace OccQtCore::Feature
 
         void collectOutsideFaces(const HoleContextTracePort& port, HoleContextTraceStep& step) const;
 
-        void collectAdjacentExistingGroups(HoleContextTraceStep& step) const;
-
         void classifyStep(HoleContextTraceStep& step) const;
 
         const HoleContextGeometryGroup* findGroupByIndex(int groupIndex) const;
 
         bool isFaceInGroup(int faceIndex, const HoleContextGeometryGroup& group) const;
-
-        int findGroupIndexContainingFace(int faceIndex) const;
 
     private:
         const GeometryModel& m_model;

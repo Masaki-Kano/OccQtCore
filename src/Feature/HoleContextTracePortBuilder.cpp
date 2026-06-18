@@ -42,6 +42,29 @@ namespace OccQtCore::Feature
     }
 
     std::vector<HoleContextTracePort>
+    HoleContextTracePortBuilder::buildForGroup(
+        const std::vector<HoleContextGeometryGroup>& groups,
+        int sourceGroupIndex,
+        int startPortIndex) const
+    {
+        for (const auto& group : groups)
+        {
+            if (group.index != sourceGroupIndex)
+            {
+                continue;
+            }
+
+            int nextPortIndex = startPortIndex;
+
+            return buildPortsOfGroup(
+                group,
+                nextPortIndex);
+        }
+
+        return {};
+    }
+
+    std::vector<HoleContextTracePort>
     HoleContextTracePortBuilder::buildPortsOfGroup(
         const HoleContextGeometryGroup& group,
         int& nextPortIndex) const
@@ -264,7 +287,7 @@ namespace OccQtCore::Feature
         const HoleContextGeometryGroup& group,
         HoleContextTracePort& port) const
     {
-        if (!group.hasAxis)
+        if (!group.hasReferenceDirection)
         {
             return;
         }
@@ -289,9 +312,9 @@ namespace OccQtCore::Feature
 
             const gp_Pnt point = BRep_Tool::Pnt(vertexData->shape);
 
-            const gp_Vec axisVector(group.axisPoint, point);
+            const gp_Vec axisVector(group.referencePoint, point);
             const double axial =
-                axisVector.Dot(gp_Vec(group.axisDirection));
+                axisVector.Dot(gp_Vec(group.referenceDirection));
 
             if (!hasValue)
             {

@@ -10,8 +10,6 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
-#include <QDebug>
-
 namespace
 {
     constexpr int ItemKindRole = Qt::UserRole + 1;
@@ -50,6 +48,23 @@ namespace
             .arg(direction.Z(), 0, 'f', 6);
     }
 
+    QString formatGroupIndexList(const std::vector<int>& values)
+    {
+        if (values.empty())
+        {
+            return "なし";
+        }
+
+        QStringList texts;
+
+        for (const int value : values)
+        {
+            texts << QString("Group[%1]").arg(value);
+        }
+
+        return texts.join(", ");
+    }
+
     QString toString(OccQtCore::Feature::HoleContextGeometryGroupKind kind)
     {
         using Kind = OccQtCore::Feature::HoleContextGeometryGroupKind;
@@ -58,56 +73,12 @@ namespace
         {
         case Kind::Unknown:
             return "Unknown";
-        case Kind::Cylindrical:
-            return "Cylindrical";
-        case Kind::Planar:
-            return "Planar";
-        case Kind::Conical:
-            return "Conical";
-        case Kind::Toroidal:
-            return "Toroidal";
-        case Kind::Mixed:
-            return "Mixed";
-        case Kind::Ambiguous:
-            return "Ambiguous";
-        }
-
-        return "Unknown";
-    }
-
-    QString toString(OccQtCore::Feature::HoleContextTracePortKind kind)
-    {
-        using Kind = OccQtCore::Feature::HoleContextTracePortKind;
-
-        switch (kind)
-        {
-        case Kind::Unknown:
-            return "Unknown";
-        case Kind::ExternalTransition:
-            return "ExternalTransition";
-        case Kind::InternalLoop:
-            return "InternalLoop";
-        case Kind::Ambiguous:
-            return "Ambiguous";
-        }
-
-        return "Unknown";
-    }
-
-    QString toString(OccQtCore::Feature::HoleContextTraceStepKind kind)
-    {
-        using Kind = OccQtCore::Feature::HoleContextTraceStepKind;
-
-        switch (kind)
-        {
-        case Kind::Unknown:
-            return "Unknown";
-        case Kind::NoOutsideFace:
-            return "NoOutsideFace";
-        case Kind::OutsideFace:
-            return "OutsideFace";
-        case Kind::ReachedExistingGroup:
-            return "ReachedExistingGroup";
+        case Kind::WallCandidate:
+            return "WallCandidate";
+        case Kind::BoundaryCandidate:
+            return "BoundaryCandidate";
+        case Kind::TransitionCandidate:
+            return "TransitionCandidate";
         case Kind::Ambiguous:
             return "Ambiguous";
         }
@@ -146,9 +117,9 @@ void HoleDebugPanel::setRecognitionResult(const OccQtCore::Feature::HoleRecognit
     populateTree();
 
     setStatusText(
-        QString("Build completed. Groups: %1, Ports: %2, Steps: %3")
+        QString("Build completed. Sessions: %1, Groups: %2, Steps: %3")
+            .arg(static_cast<int>(m_result.contextTraceSessions.size()))
             .arg(static_cast<int>(m_result.contextGeometryGroups.size()))
-            .arg(static_cast<int>(m_result.contextTracePorts.size()))
             .arg(static_cast<int>(m_result.contextTraceSteps.size())));
 }
 
@@ -159,7 +130,7 @@ void HoleDebugPanel::clear()
     ui->treeItems->clear();
     ui->plainDetail->clear();
 
-    populateGroupsRoot();
+    populateTree();
 
     setStatusText("Cleared");
 }
@@ -213,6 +184,26 @@ void HoleDebugPanel::onTreeCurrentItemChanged(
 
     switch (kind)
     {
+    case ItemKind::TraceSessionsRoot:
+        showTraceSessionsRootDetail();
+        emit selectionCleared();
+        break;
+
+    case ItemKind::TraceSession:
+        showTraceSessionDetail(index);
+        emit selectionCleared();
+        break;
+
+    case ItemKind::ReachedGroupsRoot:
+        showReachedGroupsRootDetail(index);
+        emit selectionCleared();
+        break;
+
+    case ItemKind::ReachedGroupLink:
+        showReachedGroupLinkDetail(index, subIndex);
+        emit groupSelected(index);
+        break;
+
     case ItemKind::GroupsRoot:
         showGroupsRootDetail();
         emit selectionCleared();
@@ -221,26 +212,6 @@ void HoleDebugPanel::onTreeCurrentItemChanged(
     case ItemKind::Group:
         showGroupDetail(index);
         emit groupSelected(index);
-        break;
-
-    case ItemKind::TracePortsRoot:
-        showTracePortsRootDetail(index);
-        emit selectionCleared();
-        break;
-
-    case ItemKind::TracePort:
-        showTracePortDetail(index);
-        emit tracePortSelected(index);
-        break;
-
-    case ItemKind::TraceStepsRoot:
-        showTraceStepsRootDetail(index);
-        emit selectionCleared();
-        break;
-
-    case ItemKind::TraceStep:
-        showTraceStepDetail(index);
-        emit traceStepSelected(index);
         break;
 
     case ItemKind::Unknown:
@@ -273,12 +244,13 @@ void HoleDebugPanel::populateTree()
     ui->treeItems->clear();
     ui->plainDetail->clear();
 
+    auto* sessionsRoot = populateTraceSessionsRoot();
+    sessionsRoot->setExpanded(true);
+
     auto* groupsRoot = populateGroupsRoot();
 
-    for (int i = 0; i < static_cast<int>(m_result.contextGeometryGroups.size()); ++i)
+    for (const auto& group : m_result.contextGeometryGroups)
     {
-        const auto& group = m_result.contextGeometryGroups[i];
-
         auto* groupItem = new QTreeWidgetItem(groupsRoot);
 
         groupItem->setText(
@@ -292,13 +264,113 @@ void HoleDebugPanel::populateTree()
             ItemKindRole,
             static_cast<int>(ItemKind::Group));
 
-        groupItem->setData(0, ItemIndexRole, i);
+        groupItem->setData(0, ItemIndexRole, group.index);
         groupItem->setData(0, ItemSubIndexRole, -1);
-
-        populateTracePortsRoot(groupItem, group.index);
     }
 
-    groupsRoot->setExpanded(true);
+    groupsRoot->setExpanded(false);
+}
+
+QTreeWidgetItem* HoleDebugPanel::populateTraceSessionsRoot()
+{
+    auto* rootItem = new QTreeWidgetItem(ui->treeItems);
+
+    rootItem->setText(
+        0,
+        QString("Trace Sessions (%1)")
+            .arg(static_cast<int>(m_result.contextTraceSessions.size())));
+
+    rootItem->setData(
+        0,
+        ItemKindRole,
+        static_cast<int>(ItemKind::TraceSessionsRoot));
+
+    rootItem->setData(0, ItemIndexRole, -1);
+    rootItem->setData(0, ItemSubIndexRole, -1);
+
+    for (const auto& session : m_result.contextTraceSessions)
+    {
+        auto* sessionItem = new QTreeWidgetItem(rootItem);
+
+        sessionItem->setText(
+            0,
+            QString("Session[%1] seed=Group[%2] Groups=%3 Walls=%4")
+                .arg(session.index)
+                .arg(session.seedGroupIndex)
+                .arg(static_cast<int>(session.reachedGroupIndices.size()))
+                .arg(static_cast<int>(session.reachedWallGroupIndices.size())));
+
+        sessionItem->setData(
+            0,
+            ItemKindRole,
+            static_cast<int>(ItemKind::TraceSession));
+
+        sessionItem->setData(0, ItemIndexRole, session.index);
+        sessionItem->setData(0, ItemSubIndexRole, -1);
+
+        populateSessionReachedGroupsRoot(sessionItem, session);
+    }
+
+    rootItem->setExpanded(true);
+
+    return rootItem;
+}
+
+QTreeWidgetItem* HoleDebugPanel::populateSessionReachedGroupsRoot(
+    QTreeWidgetItem* parentItem,
+    const OccQtCore::Feature::HoleContextTraceSession& session)
+{
+    auto* rootItem = new QTreeWidgetItem(parentItem);
+
+    rootItem->setText(
+        0,
+        QString("Session Groups (%1)")
+            .arg(static_cast<int>(session.reachedGroupIndices.size())));
+
+    rootItem->setData(
+        0,
+        ItemKindRole,
+        static_cast<int>(ItemKind::ReachedGroupsRoot));
+
+    rootItem->setData(0, ItemIndexRole, session.index);
+    rootItem->setData(0, ItemSubIndexRole, -1);
+
+    for (const int groupIndex : session.reachedGroupIndices)
+    {
+        const auto* group =
+            findGroupByGroupIndex(groupIndex);
+
+        auto* groupItem = new QTreeWidgetItem(rootItem);
+
+        if (group != nullptr)
+        {
+            groupItem->setText(
+                0,
+                QString("Group[%1] %2 Faces=%3")
+                    .arg(group->index)
+                    .arg(toString(group->kind))
+                    .arg(formatIntList(group->geometryRefs.faceIndices)));
+        }
+        else
+        {
+            groupItem->setText(
+                0,
+                QString("Group[%1] <missing>")
+                    .arg(groupIndex));
+        }
+
+        groupItem->setData(
+            0,
+            ItemKindRole,
+            static_cast<int>(ItemKind::ReachedGroupLink));
+
+        groupItem->setData(0, ItemIndexRole, groupIndex);
+        groupItem->setData(0, ItemSubIndexRole, session.index);
+    }
+
+    rootItem->setExpanded(false);
+
+    return rootItem;
 }
 
 QTreeWidgetItem* HoleDebugPanel::populateGroupsRoot()
@@ -322,126 +394,119 @@ QTreeWidgetItem* HoleDebugPanel::populateGroupsRoot()
     return groupsRoot;
 }
 
-QTreeWidgetItem* HoleDebugPanel::populateTracePortsRoot(
-    QTreeWidgetItem* parentItem,
-    int sourceGroupIndex)
+void HoleDebugPanel::showTraceSessionsRootDetail()
 {
-    int portCount = 0;
+    QString text;
 
-    for (const auto& port : m_result.contextTracePorts)
-    {
-        if (port.sourceGroupIndex == sourceGroupIndex)
-        {
-            ++portCount;
-        }
-    }
+    text += "種別: TraceSessionsRoot\n";
+    text += QString("SessionCount: %1\n")
+                .arg(static_cast<int>(m_result.contextTraceSessions.size()));
+    text += QString("GroupCount: %1\n")
+                .arg(static_cast<int>(m_result.contextGeometryGroups.size()));
+    text += QString("StepCount: %1\n")
+                .arg(static_cast<int>(m_result.contextTraceSteps.size()));
 
-    auto* rootItem = new QTreeWidgetItem(parentItem);
-
-    rootItem->setText(
-        0,
-        QString("Ports (%1)").arg(portCount));
-
-    rootItem->setData(
-        0,
-        ItemKindRole,
-        static_cast<int>(ItemKind::TracePortsRoot));
-
-    rootItem->setData(0, ItemIndexRole, sourceGroupIndex);
-    rootItem->setData(0, ItemSubIndexRole, -1);
-
-    for (int i = 0; i < static_cast<int>(m_result.contextTracePorts.size()); ++i)
-    {
-        const auto& port = m_result.contextTracePorts[i];
-
-        if (port.sourceGroupIndex != sourceGroupIndex)
-        {
-            continue;
-        }
-
-        auto* portItem = new QTreeWidgetItem(rootItem);
-
-        portItem->setText(
-            0,
-            QString("Port[%1] %2 Edges=%3")
-                .arg(port.index)
-                .arg(toString(port.kind))
-                .arg(static_cast<int>(port.geometryRefs.edgeIndices.size())));
-
-        portItem->setData(
-            0,
-            ItemKindRole,
-            static_cast<int>(ItemKind::TracePort));
-
-        portItem->setData(0, ItemIndexRole, i);
-        portItem->setData(0, ItemSubIndexRole, -1);
-
-        populateTraceStepsRoot(portItem, port.index);
-    }
-
-    rootItem->setExpanded(true);
-
-    return rootItem;
+    ui->plainDetail->setPlainText(text);
 }
 
-QTreeWidgetItem* HoleDebugPanel::populateTraceStepsRoot(
-    QTreeWidgetItem* parentItem,
-    int sourcePortIndex)
+void HoleDebugPanel::showTraceSessionDetail(int sessionIndex)
 {
-    int stepCount = 0;
+    const auto* session =
+        findSessionBySessionIndex(sessionIndex);
 
-    for (const auto& step : m_result.contextTraceSteps)
+    if (session == nullptr)
     {
-        if (step.sourcePortIndex == sourcePortIndex)
-        {
-            ++stepCount;
-        }
+        ui->plainDetail->setPlainText("Invalid trace session index.");
+        return;
     }
 
-    auto* rootItem = new QTreeWidgetItem(parentItem);
+    QString text;
 
-    rootItem->setText(
-        0,
-        QString("Steps (%1)").arg(stepCount));
+    text += "種別: ContextTraceSession\n";
+    text += QString("SessionIndex: %1\n").arg(session->index);
+    text += QString("SeedGroupIndex: %1\n").arg(session->seedGroupIndex);
+    text += QString("ReachedGroupCount: %1\n")
+                .arg(static_cast<int>(session->reachedGroupIndices.size()));
+    text += QString("ReachedWallCount: %1\n")
+                .arg(static_cast<int>(session->reachedWallGroupIndices.size()));
+    text += QString("StepCount: %1\n")
+                .arg(static_cast<int>(session->traceStepIndices.size()));
 
-    rootItem->setData(
-        0,
-        ItemKindRole,
-        static_cast<int>(ItemKind::TraceStepsRoot));
+    text += "\nReachedGroups:\n";
+    text += formatGroupIndexList(session->reachedGroupIndices);
+    text += "\n";
 
-    rootItem->setData(0, ItemIndexRole, sourcePortIndex);
-    rootItem->setData(0, ItemSubIndexRole, -1);
+    text += "\nReachedWalls:\n";
+    text += formatGroupIndexList(session->reachedWallGroupIndices);
+    text += "\n";
 
-    for (int i = 0; i < static_cast<int>(m_result.contextTraceSteps.size()); ++i)
+    if (!session->note.empty())
     {
-        const auto& step = m_result.contextTraceSteps[i];
-
-        if (step.sourcePortIndex != sourcePortIndex)
-        {
-            continue;
-        }
-
-        auto* stepItem = new QTreeWidgetItem(rootItem);
-
-        stepItem->setText(
-            0,
-            QString("Step[%1] %2 Faces=%3")
-                .arg(step.index)
-                .arg(toString(step.kind))
-                .arg(static_cast<int>(step.outsideGeometryRefs.faceIndices.size())));
-
-        stepItem->setData(
-            0,
-            ItemKindRole,
-            static_cast<int>(ItemKind::TraceStep));
-
-        stepItem->setData(0, ItemIndexRole, i);
-        stepItem->setData(0, ItemSubIndexRole, -1);
+        text += "\nNote:\n";
+        text += QString::fromStdString(session->note);
+        text += "\n";
     }
 
-    rootItem->setExpanded(true);
+    ui->plainDetail->setPlainText(text);
+}
 
-    return rootItem;
+void HoleDebugPanel::showReachedGroupsRootDetail(int sessionIndex)
+{
+    const auto* session =
+        findSessionBySessionIndex(sessionIndex);
+
+    if (session == nullptr)
+    {
+        ui->plainDetail->setPlainText("Invalid trace session index.");
+        return;
+    }
+
+    QString text;
+
+    text += "種別: ReachedGroupsRoot\n";
+    text += QString("SessionIndex: %1\n").arg(session->index);
+    text += QString("ReachedGroupCount: %1\n")
+                .arg(static_cast<int>(session->reachedGroupIndices.size()));
+
+    ui->plainDetail->setPlainText(text);
+}
+
+void HoleDebugPanel::showReachedGroupLinkDetail(
+    int groupIndex,
+    int sessionIndex)
+{
+    const auto* group =
+        findGroupByGroupIndex(groupIndex);
+
+    QString text;
+
+    text += "種別: ReachedGroupLink\n";
+    text += QString("SessionIndex: %1\n").arg(sessionIndex);
+    text += QString("GroupIndex: %1\n").arg(groupIndex);
+
+    if (group == nullptr)
+    {
+        text += "\nGroup not found.\n";
+        ui->plainDetail->setPlainText(text);
+        return;
+    }
+
+    text += QString("Kind: %1\n").arg(toString(group->kind));
+
+    text += "\nGeometryRefs:\n";
+    text += QString("Faces: %1\n").arg(formatIntList(group->geometryRefs.faceIndices));
+    text += QString("Wires: %1\n").arg(formatIntList(group->geometryRefs.wireIndices));
+    text += QString("Edges: %1\n").arg(formatIntList(group->geometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n").arg(formatIntList(group->geometryRefs.vertexIndices));
+
+    if (!group->note.empty())
+    {
+        text += "\nNote:\n";
+        text += QString::fromStdString(group->note);
+        text += "\n";
+    }
+
+    ui->plainDetail->setPlainText(text);
 }
 
 void HoleDebugPanel::showGroupsRootDetail()
@@ -451,187 +516,84 @@ void HoleDebugPanel::showGroupsRootDetail()
     text += "種別: ContextGroupsRoot\n";
     text += QString("GroupCount: %1\n")
                 .arg(static_cast<int>(m_result.contextGeometryGroups.size()));
-    text += QString("PortCount: %1\n")
-                .arg(static_cast<int>(m_result.contextTracePorts.size()));
+    text += QString("SessionCount: %1\n")
+                .arg(static_cast<int>(m_result.contextTraceSessions.size()));
     text += QString("StepCount: %1\n")
                 .arg(static_cast<int>(m_result.contextTraceSteps.size()));
 
     ui->plainDetail->setPlainText(text);
 }
 
-void HoleDebugPanel::showGroupDetail(int groupTreeIndex)
+void HoleDebugPanel::showGroupDetail(int groupIndex)
 {
-    if (groupTreeIndex < 0 ||
-        groupTreeIndex >= static_cast<int>(m_result.contextGeometryGroups.size()))
+    const auto* group =
+        findGroupByGroupIndex(groupIndex);
+
+    if (group == nullptr)
     {
         ui->plainDetail->setPlainText("Invalid context group index.");
         return;
     }
 
-    const auto& group = m_result.contextGeometryGroups[groupTreeIndex];
-
     QString text;
 
     text += "種別: ContextGeometryGroup\n";
-    text += QString("TreeIndex: %1\n").arg(groupTreeIndex);
-    text += QString("GroupIndex: %1\n").arg(group.index);
-    text += QString("Kind: %1\n").arg(toString(group.kind));
+    text += QString("GroupIndex: %1\n").arg(group->index);
+    text += QString("Kind: %1\n").arg(toString(group->kind));
 
     text += "\nGeometryRefs:\n";
-    text += QString("Faces: %1\n").arg(formatIntList(group.geometryRefs.faceIndices));
-    text += QString("Wires: %1\n").arg(formatIntList(group.geometryRefs.wireIndices));
-    text += QString("Edges: %1\n").arg(formatIntList(group.geometryRefs.edgeIndices));
-    text += QString("Vertices: %1\n").arg(formatIntList(group.geometryRefs.vertexIndices));
+    text += QString("Faces: %1\n").arg(formatIntList(group->geometryRefs.faceIndices));
+    text += QString("Wires: %1\n").arg(formatIntList(group->geometryRefs.wireIndices));
+    text += QString("Edges: %1\n").arg(formatIntList(group->geometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n").arg(formatIntList(group->geometryRefs.vertexIndices));
 
     text += "\nGeometry:\n";
-    text += QString("HasAxis: %1\n").arg(group.hasAxis ? "true" : "false");
+    text += QString("HasAxis: %1\n").arg(group->hasReferenceDirection ? "true" : "false");
 
-    if (group.hasAxis)
+    if (group->hasReferenceDirection)
     {
-        text += QString("AxisPoint: %1\n").arg(formatPoint(group.axisPoint));
-        text += QString("AxisDirection: %1\n").arg(formatDirection(group.axisDirection));
-        text += QString("Radius: %1\n").arg(group.radius, 0, 'f', 4);
-        text += QString("AxialMin: %1\n").arg(group.axialMin, 0, 'f', 4);
-        text += QString("AxialMax: %1\n").arg(group.axialMax, 0, 'f', 4);
-        text += QString("AxialPosition: %1\n").arg(group.axialPosition, 0, 'f', 4);
+        text += QString("AxisPoint: %1\n").arg(formatPoint(group->referencePoint));
+        text += QString("AxisDirection: %1\n").arg(formatDirection(group->referenceDirection));
+        text += QString("Radius: %1\n").arg(group->radius, 0, 'f', 4);
+        text += QString("AxialMin: %1\n").arg(group->parameterMin, 0, 'f', 4);
+        text += QString("AxialMax: %1\n").arg(group->parameterMax, 0, 'f', 4);
+        text += QString("AxialPosition: %1\n").arg(group->parameterPosition, 0, 'f', 4);
     }
 
-    if (!group.note.empty())
+    if (!group->note.empty())
     {
         text += "\nNote:\n";
-        text += QString::fromStdString(group.note);
+        text += QString::fromStdString(group->note);
         text += "\n";
     }
 
     ui->plainDetail->setPlainText(text);
 }
 
-void HoleDebugPanel::showTracePortsRootDetail(int sourceGroupIndex)
+const OccQtCore::Feature::HoleContextTraceSession*
+HoleDebugPanel::findSessionBySessionIndex(int sessionIndex) const
 {
-    int count = 0;
-
-    for (const auto& port : m_result.contextTracePorts)
+    for (const auto& session : m_result.contextTraceSessions)
     {
-        if (port.sourceGroupIndex == sourceGroupIndex)
+        if (session.index == sessionIndex)
         {
-            ++count;
+            return &session;
         }
     }
 
-    QString text;
-
-    text += "種別: TracePortsRoot\n";
-    text += QString("SourceGroupIndex: %1\n").arg(sourceGroupIndex);
-    text += QString("PortCount: %1\n").arg(count);
-
-    ui->plainDetail->setPlainText(text);
+    return nullptr;
 }
 
-void HoleDebugPanel::showTracePortDetail(int portTreeIndex)
+const OccQtCore::Feature::HoleContextGeometryGroup*
+HoleDebugPanel::findGroupByGroupIndex(int groupIndex) const
 {
-    if (portTreeIndex < 0 ||
-        portTreeIndex >= static_cast<int>(m_result.contextTracePorts.size()))
+    for (const auto& group : m_result.contextGeometryGroups)
     {
-        ui->plainDetail->setPlainText("Invalid trace port index.");
-        return;
-    }
-
-    const auto& port = m_result.contextTracePorts[portTreeIndex];
-
-    QString text;
-
-    text += "種別: ContextTracePort\n";
-    text += QString("TreeIndex: %1\n").arg(portTreeIndex);
-    text += QString("PortIndex: %1\n").arg(port.index);
-    text += QString("SourceGroupIndex: %1\n").arg(port.sourceGroupIndex);
-    text += QString("Kind: %1\n").arg(toString(port.kind));
-
-    text += "\nGeometryRefs:\n";
-    text += QString("Faces: %1\n").arg(formatIntList(port.geometryRefs.faceIndices));
-    text += QString("Wires: %1\n").arg(formatIntList(port.geometryRefs.wireIndices));
-    text += QString("Edges: %1\n").arg(formatIntList(port.geometryRefs.edgeIndices));
-    text += QString("Vertices: %1\n").arg(formatIntList(port.geometryRefs.vertexIndices));
-
-    text += "\nGeometry:\n";
-    text += QString("AxialMin: %1\n").arg(port.axialMin, 0, 'f', 4);
-    text += QString("AxialMax: %1\n").arg(port.axialMax, 0, 'f', 4);
-    text += QString("AxialPosition: %1\n").arg(port.axialPosition, 0, 'f', 4);
-    text += QString("CircumferentialCoverage: %1\n")
-                .arg(port.circumferentialCoverage, 0, 'f', 4);
-
-    if (!port.note.empty())
-    {
-        text += "\nNote:\n";
-        text += QString::fromStdString(port.note);
-        text += "\n";
-    }
-
-    ui->plainDetail->setPlainText(text);
-}
-
-void HoleDebugPanel::showTraceStepsRootDetail(int sourcePortIndex)
-{
-    int count = 0;
-
-    for (const auto& step : m_result.contextTraceSteps)
-    {
-        if (step.sourcePortIndex == sourcePortIndex)
+        if (group.index == groupIndex)
         {
-            ++count;
+            return &group;
         }
     }
 
-    QString text;
-
-    text += "種別: TraceStepsRoot\n";
-    text += QString("SourcePortIndex: %1\n").arg(sourcePortIndex);
-    text += QString("StepCount: %1\n").arg(count);
-
-    ui->plainDetail->setPlainText(text);
-}
-
-void HoleDebugPanel::showTraceStepDetail(int stepTreeIndex)
-{
-    if (stepTreeIndex < 0 ||
-        stepTreeIndex >= static_cast<int>(m_result.contextTraceSteps.size()))
-    {
-        ui->plainDetail->setPlainText("Invalid trace step index.");
-        return;
-    }
-
-    const auto& step = m_result.contextTraceSteps[stepTreeIndex];
-
-    QString text;
-
-    text += "種別: ContextTraceStep\n";
-    text += QString("TreeIndex: %1\n").arg(stepTreeIndex);
-    text += QString("StepIndex: %1\n").arg(step.index);
-    text += QString("SourceGroupIndex: %1\n").arg(step.sourceGroupIndex);
-    text += QString("SourcePortIndex: %1\n").arg(step.sourcePortIndex);
-    text += QString("Kind: %1\n").arg(toString(step.kind));
-
-    text += "\nPortGeometryRefs:\n";
-    text += QString("Faces: %1\n").arg(formatIntList(step.portGeometryRefs.faceIndices));
-    text += QString("Wires: %1\n").arg(formatIntList(step.portGeometryRefs.wireIndices));
-    text += QString("Edges: %1\n").arg(formatIntList(step.portGeometryRefs.edgeIndices));
-    text += QString("Vertices: %1\n").arg(formatIntList(step.portGeometryRefs.vertexIndices));
-
-    text += "\nOutsideGeometryRefs:\n";
-    text += QString("Faces: %1\n").arg(formatIntList(step.outsideGeometryRefs.faceIndices));
-    text += QString("Wires: %1\n").arg(formatIntList(step.outsideGeometryRefs.wireIndices));
-    text += QString("Edges: %1\n").arg(formatIntList(step.outsideGeometryRefs.edgeIndices));
-    text += QString("Vertices: %1\n").arg(formatIntList(step.outsideGeometryRefs.vertexIndices));
-
-    text += "\nAdjacentExistingGroupIndices:\n";
-    text += formatIntList(step.adjacentExistingGroupIndices);
-    text += "\n";
-
-    if (!step.note.empty())
-    {
-        text += "\nNote:\n";
-        text += QString::fromStdString(step.note);
-        text += "\n";
-    }
-
-    ui->plainDetail->setPlainText(text);
+    return nullptr;
 }

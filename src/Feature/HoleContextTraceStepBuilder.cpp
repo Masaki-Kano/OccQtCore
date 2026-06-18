@@ -39,7 +39,6 @@ namespace OccQtCore::Feature
     void HoleContextTraceStepBuilder::buildStepFromPort(const HoleContextTracePort& port, HoleContextTraceStep& step) const
     {
         collectOutsideFaces(port, step);
-        collectAdjacentExistingGroups(step);
         classifyStep(step);
     }
 
@@ -70,31 +69,6 @@ namespace OccQtCore::Feature
         CollectionUtil::sortUnique(step.outsideGeometryRefs.faceIndices);
     }
 
-    void HoleContextTraceStepBuilder::collectAdjacentExistingGroups(
-        HoleContextTraceStep& step) const
-    {
-        for (const int faceIndex : step.outsideGeometryRefs.faceIndices)
-        {
-            const int groupIndex = findGroupIndexContainingFace(faceIndex);
-
-            if (groupIndex < 0)
-            {
-                continue;
-            }
-
-            if (groupIndex == step.sourceGroupIndex)
-            {
-                continue;
-            }
-
-            CollectionUtil::addUnique(
-                step.adjacentExistingGroupIndices,
-                groupIndex);
-        }
-
-        CollectionUtil::sortUnique(step.adjacentExistingGroupIndices);
-    }
-
     void HoleContextTraceStepBuilder::classifyStep(
         HoleContextTraceStep& step) const
     {
@@ -102,13 +76,6 @@ namespace OccQtCore::Feature
         {
             step.kind = HoleContextTraceStepKind::NoOutsideFace;
             step.note = "No outside adjacent face found.";
-            return;
-        }
-
-        if (!step.adjacentExistingGroupIndices.empty())
-        {
-            step.kind = HoleContextTraceStepKind::ReachedExistingGroup;
-            step.note = "Found outside adjacent faces that already belong to existing context geometry groups.";
             return;
         }
 
@@ -137,21 +104,5 @@ namespace OccQtCore::Feature
         return CollectionUtil::contains(
             group.geometryRefs.faceIndices,
             faceIndex);
-    }
-
-    int HoleContextTraceStepBuilder::findGroupIndexContainingFace(
-        int faceIndex) const
-    {
-        for (const auto& group : m_groups)
-        {
-            if (CollectionUtil::contains(
-                    group.geometryRefs.faceIndices,
-                    faceIndex))
-            {
-                return group.index;
-            }
-        }
-
-        return -1;
     }
 }

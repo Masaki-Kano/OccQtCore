@@ -332,11 +332,6 @@ void MainWindow::showHoleDebugPanel()
                 &MainWindow::applyHoleContextGroupSelection);
 
         connect(m_holeDebugPanel,
-                &HoleDebugPanel::tracePortSelected,
-                this,
-                &MainWindow::applyHoleTracePortSelection);
-
-        connect(m_holeDebugPanel,
                 &HoleDebugPanel::traceStepSelected,
                 this,
                 &MainWindow::applyHoleTraceStepSelection);
@@ -357,7 +352,11 @@ void MainWindow::buildHoleDebugData()
     const auto& geometryModel = m_document.geometryModel();
 
     OccQtCore::Feature::HoleFeatureRecognizer recognizer;
-    m_holeDebugResult = recognizer.recognizeCandidates(geometryModel);
+
+    m_holeDebugResult =
+        recognizer.recognizeCandidates(
+            geometryModel,
+            &m_holeDebugWorkingData);
 
     if (m_holeDebugPanel)
     {
@@ -393,6 +392,9 @@ void MainWindow::exportHoleDebugLog()
         m_holeDebugResult
     };
 
+    report.workingData = &m_holeDebugWorkingData;
+    report.outputCylindricalWorkingGroup = true;
+
     OccQtCore::HoleRecognitionLogReporter reporter(m_logger);
     const QString text = reporter.formatHoleRecognition(report);
 
@@ -421,15 +423,14 @@ void MainWindow::exportHoleDebugLog()
 
 void MainWindow::applyHoleContextGroupSelection(int groupIndex)
 {
-    if (groupIndex < 0 ||
-        groupIndex >= static_cast<int>(m_holeDebugResult.contextGeometryGroups.size()))
+    const auto* group =
+        findHoleContextGroupByIndex(groupIndex);
+
+    if (group == nullptr)
     {
         clearHoleDebugSelection();
         return;
     }
-
-    const auto& group =
-        m_holeDebugResult.contextGeometryGroups[groupIndex];
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
@@ -439,7 +440,7 @@ void MainWindow::applyHoleContextGroupSelection(int groupIndex)
     const auto groupStyle = OccQtCore::DisplayStyle::preset(
         OccQtCore::DisplayStyle::Preset::ContextGroupFace);
 
-    for (const int faceIndex : group.geometryRefs.faceIndices)
+    for (const int faceIndex : group->geometryRefs.faceIndices)
     {
         const auto* face = geometryModel.faceAt(faceIndex);
 
@@ -459,15 +460,14 @@ void MainWindow::applyHoleContextGroupSelection(int groupIndex)
 
 void MainWindow::applyHoleTracePortSelection(int portIndex)
 {
-    if (portIndex < 0 ||
-        portIndex >= static_cast<int>(m_holeDebugResult.contextTracePorts.size()))
+    const auto* port =
+        findHoleTracePortByIndex(portIndex);
+
+    if (port == nullptr)
     {
         clearHoleDebugSelection();
         return;
     }
-
-    const auto& port =
-        m_holeDebugResult.contextTracePorts[portIndex];
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
@@ -477,7 +477,7 @@ void MainWindow::applyHoleTracePortSelection(int portIndex)
     const auto portStyle = OccQtCore::DisplayStyle::preset(
         OccQtCore::DisplayStyle::Preset::TracePortEdge);
 
-    for (const int edgeIndex : port.geometryRefs.edgeIndices)
+    for (const int edgeIndex : port->geometryRefs.edgeIndices)
     {
         const auto* edge = geometryModel.edgeAt(edgeIndex);
 
@@ -497,15 +497,14 @@ void MainWindow::applyHoleTracePortSelection(int portIndex)
 
 void MainWindow::applyHoleTraceStepSelection(int stepIndex)
 {
-    if (stepIndex < 0 ||
-        stepIndex >= static_cast<int>(m_holeDebugResult.contextTraceSteps.size()))
+    const auto* step =
+        findHoleTraceStepByIndex(stepIndex);
+
+    if (step == nullptr)
     {
         clearHoleDebugSelection();
         return;
     }
-
-    const auto& step =
-        m_holeDebugResult.contextTraceSteps[stepIndex];
 
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
@@ -515,7 +514,7 @@ void MainWindow::applyHoleTraceStepSelection(int stepIndex)
     const auto outsideFaceStyle = OccQtCore::DisplayStyle::preset(
         OccQtCore::DisplayStyle::Preset::ContextGroupFace);
 
-    for (const int faceIndex : step.outsideGeometryRefs.faceIndices)
+    for (const int faceIndex : step->outsideGeometryRefs.faceIndices)
     {
         const auto* face = geometryModel.faceAt(faceIndex);
 
@@ -533,7 +532,7 @@ void MainWindow::applyHoleTraceStepSelection(int stepIndex)
     const auto portEdgeStyle = OccQtCore::DisplayStyle::preset(
         OccQtCore::DisplayStyle::Preset::TracePortEdge);
 
-    for (const int edgeIndex : step.portGeometryRefs.edgeIndices)
+    for (const int edgeIndex : step->portGeometryRefs.edgeIndices)
     {
         const auto* edge = geometryModel.edgeAt(edgeIndex);
 
@@ -556,5 +555,47 @@ void MainWindow::clearHoleDebugSelection()
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
     m_occView->redraw();
+}
+
+const OccQtCore::Feature::HoleContextGeometryGroup*
+MainWindow::findHoleContextGroupByIndex(int groupIndex) const
+{
+    for (const auto& group : m_holeDebugResult.contextGeometryGroups)
+    {
+        if (group.index == groupIndex)
+        {
+            return &group;
+        }
+    }
+
+    return nullptr;
+}
+
+const OccQtCore::Feature::HoleContextTracePort*
+MainWindow::findHoleTracePortByIndex(int portIndex) const
+{
+    for (const auto& port : m_holeDebugResult.contextTracePorts)
+    {
+        if (port.index == portIndex)
+        {
+            return &port;
+        }
+    }
+
+    return nullptr;
+}
+
+const OccQtCore::Feature::HoleContextTraceStep*
+MainWindow::findHoleTraceStepByIndex(int stepIndex) const
+{
+    for (const auto& step : m_holeDebugResult.contextTraceSteps)
+    {
+        if (step.index == stepIndex)
+        {
+            return &step;
+        }
+    }
+
+    return nullptr;
 }
 

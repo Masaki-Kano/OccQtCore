@@ -34,22 +34,38 @@ namespace OccQtCore
         QString text;
         QTextStream out(&text);
 
-        out << "Hole Recognition Debug Log\n";
+        out << "Hole Context DFS Debug Log\n";
         out << "==========================\n\n";
+
+        if (report.outputSummary)
+        {
+            appendSummary(text, report);
+        }
+
+        if (report.outputCylindricalWorkingGroup)
+        {
+            appendCylindricalWorkingGroups(text, report);
+        }
+
+        if (report.outputTraceSession)
+        {
+            appendContextTraceSessions(text, report);
+        }
 
         if (report.outputGeometryGroup)
         {
             appendContextGeometryGroups(text, report);
         }
 
-        if (report.outputPort)
-        {
-            appendContextTracePorts(text, report);
-        }
-
         if (report.outputTraceStep)
         {
             appendContextTraceSteps(text, report);
+        }
+
+        // Portは必要な時だけ
+        if (report.outputPort)
+        {
+            appendContextTracePorts(text, report);
         }
 
         return text;
@@ -62,10 +78,12 @@ namespace OccQtCore
         m_logger->info("========== 穴フィーチャ認識レポート ==========");
         m_logger->info(QString("ContextGeometryGroups: %1")
                            .arg(result.contextGeometryGroups.size()));
-        m_logger->info(QString("ContextTracePorts: %1")
-                           .arg(result.contextTracePorts.size()));
+        m_logger->info(QString("ContextTraceSessions: %1")
+                           .arg(result.contextTraceSessions.size()));
         m_logger->info(QString("ContextTraceSteps: %1")
                            .arg(result.contextTraceSteps.size()));
+        m_logger->info(QString("ContextTracePorts: %1")
+                           .arg(result.contextTracePorts.size()));
         m_logger->info("=====================================");
     }
 
@@ -79,6 +97,10 @@ namespace OccQtCore
         out << "-------\n";
         out << "ContextGeometryGroups: "
             << static_cast<int>(result.contextGeometryGroups.size()) << "\n";
+        out << "ContextTraceSessions: "
+            << static_cast<int>(result.contextTraceSessions.size()) << "\n";
+        out << "ContextTraceSteps: "
+            << static_cast<int>(result.contextTraceSteps.size()) << "\n";
         out << "ContextTracePorts: "
             << static_cast<int>(result.contextTracePorts.size()) << "\n";
         out << "\n";
@@ -144,6 +166,148 @@ namespace OccQtCore
         }
     }
 
+    void HoleRecognitionLogReporter::appendContextTraceSessions(
+        QString& text,
+        const HoleRecognitionLogReport& report) const
+    {
+        const auto& result = report.result;
+
+        QTextStream out(&text);
+
+        out << "Context Trace Sessions\n";
+        out << "----------------------\n";
+        out << "Count: "
+            << static_cast<int>(result.contextTraceSessions.size()) << "\n\n";
+
+        for (const auto& session : result.contextTraceSessions)
+        {
+            out << "Session[" << session.index << "]\n";
+            out << "  SeedGroup: "
+                << formatGroupRef(result, session.seedGroupIndex) << "\n";
+
+            out << "  ReachedGroups: ";
+            appendGroupRefList(out, result, session.reachedGroupIndices);
+            out << "\n";
+
+            out << "  ReachedWalls: ";
+            appendGroupRefList(out, result, session.reachedWallGroupIndices);
+            out << "\n";
+
+            out << "  Steps:\n";
+
+            for (const int stepIndex : session.traceStepIndices)
+            {
+                const auto* step =
+                    findStepByIndex(result.contextTraceSteps, stepIndex);
+
+                if (step == nullptr)
+                {
+                    out << "    Step[" << stepIndex << "] not found\n";
+                    continue;
+                }
+
+                out << "    Step[" << step->index << "] "
+                    << formatGroupRef(result, step->sourceGroupIndex)
+                    << " -> ";
+
+                if (step->observedGroupIndices.empty())
+                {
+                    out << "(none)";
+                }
+                else
+                {
+                    appendGroupRefList(out, result, step->observedGroupIndices);
+                }
+
+                out << "\n";
+            }
+
+            if (!session.note.empty())
+            {
+                out << "  Note: " << QString::fromStdString(session.note) << "\n";
+            }
+
+            out << "\n";
+        }
+    }
+
+    void HoleRecognitionLogReporter::appendGroupRefList(
+        QTextStream& out,
+        const Feature::HoleRecognitionResult& result,
+        const std::vector<int>& groupIndices) const
+    {
+        if (groupIndices.empty())
+        {
+            out << "なし";
+            return;
+        }
+
+        for (int i = 0; i < static_cast<int>(groupIndices.size()); ++i)
+        {
+            if (i > 0)
+            {
+                out << ", ";
+            }
+
+            out << formatGroupRef(result, groupIndices[i]);
+        }
+    }
+
+    void HoleRecognitionLogReporter::appendCylindricalWorkingGroups(
+        QString& text,
+        const HoleRecognitionLogReport& report) const
+    {
+        QTextStream out(&text);
+
+        out << "\n";
+        out << "Cylindrical Working Groups\n";
+        out << "--------------------------\n";
+
+        out << "OutputFlag: "
+            << (report.outputCylindricalWorkingGroup ? "true" : "false")
+            << "\n";
+
+        if (report.workingData == nullptr)
+        {
+            out << "WorkingData: null\n\n";
+            return;
+        }
+
+        out << "WorkingData: available\n";
+
+        const auto& groups =
+            report.workingData->cylindricalWorkingGroups;
+
+        out << "Count: " << groups.size() << "\n\n";
+
+        for (const auto& group : groups)
+        {
+            out << "WorkingGroup[" << group.index << "]\n";
+            out << "  Faces: " << formatIntList(group.faceIndices) << "\n";
+            out << "  Radius: " << QString::number(group.radius, 'f', 4) << "\n";
+
+            out << "  Promotion: "
+                << (group.promotion.accepted ? "Accepted" : "Rejected")
+                << "\n";
+
+            if (!group.promotion.accepted)
+            {
+                out << "  RejectReason: "
+                    << toString(group.promotion.rejectReason)
+                    << "\n";
+            }
+
+            if (!group.note.empty())
+            {
+                out << "  Note: "
+                    << QString::fromStdString(group.note)
+                    << "\n";
+            }
+
+            out << "\n";
+        }
+    }
+
     QString HoleRecognitionLogReporter::formatIntList(
         const std::vector<int>& values) const
     {
@@ -180,22 +344,22 @@ namespace OccQtCore
         out << "    Vertices: " << formatIntList(group.geometryRefs.vertexIndices) << "\n";
 
         out << "  Geometry:\n";
-        out << "    HasAxis: " << (group.hasAxis ? "true" : "false") << "\n";
+        out << "    HasAxis: " << (group.hasReferenceDirection ? "true" : "false") << "\n";
 
-        if (group.hasAxis)
+        if (group.hasReferenceDirection)
         {
             out << "    AxisPoint: "
-                << LF::formatPoint(group.axisPoint) << "\n";
+                << LF::formatPoint(group.referencePoint) << "\n";
             out << "    AxisDirection: "
-                << LF::formatDirection(group.axisDirection) << "\n";
+                << LF::formatDirection(group.referenceDirection) << "\n";
             out << "    Radius: "
                 << QString::number(group.radius, 'f', 4) << "\n";
             out << "    AxialMin: "
-                << QString::number(group.axialMin, 'f', 4) << "\n";
+                << QString::number(group.parameterMin, 'f', 4) << "\n";
             out << "    AxialMax: "
-                << QString::number(group.axialMax, 'f', 4) << "\n";
+                << QString::number(group.parameterMax, 'f', 4) << "\n";
             out << "    AxialPosition: "
-                << QString::number(group.axialPosition, 'f', 4) << "\n";
+                << QString::number(group.parameterPosition, 'f', 4) << "\n";
         }
 
         if (!group.note.empty())
@@ -267,8 +431,8 @@ namespace OccQtCore
         out << "    Edges: " << formatIntList(step.outsideGeometryRefs.edgeIndices) << "\n";
         out << "    Vertices: " << formatIntList(step.outsideGeometryRefs.vertexIndices) << "\n";
 
-        out << "  AdjacentExistingGroupIndices: "
-            << formatIntList(step.adjacentExistingGroupIndices) << "\n";
+        out << "  ObservedGroupIndices: "
+            << formatIntList(step.observedGroupIndices) << "\n";
 
         if (!step.note.empty())
         {
@@ -278,6 +442,53 @@ namespace OccQtCore
         return text;
     }
 
+    QString HoleRecognitionLogReporter::formatGroupRef(
+        const Feature::HoleRecognitionResult& result,
+        int groupIndex) const
+    {
+        const auto* group =
+            findGroupByIndex(result.contextGeometryGroups, groupIndex);
+
+        if (group == nullptr)
+        {
+            return QString("Group[%1](not found)").arg(groupIndex);
+        }
+
+        return QString("Group[%1](%2)")
+            .arg(group->index)
+            .arg(toString(group->kind));
+    }
+
+    const Feature::HoleContextGeometryGroup* HoleRecognitionLogReporter::findGroupByIndex(
+        const std::vector<Feature::HoleContextGeometryGroup>& groups,
+        int groupIndex) const
+    {
+        for (const auto& group : groups)
+        {
+            if (group.index == groupIndex)
+            {
+                return &group;
+            }
+        }
+
+        return nullptr;
+    }
+
+    const Feature::HoleContextTraceStep* HoleRecognitionLogReporter::findStepByIndex(
+        const std::vector<Feature::HoleContextTraceStep>& steps,
+        int stepIndex) const
+    {
+        for (const auto& step : steps)
+        {
+            if (step.index == stepIndex)
+            {
+                return &step;
+            }
+        }
+
+        return nullptr;
+    }
+
     QString HoleRecognitionLogReporter::toString(
         Feature::HoleContextGeometryGroupKind kind) const
     {
@@ -285,16 +496,12 @@ namespace OccQtCore
         {
         case Feature::HoleContextGeometryGroupKind::Unknown:
             return "Unknown";
-        case Feature::HoleContextGeometryGroupKind::Cylindrical:
-            return "Cylindrical";
-        case Feature::HoleContextGeometryGroupKind::Planar:
-            return "Planar";
-        case Feature::HoleContextGeometryGroupKind::Conical:
-            return "Conical";
-        case Feature::HoleContextGeometryGroupKind::Toroidal:
-            return "Toroidal";
-        case Feature::HoleContextGeometryGroupKind::Mixed:
-            return "Mixed";
+        case Feature::HoleContextGeometryGroupKind::WallCandidate:
+            return "WallCandidate";
+        case Feature::HoleContextGeometryGroupKind::BoundaryCandidate:
+            return "BoundaryCandidate";
+        case Feature::HoleContextGeometryGroupKind::TransitionCandidate:
+            return "TransitionCandidate";
         case Feature::HoleContextGeometryGroupKind::Ambiguous:
             return "Ambiguous";
         }
@@ -335,6 +542,41 @@ namespace OccQtCore
             return "ReachedExistingGroup";
         case Feature::HoleContextTraceStepKind::Ambiguous:
             return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
+
+    QString HoleRecognitionLogReporter::toString(
+        Feature::CylindricalWallPromotionRejectReason reason) const
+    {
+        using Reason = Feature::CylindricalWallPromotionRejectReason;
+
+        switch (reason)
+        {
+        case Reason::None:
+            return "None";
+
+        case Reason::NotWallCandidateKind:
+            return "NotWallCandidateKind";
+
+        case Reason::EmptyFaces:
+            return "EmptyFaces";
+
+        case Reason::MissingReference:
+            return "MissingReference";
+
+        case Reason::InvalidRadius:
+            return "InvalidRadius";
+
+        case Reason::InsufficientCircumferentialCoverage:
+            return "InsufficientCircumferentialCoverage";
+
+        case Reason::MissingTopologicalCircumferentialLoop:
+            return "MissingTopologicalCircumferentialLoop";
+
+        case Reason::NoInnerCylindricalFace:
+            return "NoInnerCylindricalFace";
         }
 
         return "Unknown";

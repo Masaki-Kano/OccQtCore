@@ -22,6 +22,7 @@ public:
     ~HoleDebugPanel() override;
 
     void setRecognitionResult(const OccQtCore::Feature::HoleRecognitionResult& result);
+
     void clear();
     void setStatusText(const QString& text);
 
@@ -31,7 +32,6 @@ signals:
     void exportLogRequested();
 
     void groupSelected(int groupTreeIndex);
-    void tracePortSelected(int portTreeIndex);
     void traceStepSelected(int traceIndex);
 
     void selectionCleared();
@@ -45,38 +45,62 @@ private slots:
 private:
     enum class ItemKind
     {
-        Unknown = 0,
+        Unknown,
+
+        TraceSessionsRoot,
+        TraceSession,
+
+        ReachedGroupsRoot,
+        ReachedGroupLink,
+
+        SessionStepsRoot,
 
         GroupsRoot,
         Group,
 
-        TracePortsRoot,
-        TracePort,
-
-        TraceStepsRoot,
-        TraceStep,
+        TraceStep
     };
 
     void setupConnections();
 
     void populateTree();
 
+    QTreeWidgetItem* populateTraceSessionsRoot();
+
+    QTreeWidgetItem* populateSessionReachedGroupsRoot(
+        QTreeWidgetItem* parentItem,
+        const OccQtCore::Feature::HoleContextTraceSession& session);
+
+    QTreeWidgetItem* populateSessionStepsRoot(
+        QTreeWidgetItem* parentItem,
+        const OccQtCore::Feature::HoleContextTraceSession& session);
+
     QTreeWidgetItem* populateGroupsRoot();
 
-    QTreeWidgetItem* populateTracePortsRoot(
-        QTreeWidgetItem* parentItem,
-        int sourceGroupIndex);
+private:
+    void showTraceSessionsRootDetail();
+    void showTraceSessionDetail(int sessionIndex);
 
-    QTreeWidgetItem* populateTraceStepsRoot(QTreeWidgetItem* parentItem, int sourcePortIndex);
+    void showReachedGroupsRootDetail(int sessionIndex);
+    void showReachedGroupLinkDetail(
+        int groupIndex,
+        int sessionIndex);
+
+    void showSessionStepsRootDetail(int sessionIndex);
 
     void showGroupsRootDetail();
-    void showGroupDetail(int groupTreeIndex);
+    void showGroupDetail(int groupIndex);
 
-    void showTracePortsRootDetail(int sourceGroupIndex);
-    void showTracePortDetail(int portTreeIndex);
+    void showTraceStepDetail(int stepIndex);
 
-    void showTraceStepsRootDetail(int sourcePortIndex);
-    void showTraceStepDetail(int stepTreeIndex);
+    const OccQtCore::Feature::HoleContextTraceSession*
+    findSessionBySessionIndex(int sessionIndex) const;
+
+    const OccQtCore::Feature::HoleContextGeometryGroup*
+    findGroupByGroupIndex(int groupIndex) const;
+
+    const OccQtCore::Feature::HoleContextTraceStep*
+    findStepByStepIndex(int stepIndex) const;
 
 private:
     Ui::HoleDebugPanel *ui;

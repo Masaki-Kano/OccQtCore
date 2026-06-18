@@ -10,6 +10,7 @@
 #include "Core/SelectionInfo.h"
 
 #include "Feature/HoleRecognitionModel.h"
+#include "Feature/HoleRecognitionWorkingData.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -58,13 +59,14 @@ private:
     void buildHoleDebugData();
     void clearHoleDebugDisplay();
     void exportHoleDebugLog();
-
     void applyHoleContextGroupSelection(int groupIndex);
     void applyHoleTracePortSelection(int portIndex);
     void applyHoleTraceStepSelection(int stepIndex);
-
-
     void clearHoleDebugSelection();
+
+    const OccQtCore::Feature::HoleContextGeometryGroup* findHoleContextGroupByIndex(int groupIndex) const;
+    const OccQtCore::Feature::HoleContextTracePort* findHoleTracePortByIndex(int portIndex) const;
+    const OccQtCore::Feature::HoleContextTraceStep* findHoleTraceStepByIndex(int stepIndex) const;
 
 
 private:
@@ -80,5 +82,6 @@ private:
 
     HoleDebugPanel* m_holeDebugPanel = nullptr;
     OccQtCore::Feature::HoleRecognitionResult m_holeDebugResult;
+    OccQtCore::Feature::HoleRecognitionWorkingData m_holeDebugWorkingData;
 };
 #endif // MAINWINDOW_H

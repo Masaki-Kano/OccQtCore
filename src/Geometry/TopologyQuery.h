@@ -62,6 +62,10 @@ namespace OccQtCore
             const GeometryModel& model,
             int edgeIndex);
 
+        std::vector<int> verticesOfFace(
+            const GeometryModel& model,
+            int faceIndex);
+
         /**
          * @brief Edgeに接続しているFaceを取得する
          *

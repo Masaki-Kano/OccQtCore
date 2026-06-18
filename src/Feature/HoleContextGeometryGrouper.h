@@ -2,6 +2,7 @@
 #define HOLECONTEXTGEOMETRYGROUPER_H
 
 #include "Feature/HoleRecognitionModel.h"
+#include "Feature/HoleRecognitionWorkingData.h"
 
 #include <gp_Pnt.hxx>
 #include <gp_Dir.hxx>
@@ -19,44 +20,42 @@ namespace OccQtCore::Feature
     class HoleContextGeometryGrouper
     {
     public:
-        explicit HoleContextGeometryGrouper(const GeometryModel& model);
+        explicit HoleContextGeometryGrouper(
+            const GeometryModel& model,
+            HoleRecognitionWorkingData* workingData = nullptr);
 
+        // モデル全体から初期HoleContextGeometryGroupを作る。
+        // 初期起点候補として、モデル内の生ジオメトリをBuilderへ配送する。
         std::vector<HoleContextGeometryGroup> group() const;
 
-        std::vector<HoleContextGeometryGroup> groupFromGeometryRefs(const GeometryRefs& geometryRefs, const HoleContextGeometryGroup& parentGroup) const;
+        // 指定された生ジオメトリ参照からHoleContextGeometryGroupを作る。
+        // sourceGroupとの接続可否はここでは判定しない。
+        std::vector<HoleContextGeometryGroup> group(
+            const GeometryRefs& geometryRefs) const;
 
     private:
-        // 円筒形ジオメトリ単位の作業グループ
-        struct CylindricalGroup
+        struct SurfaceKindBuckets
         {
-            HoleContextGeometryGroup group;
-            std::vector<int> faceIndices;
+            std::vector<int> planeFaceIndices;
+            std::vector<int> cylinderFaceIndices;
+            std::vector<int> coneFaceIndices;
+            std::vector<int> torusFaceIndices;
+            std::vector<int> otherFaceIndices;
         };
 
     private:
-        // 円筒形関連の関数群
-        std::vector<HoleContextGeometryGroup> buildCylindricalGroups() const;
-        bool canMergeCylindricalFace(const CylindricalGroup& group, int faceIndex) const;
-        void mergeCylindricalFace(CylindricalGroup& group, int faceIndex) const;
-        CylindricalGroup createCylindricalGroup(int faceIndex, int groupIndex) const;
-        bool isValidCylindricalGroup(const CylindricalGroup& group) const;
-        bool hasFullCircumferentialCoverage(const CylindricalGroup& group) const;
-        bool hasTopologicalCircumferentialLoop(const CylindricalGroup& group) const;
-        bool isInnerCylindricalFace(const FaceData& face) const;
-        bool isAxialEdgeOfCylinder(int edgeIndex, const gp_Dir& axisDirection) const;
-        bool computeFaceAxialRange(const FaceData& face, const gp_Pnt& axisPoint, const gp_Dir& axisDirection, double& axialMin, double& axialMax) const;
-        bool isAxialRangeConnected(double min1, double max1, double min2, double max2) const;
+        // GeometryRefs内のFaceをSurfaceKindごとに仕分ける。
+        // Grouperは仕分けだけを担当し、穴文脈判定は各Builderへ委譲する。
+        SurfaceKindBuckets bucketFacesBySurfaceKind(
+            const GeometryRefs& geometryRefs) const;
 
-    private:
-        // 平面系ジオメトリ関連の関数群
-        std::vector<HoleContextGeometryGroup> buildPlanarGroupsFromFaces(const std::vector<int>& faceIndices, const HoleContextGeometryGroup& parentGroup) const;
-        bool canMergePlanarFace(const HoleContextGeometryGroup& group, int faceIndex) const;
-        void mergePlanarFace(HoleContextGeometryGroup& group, int faceIndex) const;
-        HoleContextGeometryGroup createPlanarGroup(int faceIndex, const HoleContextGeometryGroup& parentGroup) const;
-        bool isSamePlane(const gp_Pnt& pointA, const gp_Dir& normalA, const gp_Pnt& pointB, const gp_Dir& normalB) const;
+        void appendGroups(
+            std::vector<HoleContextGeometryGroup>& destination,
+            std::vector<HoleContextGeometryGroup> source) const;
 
     private:
         const GeometryModel& m_model;
+        HoleRecognitionWorkingData* m_workingData = nullptr;
     };
 }
 

@@ -3,9 +3,6 @@
 
 #include <vector>
 
-#include <gp_Pnt.hxx>
-#include <gp_Dir.hxx>
-
 namespace OccQtCore::Feature
 {
     /**

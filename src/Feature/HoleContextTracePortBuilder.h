@@ -27,6 +27,11 @@ namespace OccQtCore::Feature
         std::vector<HoleContextTracePort> build(
             const std::vector<HoleContextGeometryGroup>& groups) const;
 
+        std::vector<HoleContextTracePort> buildForGroup(
+            const std::vector<HoleContextGeometryGroup>& groups,
+            int sourceGroupIndex,
+            int startPortIndex = 0) const;
+
     private:
         struct EdgeComponent
         {

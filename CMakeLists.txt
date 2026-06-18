@@ -93,6 +93,21 @@ qt_add_executable(OccQtCore
     src/Feature/HoleContextTracePortBuilder.cpp
     src/Feature/HoleContextTraceStepBuilder.h
     src/Feature/HoleContextTraceStepBuilder.cpp
+    src/Feature/HoleContextPlanarGroupBuilder.h
+    src/Feature/HoleContextPlanarGroupBuilder.cpp
+    src/Feature/HoleContextCylindricalGroupBuilder.h
+    src/Feature/HoleContextCylinderGroupBuilder.cpp
+    src/Feature/HoleContextGeometryGroupRegistry.h
+    src/Feature/HoleContextGeometryGroupRegistry.cpp
+    src/Feature/HoleContextTraceExplorer.h
+    src/Feature/HoleContextTraceExplorer.cpp
+    src/Feature/HoleContextTraversalPolicy.h
+    src/Feature/HoleContextTraversalPolicy.cpp
+    src/Feature/HoleContextConnectionPolicy.h
+    src/Feature/HoleContextConnectionPolicy.cpp
+    src/Feature/HoleContextSeedWallFinder.h
+    src/Feature/HoleContextSeedWallFinder.cpp
+    src/Feature/HoleRecognitionWorkingData.h
 
 )
 

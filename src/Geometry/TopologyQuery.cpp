@@ -134,6 +134,50 @@ namespace OccQtCore::TopologyQuery
         return faceIndices;
     }
 
+    std::vector<int> verticesOfFace(
+        const GeometryModel& model,
+        int faceIndex)
+    {
+        std::vector<int> vertexIndices;
+
+        if (!isValidFaceIndex(model, faceIndex))
+        {
+            return vertexIndices;
+        }
+
+        const auto edgeIndices =
+            edgesOfFace(model, faceIndex);
+
+        for (const int edgeIndex : edgeIndices)
+        {
+            if (!isValidEdgeIndex(model, edgeIndex))
+            {
+                continue;
+            }
+
+            const auto edgeVertexIndices =
+                model.graph().verticesOfEdge(edgeIndex);
+
+            for (const int vertexIndex : edgeVertexIndices)
+            {
+                if (!isValidVertexIndex(model, vertexIndex))
+                {
+                    continue;
+                }
+
+                if (std::find(
+                        vertexIndices.begin(),
+                        vertexIndices.end(),
+                        vertexIndex) == vertexIndices.end())
+                {
+                    vertexIndices.push_back(vertexIndex);
+                }
+            }
+        }
+
+        return vertexIndices;
+    }
+
     std::vector<int> adjacentFacesOfEdge(
         const GeometryModel& model,
         int edgeIndex,

@@ -8,26 +8,27 @@
 #include <gp_Pnt.hxx>
 
 #include "Feature/FeatureTypes.h"
+#include "Geometry/GeometryTypes.h"
 
 namespace OccQtCore::Feature
 {
     /**
      * @brief 穴文脈ジオメトリグループ種別
      *
-     * 穴として後段で解釈しやすいように、
-     * 生のジオメトリを幾何条件でまとめた単位の種別。
+     * 生ジオメトリを穴探索で扱いやすい単位へまとめた結果、
+     * そのGroupが穴文脈上どのような候補として扱えるかを表す。
      *
-     * ここでは Bottom / Open / Step などの穴意味は確定しない
+     * 面の幾何種別そのものは Geometry::SurfaceKindで表す。
+     * ここでは Bottom / Open / Step / Conterboreなどの
+     * 最終的な穴意味は確定しない
      */
     enum class HoleContextGeometryGroupKind
     {
         Unknown,
 
-        Cylindrical,
-        Planar,
-        Conical,
-        Toroidal,
-        Mixed,
+        WallCandidate,          // 穴壁候補。主に内周円筒面
+        BoundaryCandidate,      // 穴境界候補。入口 / 底 / 肩 / 終端になり得る面。
+        TransitionCandidate,    // 遷移候補。 面取り / R / テーパーなど
 
         Ambiguous
     };
@@ -43,6 +44,15 @@ namespace OccQtCore::Feature
         Ambiguous
     };
 
+    enum class HoleContextTraceStepKind
+    {
+        Unknown,
+        NoOutsideFace,
+        OutsideFace,
+        ReachedExistingGroup,
+        Ambiguous
+    };
+
     /**
      * @brief 穴文脈でまとめたジオメトリ単位
      *
@@ -53,20 +63,39 @@ namespace OccQtCore::Feature
     {
         int index = -1;
 
-        HoleContextGeometryGroupKind kind = HoleContextGeometryGroupKind::Unknown;
+        // 穴文脈上の粗い役割。
+        // WallCandidate / BoundaryCandidate / TransitionCandidate など。
+        HoleContextGeometryGroupKind kind =
+            HoleContextGeometryGroupKind::Unknown;
 
         GeometryRefs geometryRefs;
 
-        bool hasAxis = false;
+        // Groupの代表点を持つ場合にtrue。
+        // WallCandidate + Cylinder: 軸上代表点
+        // BoundaryCandidate + Plane: 平面上代表点
+        // TransitionCandidate + Cone/Torus: 代表点
+        bool hasReferencePoint = false;
+        gp_Pnt referencePoint;
 
-        gp_Pnt axisPoint;
-        gp_Dir axisDirection;
+        // Groupの代表方向を持つ場合にtrue。
+        // WallCandidate + Cylinder: 円筒軸方向
+        // BoundaryCandidate + Plane: 平面法線
+        // TransitionCandidate + Cone/Torus: 代表軸方向
+        bool hasReferenceDirection = false;
+        gp_Dir referenceDirection;
 
+        // WallCandidate + Cylinder: 半径
+        // BoundaryCandidate + Plane: 未使用
+        // TransitionCandidate + Cone/Torus: 代表半径として利用予定
         double radius = 0.0;
 
-        double axialMin = 0.0;
-        double axialMax = 0.0;
-        double axialPosition = 0.0;
+        // referenceDirection または親Groupの文脈方向に対する範囲/代表位置。
+        // WallCandidate + Cylinder: 軸方向範囲
+        // BoundaryCandidate + Plane: 親軸に対する位置など
+        // TransitionCandidate + Cone/Torus: 代表方向に対する範囲として利用予定
+        double parameterMin = 0.0;
+        double parameterMax = 0.0;
+        double parameterPosition = 0.0;
 
         std::string note;
     };
@@ -102,15 +131,6 @@ namespace OccQtCore::Feature
         std::string note;
     };
 
-    enum class HoleContextTraceStepKind
-    {
-        Unknown,
-        NoOutsideFace,
-        OutsideFace,
-        ReachedExistingGroup,
-        Ambiguous
-    };
-
     struct HoleContextTraceStep
     {
         int index = -1;
@@ -121,10 +141,30 @@ namespace OccQtCore::Feature
         HoleContextTraceStepKind kind = HoleContextTraceStepKind::Unknown;
 
         GeometryRefs portGeometryRefs;
-
         GeometryRefs outsideGeometryRefs;
 
-        std::vector<int> adjacentExistingGroupIndices;
+        std::vector<int> observedGroupIndices;
+
+        std::string note;
+    };
+
+    /**
+     * @brief 穴文脈トレースセッション
+     *
+     * 1つのSeed Wallから開始したDFS探索結果。
+     *
+     * デバッグツリーではこのSessionを1単位として表示する。
+     */
+    struct HoleContextTraceSession
+    {
+        int index = -1;
+
+        int seedGroupIndex = -1;
+
+        std::vector<int> reachedGroupIndices;
+        std::vector<int> reachedWallGroupIndices;
+
+        std::vector<int> traceStepIndices;
 
         std::string note;
     };
@@ -142,6 +182,8 @@ namespace OccQtCore::Feature
         std::vector<HoleContextGeometryGroup> contextGeometryGroups;
         std::vector<HoleContextTracePort> contextTracePorts;
         std::vector<HoleContextTraceStep> contextTraceSteps;
+
+        std::vector<HoleContextTraceSession> contextTraceSessions;
     };
 }
 
