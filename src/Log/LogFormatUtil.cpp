@@ -55,6 +55,11 @@ namespace OccQtCore::LogFormatUtil
 {
     QString formatIndexList(const std::vector<int>& indices)
     {
+        if (indices.empty())
+        {
+            return "なし";
+        }
+
         return joinIndexTexts(
             indices,
             [](int index)

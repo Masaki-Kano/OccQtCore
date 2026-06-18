@@ -64,11 +64,6 @@ private:
     void applyHoleTraceStepSelection(int stepIndex);
     void clearHoleDebugSelection();
 
-    const OccQtCore::Feature::HoleContextGeometryGroup* findHoleContextGroupByIndex(int groupIndex) const;
-    const OccQtCore::Feature::HoleContextTracePort* findHoleTracePortByIndex(int portIndex) const;
-    const OccQtCore::Feature::HoleContextTraceStep* findHoleTraceStepByIndex(int stepIndex) const;
-
-
 private:
     Ui::MainWindow* ui = nullptr;
 

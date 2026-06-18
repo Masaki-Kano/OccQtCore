@@ -238,21 +238,13 @@ namespace OccQtCore::Feature
             return;
         }
 
-        if (std::find(
-                group.group.geometryRefs.faceIndices.begin(),
-                group.group.geometryRefs.faceIndices.end(),
-                faceIndex) == group.group.geometryRefs.faceIndices.end())
-        {
-            group.group.geometryRefs.faceIndices.push_back(faceIndex);
-        }
+        CollectionUtil::addUnique(
+            group.group.geometryRefs.faceIndices,
+            faceIndex);
 
-        if (std::find(
-                group.faceIndices.begin(),
-                group.faceIndices.end(),
-                faceIndex) == group.faceIndices.end())
-        {
-            group.faceIndices.push_back(faceIndex);
-        }
+        CollectionUtil::addUnique(
+            group.faceIndices,
+            faceIndex);
 
         double faceParameterMin = 0.0;
         double faceParameterMax = 0.0;
@@ -542,10 +534,9 @@ namespace OccQtCore::Feature
                 const auto groupEdgeIndices =
                     TopologyQuery::edgesOfFace(m_model, groupFaceIndex);
 
-                if (std::find(
-                        groupEdgeIndices.begin(),
-                        groupEdgeIndices.end(),
-                        candidateEdgeIndex) != groupEdgeIndices.end())
+                if (CollectionUtil::contains(
+                        groupEdgeIndices,
+                        candidateEdgeIndex))
                 {
                     return true;
                 }

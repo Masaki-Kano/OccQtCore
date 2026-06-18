@@ -25,6 +25,12 @@
 
 #include "Debug/HoleDebugPanel.h"
 #include "Feature/HoleFeatureRecognizer.h"
+#include "Feature/HoleContextQuery.h"
+
+namespace
+{
+    namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
+}
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -439,7 +445,9 @@ void MainWindow::exportHoleDebugLog()
 void MainWindow::applyHoleContextGroupSelection(int groupIndex)
 {
     const auto* group =
-        findHoleContextGroupByIndex(groupIndex);
+        HoleContextQuery::findGroupByIndex(
+            m_holeDebugResult,
+            groupIndex);
 
     if (group == nullptr)
     {
@@ -476,7 +484,9 @@ void MainWindow::applyHoleContextGroupSelection(int groupIndex)
 void MainWindow::applyHoleTracePortSelection(int portIndex)
 {
     const auto* port =
-        findHoleTracePortByIndex(portIndex);
+        HoleContextQuery::findPortByIndex(
+            m_holeDebugResult,
+            portIndex);
 
     if (port == nullptr)
     {
@@ -513,7 +523,9 @@ void MainWindow::applyHoleTracePortSelection(int portIndex)
 void MainWindow::applyHoleTraceStepSelection(int stepIndex)
 {
     const auto* step =
-        findHoleTraceStepByIndex(stepIndex);
+        HoleContextQuery::findStepByIndex(
+            m_holeDebugResult,
+            stepIndex);
 
     if (step == nullptr)
     {
@@ -570,47 +582,5 @@ void MainWindow::clearHoleDebugSelection()
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisContextGroup);
     m_occView->clearLayer(OccQtCore::DisplayLayer::AnalysisTracePort);
     m_occView->redraw();
-}
-
-const OccQtCore::Feature::HoleContextGeometryGroup*
-MainWindow::findHoleContextGroupByIndex(int groupIndex) const
-{
-    for (const auto& group : m_holeDebugResult.contextGeometryGroups)
-    {
-        if (group.index == groupIndex)
-        {
-            return &group;
-        }
-    }
-
-    return nullptr;
-}
-
-const OccQtCore::Feature::HoleContextTracePort*
-MainWindow::findHoleTracePortByIndex(int portIndex) const
-{
-    for (const auto& port : m_holeDebugResult.contextTrace.ports)
-    {
-        if (port.index == portIndex)
-        {
-            return &port;
-        }
-    }
-
-    return nullptr;
-}
-
-const OccQtCore::Feature::HoleContextTraceStep*
-MainWindow::findHoleTraceStepByIndex(int stepIndex) const
-{
-    for (const auto& step : m_holeDebugResult.contextTrace.steps)
-    {
-        if (step.index == stepIndex)
-        {
-            return &step;
-        }
-    }
-
-    return nullptr;
 }
 

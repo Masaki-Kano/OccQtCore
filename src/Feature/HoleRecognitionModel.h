@@ -53,6 +53,75 @@ namespace OccQtCore::Feature
         Ambiguous
     };
 
+    inline std::string toString(
+        HoleContextGeometryGroupKind kind)
+    {
+        switch (kind)
+        {
+        case HoleContextGeometryGroupKind::Unknown:
+            return "Unknown";
+
+        case HoleContextGeometryGroupKind::WallCandidate:
+            return "WallCandidate";
+
+        case HoleContextGeometryGroupKind::BoundaryCandidate:
+            return "BoundaryCandidate";
+
+        case HoleContextGeometryGroupKind::TransitionCandidate:
+            return "TransitionCandidate";
+
+        case HoleContextGeometryGroupKind::Ambiguous:
+            return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
+
+    inline std::string toString(
+        HoleContextTracePortKind kind)
+    {
+        switch (kind)
+        {
+        case HoleContextTracePortKind::Unknown:
+            return "Unknown";
+
+        case HoleContextTracePortKind::ExternalTransition:
+            return "ExternalTransition";
+
+        case HoleContextTracePortKind::InternalLoop:
+            return "InternalLoop";
+
+        case HoleContextTracePortKind::Ambiguous:
+            return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
+
+    inline std::string toString(
+        HoleContextTraceStepKind kind)
+    {
+        switch (kind)
+        {
+        case HoleContextTraceStepKind::Unknown:
+            return "Unknown";
+
+        case HoleContextTraceStepKind::NoOutsideFace:
+            return "NoOutsideFace";
+
+        case HoleContextTraceStepKind::OutsideFace:
+            return "OutsideFace";
+
+        case HoleContextTraceStepKind::ReachedExistingGroup:
+            return "ReachedExistingGroup";
+
+        case HoleContextTraceStepKind::Ambiguous:
+            return "Ambiguous";
+        }
+
+        return "Unknown";
+    }
+
     /**
      * @brief 穴文脈でまとめたジオメトリ単位
      *

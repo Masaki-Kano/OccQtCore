@@ -5,7 +5,6 @@
 #include <QTextStream>
 
 #include "Feature/HoleRecognitionModel.h"
-#include "Feature/HoleRecognitionWorkingData.h"
 
 namespace OccQtCore
 {
@@ -46,18 +45,11 @@ namespace OccQtCore
         void appendContextTraceSteps(QString& text, const HoleRecognitionLogReport& report) const;
         void appendContextTraceRuns(QString& text, const HoleRecognitionLogReport& report) const;
         void appendGroupRefList(QTextStream& out, const Feature::HoleRecognitionResult& result, const std::vector<int>& groupIndices) const;
-        void appendCylindricalWorkingGroups(QString& text, const HoleRecognitionLogReport& report) const;
 
-        QString formatIntList(const std::vector<int>& values) const;
         QString formatContextGeometryGroup(const Feature::HoleContextGeometryGroup& group, int displayIndex) const;
         QString formatContextTracePort(const Feature::HoleContextTracePort& port, int displayIndex) const;
         QString formatContextTraceStep(const Feature::HoleContextTraceStep& step, int displayIndex) const;
         QString formatGroupRef(const Feature::HoleRecognitionResult& result, int groupIndex) const;
-
-        QString toString(Feature::HoleContextGeometryGroupKind kind) const;
-        QString toString(Feature::HoleContextTracePortKind kind) const;
-        QString toString(Feature::HoleContextTraceStepKind kind) const;
-        QString toString(Feature::CylindricalWallPromotionRejectReason reason) const;
 
     private:
         AppLogger* m_logger = nullptr;

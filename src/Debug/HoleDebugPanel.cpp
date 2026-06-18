@@ -1,5 +1,6 @@
 #include "Debug/HoleDebugPanel.h"
 #include "Feature/HoleContextQuery.h"
+#include "Log/LogFormatUtil.h"
 
 #include "ui_HoleDebugPanel.h"
 
@@ -13,43 +14,13 @@
 
 namespace
 {
+    namespace Feature = OccQtCore::Feature;
     namespace HoleContextQuery = OccQtCore::Feature::HoleContextQuery;
+    namespace LF = OccQtCore::LogFormatUtil;
 
     constexpr int ItemKindRole = Qt::UserRole + 1;
     constexpr int ItemIndexRole = Qt::UserRole + 2;
     constexpr int ItemSubIndexRole = Qt::UserRole + 3;
-
-    QString formatIntList(const std::vector<int>& values)
-    {
-        if (values.empty())
-        {
-            return "なし";
-        }
-
-        QStringList texts;
-        for (const int value : values)
-        {
-            texts << QString::number(value);
-        }
-
-        return texts.join(", ");
-    }
-
-    QString formatPoint(const gp_Pnt& point)
-    {
-        return QString("(%1, %2, %3)")
-        .arg(point.X(), 0, 'f', 4)
-            .arg(point.Y(), 0, 'f', 4)
-            .arg(point.Z(), 0, 'f', 4);
-    }
-
-    QString formatDirection(const gp_Dir& direction)
-    {
-        return QString("(%1, %2, %3)")
-        .arg(direction.X(), 0, 'f', 6)
-            .arg(direction.Y(), 0, 'f', 6)
-            .arg(direction.Z(), 0, 'f', 6);
-    }
 
     QString formatGroupIndexList(const std::vector<int>& values)
     {
@@ -66,27 +37,6 @@ namespace
         }
 
         return texts.join(", ");
-    }
-
-    QString toString(OccQtCore::Feature::HoleContextGeometryGroupKind kind)
-    {
-        using Kind = OccQtCore::Feature::HoleContextGeometryGroupKind;
-
-        switch (kind)
-        {
-        case Kind::Unknown:
-            return "Unknown";
-        case Kind::WallCandidate:
-            return "WallCandidate";
-        case Kind::BoundaryCandidate:
-            return "BoundaryCandidate";
-        case Kind::TransitionCandidate:
-            return "TransitionCandidate";
-        case Kind::Ambiguous:
-            return "Ambiguous";
-        }
-
-        return "Unknown";
     }
 }
 
@@ -181,8 +131,8 @@ void HoleDebugPanel::inspectPickedFace(int faceIndex)
 
             text += QString("  Group[%1] %2 Faces=%3\n")
                         .arg(group->index)
-                        .arg(toString(group->kind))
-                        .arg(formatIntList(group->geometryRefs.faceIndices));
+                        .arg(QString::fromStdString(Feature::toString(group->kind)))
+                        .arg(LF::formatIndexList(group->geometryRefs.faceIndices));
         }
     }
 
@@ -404,7 +354,7 @@ void HoleDebugPanel::populateTree()
             0,
             QString("Group[%1] %2")
                 .arg(group.index)
-                .arg(toString(group.kind)));
+                .arg(QString::fromStdString(Feature::toString(group.kind))));
 
         groupItem->setData(
             0,
@@ -497,8 +447,8 @@ QTreeWidgetItem* HoleDebugPanel::populateRunReachedGroupsRoot(
                 0,
                 QString("Group[%1] %2 Faces=%3")
                     .arg(group->index)
-                    .arg(toString(group->kind))
-                    .arg(formatIntList(group->geometryRefs.faceIndices)));
+                    .arg(QString::fromStdString(Feature::toString(group->kind)))
+                    .arg(LF::formatIndexList(group->geometryRefs.faceIndices)));
         }
         else
         {
@@ -596,7 +546,7 @@ void HoleDebugPanel::showTraceRunDetail(int runIndex)
     text += "\n";
 
     text += "\nTracePorts:\n";
-    text += formatIntList(run->tracePortIndices);
+    text += LF::formatIndexList(run->tracePortIndices);
     text += "\n";
 
     if (!run->note.empty())
@@ -654,13 +604,18 @@ void HoleDebugPanel::showReachedGroupLinkDetail(
         return;
     }
 
-    text += QString("Kind: %1\n").arg(toString(group->kind));
+    text += QString("Kind: %1\n")
+                .arg(QString::fromStdString(Feature::toString(group->kind)));
 
     text += "\nGeometryRefs:\n";
-    text += QString("Faces: %1\n").arg(formatIntList(group->geometryRefs.faceIndices));
-    text += QString("Wires: %1\n").arg(formatIntList(group->geometryRefs.wireIndices));
-    text += QString("Edges: %1\n").arg(formatIntList(group->geometryRefs.edgeIndices));
-    text += QString("Vertices: %1\n").arg(formatIntList(group->geometryRefs.vertexIndices));
+    text += QString("Faces: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.faceIndices));
+    text += QString("Wires: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.wireIndices));
+    text += QString("Edges: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.vertexIndices));
 
     if (!group->note.empty())
     {
@@ -704,25 +659,37 @@ void HoleDebugPanel::showGroupDetail(int groupIndex)
 
     text += "種別: ContextGeometryGroup\n";
     text += QString("GroupIndex: %1\n").arg(group->index);
-    text += QString("Kind: %1\n").arg(toString(group->kind));
+    text += QString("Kind: %1\n")
+                .arg(QString::fromStdString(Feature::toString(group->kind)));
 
     text += "\nGeometryRefs:\n";
-    text += QString("Faces: %1\n").arg(formatIntList(group->geometryRefs.faceIndices));
-    text += QString("Wires: %1\n").arg(formatIntList(group->geometryRefs.wireIndices));
-    text += QString("Edges: %1\n").arg(formatIntList(group->geometryRefs.edgeIndices));
-    text += QString("Vertices: %1\n").arg(formatIntList(group->geometryRefs.vertexIndices));
+    text += QString("Faces: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.faceIndices));
+    text += QString("Wires: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.wireIndices));
+    text += QString("Edges: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.edgeIndices));
+    text += QString("Vertices: %1\n")
+                .arg(LF::formatIndexList(group->geometryRefs.vertexIndices));
 
     text += "\nGeometry:\n";
-    text += QString("HasAxis: %1\n").arg(group->hasReferenceDirection ? "true" : "false");
+    text += QString("HasAxis: %1\n")
+                .arg(group->hasReferenceDirection ? "true" : "false");
 
     if (group->hasReferenceDirection)
     {
-        text += QString("AxisPoint: %1\n").arg(formatPoint(group->referencePoint));
-        text += QString("AxisDirection: %1\n").arg(formatDirection(group->referenceDirection));
-        text += QString("Radius: %1\n").arg(group->radius, 0, 'f', 4);
-        text += QString("AxialMin: %1\n").arg(group->parameterMin, 0, 'f', 4);
-        text += QString("AxialMax: %1\n").arg(group->parameterMax, 0, 'f', 4);
-        text += QString("AxialPosition: %1\n").arg(group->parameterPosition, 0, 'f', 4);
+        text += QString("AxisPoint: %1\n")
+        .arg(LF::formatPoint(group->referencePoint));
+        text += QString("AxisDirection: %1\n")
+                    .arg(LF::formatDirection(group->referenceDirection));
+        text += QString("Radius: %1\n")
+                    .arg(group->radius, 0, 'f', 4);
+        text += QString("AxialMin: %1\n")
+                    .arg(group->parameterMin, 0, 'f', 4);
+        text += QString("AxialMax: %1\n")
+                    .arg(group->parameterMax, 0, 'f', 4);
+        text += QString("AxialPosition: %1\n")
+                    .arg(group->parameterPosition, 0, 'f', 4);
     }
 
     if (!group->note.empty())

@@ -191,7 +191,7 @@ namespace OccQtCore
             out << "\n";
 
             out << "  Ports: "
-                << formatIntList(run.tracePortIndices) << "\n";
+                << LF::formatIndexList(run.tracePortIndices) << "\n";
 
             out << "  Steps:\n";
 
@@ -256,24 +256,6 @@ namespace OccQtCore
         }
     }
 
-    QString HoleRecognitionLogReporter::formatIntList(
-        const std::vector<int>& values) const
-    {
-        if (values.empty())
-        {
-            return "なし";
-        }
-
-        QStringList texts;
-
-        for (const int value : values)
-        {
-            texts << QString::number(value);
-        }
-
-        return texts.join(", ");
-    }
-
     QString HoleRecognitionLogReporter::formatContextGeometryGroup(
         const Feature::HoleContextGeometryGroup& group,
         int displayIndex) const
@@ -283,13 +265,13 @@ namespace OccQtCore
 
         out << "Group[" << displayIndex << "]\n";
         out << "  Index: " << group.index << "\n";
-        out << "  Kind: " << toString(group.kind) << "\n";
+        out << "  Kind: " << QString::fromStdString(OccQtCore::Feature::toString(group.kind)) << "\n";
 
         out << "  GeometryRefs:\n";
-        out << "    Faces: " << formatIntList(group.geometryRefs.faceIndices) << "\n";
-        out << "    Wires: " << formatIntList(group.geometryRefs.wireIndices) << "\n";
-        out << "    Edges: " << formatIntList(group.geometryRefs.edgeIndices) << "\n";
-        out << "    Vertices: " << formatIntList(group.geometryRefs.vertexIndices) << "\n";
+        out << "    Faces: " << LF::formatIndexList(group.geometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << LF::formatIndexList(group.geometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << LF::formatIndexList(group.geometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << LF::formatIndexList(group.geometryRefs.vertexIndices) << "\n";
 
         out << "  Geometry:\n";
         out << "    HasAxis: " << (group.hasReferenceDirection ? "true" : "false") << "\n";
@@ -328,13 +310,13 @@ namespace OccQtCore
         out << "Port[" << displayIndex << "]\n";
         out << "  Index: " << port.index << "\n";
         out << "  SourceGroupIndex: " << port.sourceGroupIndex << "\n";
-        out << "  Kind: " << toString(port.kind) << "\n";
+        out << "  Kind: " << QString::fromStdString(OccQtCore::Feature::toString(port.kind)) << "\n";
 
         out << "  GeometryRefs:\n";
-        out << "    Faces: " << formatIntList(port.geometryRefs.faceIndices) << "\n";
-        out << "    Wires: " << formatIntList(port.geometryRefs.wireIndices) << "\n";
-        out << "    Edges: " << formatIntList(port.geometryRefs.edgeIndices) << "\n";
-        out << "    Vertices: " << formatIntList(port.geometryRefs.vertexIndices) << "\n";
+        out << "    Faces: " << LF::formatIndexList(port.geometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << LF::formatIndexList(port.geometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << LF::formatIndexList(port.geometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << LF::formatIndexList(port.geometryRefs.vertexIndices) << "\n";
 
         out << "  AxialRange: ["
             << QString::number(port.axialMin, 'f', 4) << ", "
@@ -365,22 +347,22 @@ namespace OccQtCore
         out << "  Index: " << step.index << "\n";
         out << "  SourceGroupIndex: " << step.sourceGroupIndex << "\n";
         out << "  SourcePortIndex: " << step.sourcePortIndex << "\n";
-        out << "  Kind: " << toString(step.kind) << "\n";
+        out << "  Kind: " << QString::fromStdString(OccQtCore::Feature::toString(step.kind)) << "\n";
 
         out << "  PortGeometryRefs:\n";
-        out << "    Faces: " << formatIntList(step.portGeometryRefs.faceIndices) << "\n";
-        out << "    Wires: " << formatIntList(step.portGeometryRefs.wireIndices) << "\n";
-        out << "    Edges: " << formatIntList(step.portGeometryRefs.edgeIndices) << "\n";
-        out << "    Vertices: " << formatIntList(step.portGeometryRefs.vertexIndices) << "\n";
+        out << "    Faces: " << LF::formatIndexList(step.portGeometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << LF::formatIndexList(step.portGeometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << LF::formatIndexList(step.portGeometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << LF::formatIndexList(step.portGeometryRefs.vertexIndices) << "\n";
 
         out << "  OutsideGeometryRefs:\n";
-        out << "    Faces: " << formatIntList(step.outsideGeometryRefs.faceIndices) << "\n";
-        out << "    Wires: " << formatIntList(step.outsideGeometryRefs.wireIndices) << "\n";
-        out << "    Edges: " << formatIntList(step.outsideGeometryRefs.edgeIndices) << "\n";
-        out << "    Vertices: " << formatIntList(step.outsideGeometryRefs.vertexIndices) << "\n";
+        out << "    Faces: " << LF::formatIndexList(step.outsideGeometryRefs.faceIndices) << "\n";
+        out << "    Wires: " << LF::formatIndexList(step.outsideGeometryRefs.wireIndices) << "\n";
+        out << "    Edges: " << LF::formatIndexList(step.outsideGeometryRefs.edgeIndices) << "\n";
+        out << "    Vertices: " << LF::formatIndexList(step.outsideGeometryRefs.vertexIndices) << "\n";
 
         out << "  ObservedGroupIndices: "
-            << formatIntList(step.observedGroupIndices) << "\n";
+            << LF::formatIndexList(step.observedGroupIndices) << "\n";
 
         if (!step.note.empty())
         {
@@ -406,98 +388,4 @@ namespace OccQtCore
             .arg(group->index)
             .arg(toString(group->kind));
     }
-
-    QString HoleRecognitionLogReporter::toString(
-        Feature::HoleContextGeometryGroupKind kind) const
-    {
-        switch (kind)
-        {
-        case Feature::HoleContextGeometryGroupKind::Unknown:
-            return "Unknown";
-        case Feature::HoleContextGeometryGroupKind::WallCandidate:
-            return "WallCandidate";
-        case Feature::HoleContextGeometryGroupKind::BoundaryCandidate:
-            return "BoundaryCandidate";
-        case Feature::HoleContextGeometryGroupKind::TransitionCandidate:
-            return "TransitionCandidate";
-        case Feature::HoleContextGeometryGroupKind::Ambiguous:
-            return "Ambiguous";
-        }
-
-        return "Unknown";
-    }
-
-    QString HoleRecognitionLogReporter::toString(
-        Feature::HoleContextTracePortKind kind) const
-    {
-        switch (kind)
-        {
-        case Feature::HoleContextTracePortKind::Unknown:
-            return "Unknown";
-        case Feature::HoleContextTracePortKind::ExternalTransition:
-            return "ExternalTransition";
-        case Feature::HoleContextTracePortKind::InternalLoop:
-            return "InternalLoop";
-        case Feature::HoleContextTracePortKind::Ambiguous:
-            return "Ambiguous";
-        }
-
-        return "Unknown";
-    }
-
-    QString HoleRecognitionLogReporter::toString(
-        Feature::HoleContextTraceStepKind kind) const
-    {
-        switch (kind)
-        {
-        case Feature::HoleContextTraceStepKind::Unknown:
-            return "Unknown";
-        case Feature::HoleContextTraceStepKind::NoOutsideFace:
-            return "NoOutsideFace";
-        case Feature::HoleContextTraceStepKind::OutsideFace:
-            return "OutsideFace";
-        case Feature::HoleContextTraceStepKind::ReachedExistingGroup:
-            return "ReachedExistingGroup";
-        case Feature::HoleContextTraceStepKind::Ambiguous:
-            return "Ambiguous";
-        }
-
-        return "Unknown";
-    }
-
-    QString HoleRecognitionLogReporter::toString(
-        Feature::CylindricalWallPromotionRejectReason reason) const
-    {
-        using Reason = Feature::CylindricalWallPromotionRejectReason;
-
-        switch (reason)
-        {
-        case Reason::None:
-            return "None";
-
-        case Reason::NotWallCandidateKind:
-            return "NotWallCandidateKind";
-
-        case Reason::EmptyFaces:
-            return "EmptyFaces";
-
-        case Reason::MissingReference:
-            return "MissingReference";
-
-        case Reason::InvalidRadius:
-            return "InvalidRadius";
-
-        case Reason::InsufficientCircumferentialCoverage:
-            return "InsufficientCircumferentialCoverage";
-
-        case Reason::MissingTopologicalCircumferentialLoop:
-            return "MissingTopologicalCircumferentialLoop";
-
-        case Reason::NoInnerCylindricalFace:
-            return "NoInnerCylindricalFace";
-        }
-
-        return "Unknown";
-    }
-
 }
