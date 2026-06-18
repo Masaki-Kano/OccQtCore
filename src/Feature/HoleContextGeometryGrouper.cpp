@@ -8,10 +8,8 @@
 namespace OccQtCore::Feature
 {
     HoleContextGeometryGrouper::HoleContextGeometryGrouper(
-        const GeometryModel& model,
-        HoleRecognitionWorkingData* workingData)
+        const GeometryModel& model)
         : m_model(model)
-        , m_workingData(workingData)
     {
     }
 
@@ -19,8 +17,7 @@ namespace OccQtCore::Feature
     HoleContextGeometryGrouper::group() const
     {
         HoleContextCylindricalGroupBuilder cylindricalBuilder(
-            m_model,
-            m_workingData);
+            m_model);
 
         return cylindricalBuilder.build();
     }
@@ -47,8 +44,7 @@ namespace OccQtCore::Feature
         if (!buckets.cylinderFaceIndices.empty())
         {
             HoleContextCylindricalGroupBuilder cylindricalBuilder(
-                m_model,
-                m_workingData);
+                m_model);
 
             appendGroups(
                 groups,

@@ -2,12 +2,17 @@
 #define HOLECONTEXTCYLINDRICALGROUPBUILDER_H
 
 #include "Feature/HoleRecognitionModel.h"
-#include "Feature/HoleRecognitionWorkingData.h"
 
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 
 #include <vector>
+
+namespace OccQtCore
+{
+class GeometryModel;
+struct FaceData;
+}
 
 namespace OccQtCore
 {
@@ -21,8 +26,7 @@ namespace OccQtCore::Feature
     {
     public:
         explicit HoleContextCylindricalGroupBuilder(
-            const GeometryModel& model,
-            HoleRecognitionWorkingData* workingData = nullptr);
+            const GeometryModel& model);
 
         // モデル全体から円筒Faceを収集し、WallCandidateを作る。
         std::vector<HoleContextGeometryGroup> build() const;
@@ -60,20 +64,15 @@ namespace OccQtCore::Feature
         bool isValidWallCandidate(
             const WorkingGroup& group) const;
 
-        CylindricalWallPromotionResult evaluateWallCandidatePromotion(
-            const WorkingGroup& group) const;
-
-        void recordCylindricalWorkingGroupDebugInfo(
-            const WorkingGroup& group,
-            const CylindricalWallPromotionResult& promotion) const;
-
         bool hasFullCircumferentialCoverage(
             const WorkingGroup& group) const;
 
         bool hasTopologicalCircumferentialLoop(
             const WorkingGroup& group) const;
 
-        bool isFaceConnectedToGroup(const WorkingGroup& group, int faceIndex) const;
+        bool isFaceConnectedToGroup(
+            const WorkingGroup& group,
+            int faceIndex) const;
 
         bool hasInnerCylindricalFace(
             const WorkingGroup& group) const;
@@ -98,12 +97,8 @@ namespace OccQtCore::Feature
             double min2,
             double max2) const;
 
-        void debugDumpCylinderFaceGraph(const std::vector<int>& faceIndices) const;
-        bool canConnectCylinderFaces(int lhsFaceIndex, int rhsFaceIndex) const;
-
     private:
         const GeometryModel& m_model;
-        HoleRecognitionWorkingData* m_workingData = nullptr;
     };
 }
 

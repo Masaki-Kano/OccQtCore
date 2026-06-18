@@ -26,6 +26,9 @@ public:
     void clear();
     void setStatusText(const QString& text);
 
+    void inspectPickedFace(int faceIndex);
+    void clearPickedGeometryDetail();
+
 signals:
     void buildRequested();
     void clearRequested();
@@ -69,11 +72,11 @@ private:
 
     QTreeWidgetItem* populateSessionReachedGroupsRoot(
         QTreeWidgetItem* parentItem,
-        const OccQtCore::Feature::HoleContextTraceSession& session);
+        const OccQtCore::Feature::HoleContextTraceRun& run);
 
     QTreeWidgetItem* populateSessionStepsRoot(
         QTreeWidgetItem* parentItem,
-        const OccQtCore::Feature::HoleContextTraceSession& session);
+        const OccQtCore::Feature::HoleContextTraceRun& session);
 
     QTreeWidgetItem* populateGroupsRoot();
 
@@ -93,14 +96,16 @@ private:
 
     void showTraceStepDetail(int stepIndex);
 
-    const OccQtCore::Feature::HoleContextTraceSession*
-    findSessionBySessionIndex(int sessionIndex) const;
+    const OccQtCore::Feature::HoleContextTraceRun*
+    findRunByRunIndex(int runIndex) const;
 
     const OccQtCore::Feature::HoleContextGeometryGroup*
     findGroupByGroupIndex(int groupIndex) const;
 
     const OccQtCore::Feature::HoleContextTraceStep*
     findStepByStepIndex(int stepIndex) const;
+
+    int findRunIndexByStepIndex(int stepIndex) const;
 
 private:
     Ui::HoleDebugPanel *ui;

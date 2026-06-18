@@ -21,8 +21,7 @@ namespace OccQtCore::Feature
     {
     public:
         explicit HoleContextGeometryGrouper(
-            const GeometryModel& model,
-            HoleRecognitionWorkingData* workingData = nullptr);
+            const GeometryModel& model);
 
         // モデル全体から初期HoleContextGeometryGroupを作る。
         // 初期起点候補として、モデル内の生ジオメトリをBuilderへ配送する。
@@ -55,7 +54,6 @@ namespace OccQtCore::Feature
 
     private:
         const GeometryModel& m_model;
-        HoleRecognitionWorkingData* m_workingData = nullptr;
     };
 }
 

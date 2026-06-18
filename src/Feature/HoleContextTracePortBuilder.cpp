@@ -1,7 +1,6 @@
 #include "Feature/HoleContextTracePortBuilder.h"
 
 #include <algorithm>
-#include <map>
 #include <queue>
 #include <set>
 

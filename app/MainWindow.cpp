@@ -222,6 +222,12 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
     if (!result.hasShape)
     {
         m_logReporter->logSelection(m_selectionInfo);
+
+        if (m_holeDebugPanel)
+        {
+            m_holeDebugPanel->clearPickedGeometryDetail();
+        }
+
         return;
     }
 
@@ -237,6 +243,20 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
     m_selectionInfo.sourceDisplayObjectId = result.sourceDisplayObjectId;
 
     m_logReporter->logSelection(m_selectionInfo);
+
+    if (m_holeDebugPanel)
+    {
+        if (m_selectionInfo.type == OccQtCore::PickedShapeType::Face &&
+            m_selectionInfo.elementIndex >= 0)
+        {
+            m_holeDebugPanel->inspectPickedFace(
+                m_selectionInfo.elementIndex);
+        }
+        else
+        {
+            m_holeDebugPanel->clearPickedGeometryDetail();
+        }
+    }
 
     return;
 }
@@ -371,8 +391,6 @@ void MainWindow::clearHoleDebugDisplay()
 
 void MainWindow::exportHoleDebugLog()
 {
-    qDebug() << "MainWindow::exportHoleDebugLog";
-
     const QString defaultPath =
         QDir(defaultOpenDirectory()).filePath("HoleRecognitionDebug.log");
 
@@ -391,9 +409,6 @@ void MainWindow::exportHoleDebugLog()
         m_document.geometryModel(),
         m_holeDebugResult
     };
-
-    report.workingData = &m_holeDebugWorkingData;
-    report.outputCylindricalWorkingGroup = true;
 
     OccQtCore::HoleRecognitionLogReporter reporter(m_logger);
     const QString text = reporter.formatHoleRecognition(report);
@@ -574,7 +589,7 @@ MainWindow::findHoleContextGroupByIndex(int groupIndex) const
 const OccQtCore::Feature::HoleContextTracePort*
 MainWindow::findHoleTracePortByIndex(int portIndex) const
 {
-    for (const auto& port : m_holeDebugResult.contextTracePorts)
+    for (const auto& port : m_holeDebugResult.contextTrace.ports)
     {
         if (port.index == portIndex)
         {
@@ -588,7 +603,7 @@ MainWindow::findHoleTracePortByIndex(int portIndex) const
 const OccQtCore::Feature::HoleContextTraceStep*
 MainWindow::findHoleTraceStepByIndex(int stepIndex) const
 {
-    for (const auto& step : m_holeDebugResult.contextTraceSteps)
+    for (const auto& step : m_holeDebugResult.contextTrace.steps)
     {
         if (step.index == stepIndex)
         {

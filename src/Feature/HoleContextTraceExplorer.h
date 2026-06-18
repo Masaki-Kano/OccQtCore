@@ -32,10 +32,10 @@ namespace OccQtCore::Feature
             HoleRecognitionResult explore() const;
 
         private:
-            struct TraceSession
+            struct TraceWorkState
             {
                 int index = -1;
-                int seedGroupIndex = -1;
+                int startGroupIndex = -1;
 
                 std::set<int> visitedGroupIndices;
                 std::set<std::pair<int, int>> visitedEdges;
@@ -44,6 +44,7 @@ namespace OccQtCore::Feature
 
                 std::vector<int> reachedGroupIndices;
                 std::vector<int> traceStepIndices;
+                std::vector<int> tracePortIndices;
             };
 
         private:
@@ -58,7 +59,7 @@ namespace OccQtCore::Feature
                 HoleContextTraversalPolicy& traversalPolicy,
                 HoleContextConnectionPolicy& connectionPolicy,
                 HoleRecognitionResult& result,
-                TraceSession& session,
+                TraceWorkState& session,
                 int sourceGroupIndex,
                 int depth) const;
 

@@ -74,9 +74,9 @@
    </item>
    <item>
     <widget class="QWidget" name="mainArea" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
-       <widget class="QSplitter" name="splitterMain">
+       <widget class="QSplitter" name="splitter">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
         </property>
@@ -87,10 +87,19 @@
           </property>
          </column>
         </widget>
-        <widget class="QPlainTextEdit" name="plainDetail">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
+        <widget class="QWidget" name="">
+         <layout class="QVBoxLayout" name="detailInfoArea">
+          <item>
+           <widget class="QPlainTextEdit" name="plainDetail">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPlainTextEdit" name="plainPickedGeometryDetail"/>
+          </item>
+         </layout>
         </widget>
        </widget>
       </item>

@@ -105,8 +105,8 @@ qt_add_executable(OccQtCore
     src/Feature/HoleContextTraversalPolicy.cpp
     src/Feature/HoleContextConnectionPolicy.h
     src/Feature/HoleContextConnectionPolicy.cpp
-    src/Feature/HoleContextSeedWallFinder.h
-    src/Feature/HoleContextSeedWallFinder.cpp
+
+
     src/Feature/HoleRecognitionWorkingData.h
 
 )

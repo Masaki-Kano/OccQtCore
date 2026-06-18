@@ -42,11 +42,6 @@ namespace OccQtCore
             appendSummary(text, report);
         }
 
-        if (report.outputCylindricalWorkingGroup)
-        {
-            appendCylindricalWorkingGroups(text, report);
-        }
-
         if (report.outputTraceSession)
         {
             appendContextTraceSessions(text, report);
@@ -78,12 +73,12 @@ namespace OccQtCore
         m_logger->info("========== 穴フィーチャ認識レポート ==========");
         m_logger->info(QString("ContextGeometryGroups: %1")
                            .arg(result.contextGeometryGroups.size()));
-        m_logger->info(QString("ContextTraceSessions: %1")
-                           .arg(result.contextTraceSessions.size()));
+        m_logger->info(QString("ContextTraceRuns: %1")
+                           .arg(result.contextTrace.runs.size()));
         m_logger->info(QString("ContextTraceSteps: %1")
-                           .arg(result.contextTraceSteps.size()));
+                           .arg(result.contextTrace.steps.size()));
         m_logger->info(QString("ContextTracePorts: %1")
-                           .arg(result.contextTracePorts.size()));
+                           .arg(result.contextTrace.ports.size()));
         m_logger->info("=====================================");
     }
 
@@ -97,12 +92,12 @@ namespace OccQtCore
         out << "-------\n";
         out << "ContextGeometryGroups: "
             << static_cast<int>(result.contextGeometryGroups.size()) << "\n";
-        out << "ContextTraceSessions: "
-            << static_cast<int>(result.contextTraceSessions.size()) << "\n";
+        out << "ContextTraceRuns: "
+            << static_cast<int>(result.contextTrace.runs.size()) << "\n";
         out << "ContextTraceSteps: "
-            << static_cast<int>(result.contextTraceSteps.size()) << "\n";
+            << static_cast<int>(result.contextTrace.steps.size()) << "\n";
         out << "ContextTracePorts: "
-            << static_cast<int>(result.contextTracePorts.size()) << "\n";
+            << static_cast<int>(result.contextTrace.ports.size()) << "\n";
         out << "\n";
     }
 
@@ -137,11 +132,11 @@ namespace OccQtCore
         out << "Context Trace Ports\n";
         out << "-------------------\n";
         out << "Count: "
-            << static_cast<int>(result.contextTracePorts.size()) << "\n\n";
+            << static_cast<int>(result.contextTrace.ports.size()) << "\n\n";
 
-        for (int i = 0; i < static_cast<int>(result.contextTracePorts.size()); ++i)
+        for (int i = 0; i < static_cast<int>(result.contextTrace.ports.size()); ++i)
         {
-            out << formatContextTracePort(result.contextTracePorts[i], i);
+            out << formatContextTracePort(result.contextTrace.ports[i], i);
             out << "\n";
         }
     }
@@ -157,11 +152,11 @@ namespace OccQtCore
         out << "Context Trace Steps\n";
         out << "-------------------\n";
         out << "Count: "
-            << static_cast<int>(result.contextTraceSteps.size()) << "\n\n";
+            << static_cast<int>(result.contextTrace.steps.size()) << "\n\n";
 
-        for (int i = 0; i < static_cast<int>(result.contextTraceSteps.size()); ++i)
+        for (int i = 0; i < static_cast<int>(result.contextTrace.steps.size()); ++i)
         {
-            out << formatContextTraceStep(result.contextTraceSteps[i], i);
+            out << formatContextTraceStep(result.contextTrace.steps[i], i);
             out << "\n";
         }
     }
@@ -174,31 +169,34 @@ namespace OccQtCore
 
         QTextStream out(&text);
 
-        out << "Context Trace Sessions\n";
-        out << "----------------------\n";
+        out << "Context Trace Runs\n";
+        out << "------------------\n";
         out << "Count: "
-            << static_cast<int>(result.contextTraceSessions.size()) << "\n\n";
+            << static_cast<int>(result.contextTrace.runs.size()) << "\n\n";
 
-        for (const auto& session : result.contextTraceSessions)
+        for (const auto& run : result.contextTrace.runs)
         {
-            out << "Session[" << session.index << "]\n";
-            out << "  SeedGroup: "
-                << formatGroupRef(result, session.seedGroupIndex) << "\n";
+            out << "Run[" << run.index << "]\n";
+            out << "  StartGroup: "
+                << formatGroupRef(result, run.startGroupIndex) << "\n";
 
             out << "  ReachedGroups: ";
-            appendGroupRefList(out, result, session.reachedGroupIndices);
+            appendGroupRefList(out, result, run.reachedGroupIndices);
             out << "\n";
 
             out << "  ReachedWalls: ";
-            appendGroupRefList(out, result, session.reachedWallGroupIndices);
+            appendGroupRefList(out, result, run.reachedWallGroupIndices);
             out << "\n";
+
+            out << "  Ports: "
+                << formatIntList(run.tracePortIndices) << "\n";
 
             out << "  Steps:\n";
 
-            for (const int stepIndex : session.traceStepIndices)
+            for (const int stepIndex : run.traceStepIndices)
             {
                 const auto* step =
-                    findStepByIndex(result.contextTraceSteps, stepIndex);
+                    findStepByIndex(result.contextTrace.steps, stepIndex);
 
                 if (step == nullptr)
                 {
@@ -222,9 +220,12 @@ namespace OccQtCore
                 out << "\n";
             }
 
-            if (!session.note.empty())
+            out << "  Completed: "
+                << (run.completed ? "true" : "false") << "\n";
+
+            if (!run.note.empty())
             {
-                out << "  Note: " << QString::fromStdString(session.note) << "\n";
+                out << "  Note: " << QString::fromStdString(run.note) << "\n";
             }
 
             out << "\n";
@@ -250,61 +251,6 @@ namespace OccQtCore
             }
 
             out << formatGroupRef(result, groupIndices[i]);
-        }
-    }
-
-    void HoleRecognitionLogReporter::appendCylindricalWorkingGroups(
-        QString& text,
-        const HoleRecognitionLogReport& report) const
-    {
-        QTextStream out(&text);
-
-        out << "\n";
-        out << "Cylindrical Working Groups\n";
-        out << "--------------------------\n";
-
-        out << "OutputFlag: "
-            << (report.outputCylindricalWorkingGroup ? "true" : "false")
-            << "\n";
-
-        if (report.workingData == nullptr)
-        {
-            out << "WorkingData: null\n\n";
-            return;
-        }
-
-        out << "WorkingData: available\n";
-
-        const auto& groups =
-            report.workingData->cylindricalWorkingGroups;
-
-        out << "Count: " << groups.size() << "\n\n";
-
-        for (const auto& group : groups)
-        {
-            out << "WorkingGroup[" << group.index << "]\n";
-            out << "  Faces: " << formatIntList(group.faceIndices) << "\n";
-            out << "  Radius: " << QString::number(group.radius, 'f', 4) << "\n";
-
-            out << "  Promotion: "
-                << (group.promotion.accepted ? "Accepted" : "Rejected")
-                << "\n";
-
-            if (!group.promotion.accepted)
-            {
-                out << "  RejectReason: "
-                    << toString(group.promotion.rejectReason)
-                    << "\n";
-            }
-
-            if (!group.note.empty())
-            {
-                out << "  Note: "
-                    << QString::fromStdString(group.note)
-                    << "\n";
-            }
-
-            out << "\n";
         }
     }
 

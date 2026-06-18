@@ -17,15 +17,11 @@ namespace OccQtCore
         const GeometryModel& model;
         const Feature::HoleRecognitionResult& result;
 
-        const Feature::HoleRecognitionWorkingData* workingData = nullptr;
-
         bool outputSummary = true;
         bool outputGeometryGroup = true;
         bool outputPort = false;
         bool outputTraceStep = true;
         bool outputTraceSession = true;
-
-        bool outputCylindricalWorkingGroup = true;
     };
 
     class HoleRecognitionLogReporter

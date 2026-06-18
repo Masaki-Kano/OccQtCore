@@ -6,7 +6,6 @@
 #include "Feature/HoleContextTraceStepBuilder.h"
 #include "Feature/HoleContextTraversalPolicy.h"
 #include "Feature/HoleContextConnectionPolicy.h"
-#include "Feature/HoleContextSeedWallFinder.h"
 
 #include <set>
 #include <algorithm>
@@ -46,6 +45,18 @@ namespace OccQtCore::Feature
 
             return &(*it);
         }
+
+        void addUnique(
+            std::vector<int>& values,
+            int value)
+        {
+            if (std::find(values.begin(), values.end(), value) != values.end())
+            {
+                return;
+            }
+
+            values.push_back(value);
+        }
     }
 
     HoleContextTraceExplorer::HoleContextTraceExplorer(
@@ -66,42 +77,37 @@ namespace OccQtCore::Feature
         HoleContextTracePortBuilder tracePortBuilder(m_model);
         HoleContextTraversalPolicy traversalPolicy;
         HoleContextConnectionPolicy connectionPolicy;
-        HoleContextSeedWallFinder seedWallFinder(
-            m_model,
-            m_workingData);
 
-        std::set<int> exploredWallGroupIndices;
+        const auto contextGroups =
+            contextGrouper.group();
 
-        while (true)
+        for (const auto& group : contextGroups)
         {
-            auto seedWall =
-                seedWallFinder.findNext(
-                    groupRegistry,
-                    exploredWallGroupIndices);
+            groupRegistry.registerOrMerge(std::move(group));
+        }
 
-            if (!seedWall.has_value())
-            {
-                break;
-            }
+        result.contextGeometryGroups =
+            groupRegistry.groups();
 
-            const int seedGroupIndex =
-                groupRegistry.registerOrMerge(std::move(*seedWall));
+        std::set<int> coveredWallGroupIndices;
 
-            if (seedGroupIndex < 0)
+        for (const auto& group : result.contextGeometryGroups)
+        {
+            if (group.kind != HoleContextGeometryGroupKind::WallCandidate)
             {
                 continue;
             }
 
-            if (exploredWallGroupIndices.find(seedGroupIndex) !=
-                exploredWallGroupIndices.end())
+            if (coveredWallGroupIndices.find(group.index) !=
+                coveredWallGroupIndices.end())
             {
                 continue;
             }
 
-            TraceSession session;
-            session.index =
-                static_cast<int>(result.contextTraceSessions.size());
-            session.seedGroupIndex = seedGroupIndex;
+            TraceWorkState workState;
+            workState.index =
+                static_cast<int>(result.contextTrace.runs.size());
+            workState.startGroupIndex = group.index;
 
             exploreDepthFirst(
                 groupRegistry,
@@ -110,17 +116,20 @@ namespace OccQtCore::Feature
                 traversalPolicy,
                 connectionPolicy,
                 result,
-                session,
-                seedGroupIndex,
+                workState,
+                group.index,
                 0);
 
-            HoleContextTraceSession outputSession;
-            outputSession.index = session.index;
-            outputSession.seedGroupIndex = session.seedGroupIndex;
-            outputSession.reachedGroupIndices = session.reachedGroupIndices;
-            outputSession.traceStepIndices = session.traceStepIndices;
+            HoleContextTraceRun run;
+            run.index = workState.index;
+            run.startGroupIndex = workState.startGroupIndex;
+            run.reachedGroupIndices = workState.reachedGroupIndices;
+            run.traceStepIndices = workState.traceStepIndices;
+            run.tracePortIndices = workState.tracePortIndices;
+            run.completed = true;
+            run.note = "DFS trace run.";
 
-            for (const int reachedGroupIndex : session.reachedGroupIndices)
+            for (const int reachedGroupIndex : workState.reachedGroupIndices)
             {
                 const auto* reachedGroup =
                     findGroupByIndex(
@@ -132,36 +141,22 @@ namespace OccQtCore::Feature
                     continue;
                 }
 
-                if (reachedGroup->kind ==
+                if (reachedGroup->kind !=
                     HoleContextGeometryGroupKind::WallCandidate)
                 {
-                    outputSession.reachedWallGroupIndices.push_back(
-                        reachedGroup->index);
-                }
-            }
-
-            outputSession.note = "DFS trace session.";
-
-            result.contextTraceSessions.push_back(
-                std::move(outputSession));
-
-            for (const int reachedGroupIndex : session.reachedGroupIndices)
-            {
-                const auto* reachedGroup =
-                    findGroupByIndex(
-                        groupRegistry.groups(),
-                        reachedGroupIndex);
-
-                if (reachedGroup == nullptr)
-                {
                     continue;
                 }
 
-                if (reachedGroup->kind == HoleContextGeometryGroupKind::WallCandidate)
-                {
-                    exploredWallGroupIndices.insert(reachedGroup->index);
-                }
+                addUnique(
+                    run.reachedWallGroupIndices,
+                    reachedGroup->index);
+
+                coveredWallGroupIndices.insert(
+                    reachedGroup->index);
             }
+
+            result.contextTrace.runs.push_back(
+                std::move(run));
         }
 
         result.contextGeometryGroups =
@@ -191,7 +186,7 @@ namespace OccQtCore::Feature
         HoleContextTraversalPolicy& traversalPolicy,
         HoleContextConnectionPolicy& connectionPolicy,
         HoleRecognitionResult& result,
-        TraceSession& session,
+        TraceWorkState& workState,
         int sourceGroupIndex,
         int depth) const
     {
@@ -200,37 +195,37 @@ namespace OccQtCore::Feature
             return;
         }
 
-        if (session.visitedGroupIndices.find(sourceGroupIndex) !=
-            session.visitedGroupIndices.end())
+        if (workState.visitedGroupIndices.find(sourceGroupIndex) !=
+            workState.visitedGroupIndices.end())
         {
             return;
         }
 
-        session.visitedGroupIndices.insert(sourceGroupIndex);
+        workState.visitedGroupIndices.insert(sourceGroupIndex);
 
-        if (std::find(
-                session.reachedGroupIndices.begin(),
-                session.reachedGroupIndices.end(),
-                sourceGroupIndex) == session.reachedGroupIndices.end())
-        {
-            session.reachedGroupIndices.push_back(sourceGroupIndex);
-        }
+        addUnique(
+            workState.reachedGroupIndices,
+            sourceGroupIndex);
 
         auto groupPorts =
             tracePortBuilder.buildForGroup(
                 groupRegistry.groups(),
                 sourceGroupIndex,
-                static_cast<int>(result.contextTracePorts.size()));
+                static_cast<int>(result.contextTrace.ports.size()));
 
         if (groupPorts.empty())
         {
             return;
         }
 
-        result.contextTracePorts.insert(
-            result.contextTracePorts.end(),
-            groupPorts.begin(),
-            groupPorts.end());
+        for (const auto& port : groupPorts)
+        {
+            result.contextTrace.ports.push_back(port);
+
+            addUnique(
+                workState.tracePortIndices,
+                port.index);
+        }
 
         HoleContextTraceStepBuilder traceStepBuilder(
             m_model,
@@ -243,9 +238,11 @@ namespace OccQtCore::Feature
         for (auto& step : groupSteps)
         {
             step.index =
-                static_cast<int>(result.contextTraceSteps.size());
+                static_cast<int>(result.contextTrace.steps.size());
 
             const int stepIndex = step.index;
+
+            std::vector<int> nextGroupIndices;
 
             auto observedGroups =
                 buildObservedGroups(
@@ -272,9 +269,11 @@ namespace OccQtCore::Feature
                 const HoleContextGeometryGroup* previousGroup = nullptr;
 
                 const auto parentIt =
-                    session.parentGroupIndexByGroupIndex.find(sourceGroupIndex);
+                    workState.parentGroupIndexByGroupIndex.find(
+                        sourceGroupIndex);
 
-                if (parentIt != session.parentGroupIndexByGroupIndex.end())
+                if (parentIt !=
+                    workState.parentGroupIndexByGroupIndex.end())
                 {
                     previousGroup =
                         findGroupByIndex(
@@ -302,19 +301,21 @@ namespace OccQtCore::Feature
                 const bool isNewObservedGroup =
                     existingObservedGroupIndex < 0;
 
-                HoleContextTraversalPolicy::Context context;
-                context.sourceGroupIndex = sourceGroupIndex;
-                context.observedGroupIndex = existingObservedGroupIndex;
-                context.observedGroupIsNewCandidate = isNewObservedGroup;
-                context.stepIndex = stepIndex;
-                context.nextDepth = depth + 1;
-                context.groups = &groupRegistry.groups();
-                context.visitedGroupIndices = &session.visitedGroupIndices;
-                context.pendingGroupIndexSet = nullptr;
-                context.visitedEdges = &session.visitedEdges;
+                HoleContextTraversalPolicy::Context traversalContext;
+                traversalContext.sourceGroupIndex = sourceGroupIndex;
+                traversalContext.observedGroupIndex = existingObservedGroupIndex;
+                traversalContext.observedGroupIsNewCandidate = isNewObservedGroup;
+                traversalContext.stepIndex = stepIndex;
+                traversalContext.nextDepth = depth + 1;
+                traversalContext.groups = &groupRegistry.groups();
+                traversalContext.visitedGroupIndices =
+                    &workState.visitedGroupIndices;
+                traversalContext.pendingGroupIndexSet = nullptr;
+                traversalContext.visitedEdges =
+                    &workState.visitedEdges;
 
                 const auto traversalDecision =
-                    traversalPolicy.decide(context);
+                    traversalPolicy.decide(traversalContext);
 
                 if (traversalDecision.kind ==
                     HoleContextTraversalDecisionKind::Stop)
@@ -325,7 +326,8 @@ namespace OccQtCore::Feature
                 observedGroup.note +=
                     " SourceTraceStepIndex=" + std::to_string(step.index) +
                     ", SourceGroupIndex=" + std::to_string(step.sourceGroupIndex) +
-                    ", SourcePortIndex=" + std::to_string(step.sourcePortIndex) + ".";
+                    ", SourcePortIndex=" + std::to_string(step.sourcePortIndex) +
+                    ".";
 
                 const int observedGroupIndex =
                     isNewObservedGroup
@@ -337,26 +339,36 @@ namespace OccQtCore::Feature
                     continue;
                 }
 
-                if (std::find(
-                        step.observedGroupIndices.begin(),
-                        step.observedGroupIndices.end(),
-                        observedGroupIndex) == step.observedGroupIndices.end())
-                {
-                    step.observedGroupIndices.push_back(observedGroupIndex);
-                }
+                addUnique(
+                    step.observedGroupIndices,
+                    observedGroupIndex);
 
-                session.visitedEdges.insert(
+                workState.visitedEdges.insert(
                     std::make_pair(
                         sourceGroupIndex,
                         observedGroupIndex));
 
-                if (session.parentGroupIndexByGroupIndex.find(observedGroupIndex) ==
-                    session.parentGroupIndexByGroupIndex.end())
+                if (workState.parentGroupIndexByGroupIndex.find(
+                        observedGroupIndex) ==
+                    workState.parentGroupIndexByGroupIndex.end())
                 {
-                    session.parentGroupIndexByGroupIndex[observedGroupIndex] =
+                    workState.parentGroupIndexByGroupIndex[observedGroupIndex] =
                         sourceGroupIndex;
                 }
 
+                addUnique(
+                    nextGroupIndices,
+                    observedGroupIndex);
+            }
+
+            result.contextTrace.steps.push_back(step);
+
+            addUnique(
+                workState.traceStepIndices,
+                stepIndex);
+
+            for (const int nextGroupIndex : nextGroupIndices)
+            {
                 exploreDepthFirst(
                     groupRegistry,
                     contextGrouper,
@@ -364,13 +376,10 @@ namespace OccQtCore::Feature
                     traversalPolicy,
                     connectionPolicy,
                     result,
-                    session,
-                    observedGroupIndex,
+                    workState,
+                    nextGroupIndex,
                     depth + 1);
             }
-
-            result.contextTraceSteps.push_back(step);
-            session.traceStepIndices.push_back(stepIndex);
         }
     }
 }

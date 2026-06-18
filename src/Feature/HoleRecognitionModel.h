@@ -149,24 +149,46 @@ namespace OccQtCore::Feature
     };
 
     /**
-     * @brief 穴文脈トレースセッション
+     * @brief 穴文脈トレース実行単位
      *
-     * 1つのSeed Wallから開始したDFS探索結果。
+     * 1つの開始Groupから開始したDFS/Traceの1回分の作業結果。
      *
-     * デバッグツリーではこのSessionを1単位として表示する。
+     * 旧Seed/Sessionに相当するが、単なる開始点ではなく、
+     * Trace中に到達したGroup、生成されたStep/Portを束ねる
+     * 作業単位として扱う。
      */
-    struct HoleContextTraceSession
+    struct HoleContextTraceRun
     {
         int index = -1;
 
-        int seedGroupIndex = -1;
+        int startGroupIndex = -1;
 
         std::vector<int> reachedGroupIndices;
         std::vector<int> reachedWallGroupIndices;
 
         std::vector<int> traceStepIndices;
+        std::vector<int> tracePortIndices;
+
+        bool completed = false;
 
         std::string note;
+    };
+
+    /**
+     * @brief 穴文脈トレース結果
+     *
+     * DFS/Trace全体で生成されたRun/Port/Stepをまとめる。
+     *
+     * Runは1回分の探索作業単位。
+     * Port/StepはTrace全体で一意なindexを持ち、
+     * Run側は traceStepIndices / tracePortIndices で参照する。
+     */
+    struct HoleContextTraceResult
+    {
+        std::vector<HoleContextTraceRun> runs;
+
+        std::vector<HoleContextTracePort> ports;
+        std::vector<HoleContextTraceStep> steps;
     };
 
     /**
@@ -180,10 +202,8 @@ namespace OccQtCore::Feature
     struct HoleRecognitionResult
     {
         std::vector<HoleContextGeometryGroup> contextGeometryGroups;
-        std::vector<HoleContextTracePort> contextTracePorts;
-        std::vector<HoleContextTraceStep> contextTraceSteps;
 
-        std::vector<HoleContextTraceSession> contextTraceSessions;
+        HoleContextTraceResult contextTrace;
     };
 }
 
