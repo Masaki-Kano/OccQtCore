@@ -9,6 +9,8 @@
 #include <TopAbs_ShapeEnum.hxx>
 #include <V3d_View.hxx>
 
+#include <SelectMgr_EntityOwner.hxx>
+
 #include "Interaction/SelectionTypes.h"
 #include "View/AisDisplayManager.h"
 
@@ -25,8 +27,10 @@ namespace OccQtCore
         PickResult pickAt(
             const QPoint& pos) const;
 
+        const Handle(SelectMgr_EntityOwner)& lastPickedOwner() const;
+
     private:
-        GeometryElementKind toPickedShapeType(
+        GeometryElementKind toGeometryElementKind(
             TopAbs_ShapeEnum shapeType) const;
 
     private:
@@ -36,6 +40,8 @@ namespace OccQtCore
         // 所有しない。OccView が AisDisplayManager を所有する。
         // 検出された AIS object から DisplayObjectId を引くためだけに使う。
         const AisDisplayManager* m_displayManager = nullptr;
+
+        mutable Handle(SelectMgr_EntityOwner) m_lastPickedOwner;
     };
 }
 

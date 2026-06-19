@@ -17,6 +17,8 @@ namespace OccQtCore
     {
         PickResult result;
 
+        m_lastPickedOwner.Nullify();
+
         if (m_context.IsNull() ||
             m_view.IsNull())
         {
@@ -47,6 +49,15 @@ namespace OccQtCore
         const Handle(AIS_InteractiveObject) pickedObject =
             m_context->DetectedInteractive();
 
+        m_lastPickedOwner =
+            m_context->DetectedOwner();
+
+        if (m_lastPickedOwner.IsNull())
+        {
+            clearPickState();
+            return result;
+        }
+
         m_context->SelectDetected(
             AIS_SelectionScheme_Replace);
 
@@ -54,6 +65,7 @@ namespace OccQtCore
 
         if (!m_context->MoreSelected())
         {
+            m_lastPickedOwner.Nullify();
             clearPickState();
             return result;
         }
@@ -61,17 +73,19 @@ namespace OccQtCore
         const TopoDS_Shape pickedShape =
             m_context->SelectedShape();
 
+        // ピック総督は選択表示を残さない。
         clearPickState();
 
         if (pickedShape.IsNull())
         {
+            m_lastPickedOwner.Nullify();
             return result;
         }
 
         result.hasShape = true;
         result.shape = pickedShape;
         result.elementKind =
-            toPickedShapeType(
+            toGeometryElementKind(
                 pickedShape.ShapeType());
 
         result.sourceDisplayObjectId =
@@ -82,7 +96,13 @@ namespace OccQtCore
         return result;
     }
 
-    GeometryElementKind OccPickController::toPickedShapeType(
+    const Handle(SelectMgr_EntityOwner)&
+        OccPickController::lastPickedOwner() const
+    {
+        return m_lastPickedOwner;
+    }
+
+    GeometryElementKind OccPickController::toGeometryElementKind(
         TopAbs_ShapeEnum shapeType) const
     {
         switch (shapeType)

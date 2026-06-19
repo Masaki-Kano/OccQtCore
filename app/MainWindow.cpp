@@ -232,6 +232,8 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 
     if (!result.hasShape)
     {
+        m_occView->clearSelectionHighlight();
+
         m_logReporter->logSelection(m_currentSelection);
 
         if (m_holeDebugPanel)
@@ -282,6 +284,8 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 
     if (elementIndex < 0)
     {
+        m_occView->clearSelectionHighlight();
+
         m_logReporter->logSelection(
             m_currentSelection);
 
@@ -308,6 +312,8 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 
     m_currentSelection.sourceDisplayObjectId =
         result.sourceDisplayObjectId;
+
+    m_occView->applyLastPickedHighlight();
 
     m_logReporter->logSelection(
         m_currentSelection);

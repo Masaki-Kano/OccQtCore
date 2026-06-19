@@ -12,8 +12,6 @@ struct DisplayStyle
     enum class Preset
     {
         DefaultShape,
-        PickHighlightFace,
-
         ContextGroupFace,
         TracePortEdge
     };

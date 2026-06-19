@@ -76,6 +76,9 @@ namespace OccQtCore
         void updateViewer();
         void redraw();
 
+        void applyLastPickedHighlight();
+        void clearSelectionHighlight();
+
     signals:
         void shapePicked(const OccQtCore::PickResult& result);
 

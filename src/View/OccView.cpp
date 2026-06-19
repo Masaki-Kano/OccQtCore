@@ -7,6 +7,10 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
+#include <Prs3d_Drawer.hxx>
+#include <Prs3d_LineAspect.hxx>
+#include <Aspect_TypeOfLine.hxx>
+
 #include <Aspect_DisplayConnection.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
@@ -227,6 +231,37 @@ namespace OccQtCore
         m_viewer->SetLightOn();
 
         m_context = new AIS_InteractiveContext(m_viewer);
+
+        const Handle(Prs3d_Drawer)& selectionStyle =
+            m_context->SelectionStyle();
+
+        selectionStyle->SetColor(
+            Quantity_NOC_YELLOW);
+
+        selectionStyle->SetDisplayMode(
+            AIS_WireFrame);
+
+        selectionStyle->SetLineAspect(
+            new Prs3d_LineAspect(
+                Quantity_NOC_YELLOW,
+                Aspect_TOL_SOLID,
+                4.0));
+
+        const Handle(Prs3d_Drawer)& localSelectionStyle =
+            m_context->HighlightStyle(
+                Prs3d_TypeOfHighlight_LocalSelected);
+
+        localSelectionStyle->SetColor(
+            Quantity_NOC_YELLOW);
+
+        localSelectionStyle->SetDisplayMode(
+            AIS_WireFrame);
+
+        localSelectionStyle->SetLineAspect(
+            new Prs3d_LineAspect(
+                Quantity_NOC_YELLOW,
+                Aspect_TOL_SOLID,
+                4.0));
 
         m_view = m_viewer->CreateView();
 
@@ -533,5 +568,40 @@ namespace OccQtCore
         }
 
         m_view->Redraw();
+    }
+
+    void OccView::applyLastPickedHighlight()
+    {
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        const Handle(SelectMgr_EntityOwner)& owner = m_pickController->lastPickedOwner();
+
+        if (owner.IsNull())
+        {
+            clearSelectionHighlight();
+            return;
+        }
+
+        m_context->ClearSelected(Standard_False);
+
+        m_context->SetSelected(owner, Standard_False);
+
+        updateViewer();
+    }
+
+    void OccView::clearSelectionHighlight()
+    {
+        if (!isInitialized())
+        {
+            return;
+        }
+
+        m_context->ClearSelected(Standard_False);
+        m_context->ClearDetected(Standard_False);
+
+        updateViewer();
     }
 }

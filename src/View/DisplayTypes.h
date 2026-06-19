@@ -8,7 +8,6 @@ namespace OccQtCore
     enum class DisplayLayer
     {
         Model,
-        PickOverlay,
         TemporaryOverlay
     };
 
@@ -17,7 +16,6 @@ namespace OccQtCore
         Unknown,
 
         Model,
-        Pick,
 
         DebugContextGroup,
         DebugTracePort,
