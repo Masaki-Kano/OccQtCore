@@ -228,14 +228,11 @@ void MainWindow::openStepFile(const QString& filePath)
 
 void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 {
-    m_selectionInfo = OccQtCore::SelectionInfo{};
-
-    m_occView->clearLayer(
-        OccQtCore::DisplayLayer::PickOverlay);
+    m_currentSelection = OccQtCore::CurrentSelection{};
 
     if (!result.hasShape)
     {
-        m_logReporter->logSelection(m_selectionInfo);
+        m_logReporter->logSelection(m_currentSelection);
 
         if (m_holeDebugPanel)
         {
@@ -247,37 +244,89 @@ void MainWindow::onShapePicked(const OccQtCore::PickResult& result)
 
     const auto& geometryModel = m_document.geometryModel();
 
-    const int elementIndex =
-        geometryModel.findElementIndex(result.shape, result.type);
+    int elementIndex = -1;
 
-    m_selectionInfo.isValid = true;
-    m_selectionInfo.type = result.type;
-    m_selectionInfo.shape = result.shape;
-    m_selectionInfo.elementIndex = elementIndex;
-    m_selectionInfo.sourceDisplayObjectId = result.sourceDisplayObjectId;
-
-    m_occView->displayShape(
-        m_selectionInfo.shape,
-        OccQtCore::DisplayLayer::PickOverlay,
-        OccQtCore::DisplayStyle::preset(
-            OccQtCore::DisplayStyle::Preset::PickHighlightFace),
-        OccQtCore::DisplayObjectSourceKind::Pick,
-        m_selectionInfo.elementIndex);
-
-    m_logReporter->logSelection(m_selectionInfo);
-
-    if (m_holeDebugPanel)
+    switch (result.elementKind)
     {
-        if (m_selectionInfo.type == OccQtCore::PickedShapeType::Face &&
-            m_selectionInfo.elementIndex >= 0)
+    case OccQtCore::GeometryElementKind::Face:
+        elementIndex =
+            geometryModel.findFaceIndex(
+                result.shape);
+        break;
+
+    case OccQtCore::GeometryElementKind::Wire:
+        elementIndex =
+            geometryModel.findWireIndex(
+                result.shape);
+        break;
+
+    case OccQtCore::GeometryElementKind::Edge:
+        elementIndex =
+            geometryModel.findEdgeIndex(
+                result.shape);
+        break;
+
+    case OccQtCore::GeometryElementKind::Vertex:
+        elementIndex =
+            geometryModel.findVertexIndex(
+                result.shape);
+        break;
+
+    case OccQtCore::GeometryElementKind::Unknown:
+    case OccQtCore::GeometryElementKind::Shell:
+    case OccQtCore::GeometryElementKind::Solid:
+    case OccQtCore::GeometryElementKind::Compound:
+    default:
+        break;
+    }
+
+    if (elementIndex < 0)
+    {
+        m_logReporter->logSelection(
+            m_currentSelection);
+
+        if (m_holeDebugPanel)
         {
-            m_holeDebugPanel->inspectPickedFace(
-                m_selectionInfo.elementIndex);
+            m_holeDebugPanel->
+                clearPickedGeometryDetail();
         }
-        else
-        {
-            m_holeDebugPanel->clearPickedGeometryDetail();
-        }
+
+        return;
+    }
+
+    m_currentSelection.targetKind =
+        OccQtCore::SelectionTargetKind::WorkpieceGeometry;
+
+    m_currentSelection.elementKind =
+        result.elementKind;
+
+    m_currentSelection.shape =
+        result.shape;
+
+    m_currentSelection.elementIndex =
+        elementIndex;
+
+    m_currentSelection.sourceDisplayObjectId =
+        result.sourceDisplayObjectId;
+
+    m_logReporter->logSelection(
+        m_currentSelection);
+
+    if (!m_holeDebugPanel)
+    {
+        return;
+    }
+
+    if (m_currentSelection.elementKind ==
+        OccQtCore::GeometryElementKind::Face)
+    {
+        m_holeDebugPanel->inspectPickedFace(
+            m_currentSelection.elementIndex);
+    }
+    else
+    {
+        m_holeDebugPanel->
+            clearPickedGeometryDetail();
     }
 }
 

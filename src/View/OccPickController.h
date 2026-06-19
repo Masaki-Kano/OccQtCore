@@ -9,7 +9,7 @@
 #include <TopAbs_ShapeEnum.hxx>
 #include <V3d_View.hxx>
 
-#include "Core/PickResult.h"
+#include "Interaction/SelectionTypes.h"
 #include "View/AisDisplayManager.h"
 
 namespace OccQtCore
@@ -26,7 +26,7 @@ namespace OccQtCore
             const QPoint& pos) const;
 
     private:
-        PickedShapeType toPickedShapeType(
+        GeometryElementKind toPickedShapeType(
             TopAbs_ShapeEnum shapeType) const;
 
     private:

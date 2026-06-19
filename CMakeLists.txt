@@ -51,8 +51,8 @@ qt_add_executable(OccQtCore
 
 
     src/Geometry/GeometryTypes.h
-    src/Core/PickResult.h
-    src/Core/SelectionInfo.h
+
+
     src/Geometry/GeometryModel.h
     src/Geometry/GeometryModel.cpp
     src/Geometry/GeometryAnalyzer.h
@@ -118,6 +118,7 @@ qt_add_executable(OccQtCore
     src/View/OccPickController.cpp
     src/View/OccCameraController.h
     src/View/OccCameraController.cpp
+    src/Interaction/SelectionTypes.h
 
 )
 

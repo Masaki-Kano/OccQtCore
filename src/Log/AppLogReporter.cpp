@@ -1,11 +1,5 @@
 #include "Log/AppLogReporter.h"
 #include "Log/AppLogger.h"
-#include "Log/LogFormatUtil.h"
-
-namespace
-{
-namespace LF = OccQtCore::LogFormatUtil;
-}
 
 namespace OccQtCore
 {
@@ -16,14 +10,14 @@ namespace OccQtCore
     {
     }
 
-    void AppLogReporter::logSelection(const SelectionInfo& selectionInfo) const
+    void AppLogReporter::logSelection(const CurrentSelection& currentSelection) const
     {
         if (m_logger == nullptr)
         {
             return;
         }
 
-        if (!selectionInfo.isValid)
+        if (!currentSelection.isValid())
         {
             m_logger->info("選択: なし");
             return;
@@ -31,14 +25,11 @@ namespace OccQtCore
 
         m_logger->info(
             QString("選択: %1, インデックス=%2, 表示オブジェクトID=%3")
-                .arg(LF::formatPickedShapeType(selectionInfo.type))
-                .arg(selectionInfo.elementIndex)
-                .arg(selectionInfo.sourceDisplayObjectId));
-
-        if (selectionInfo.elementIndex < 0)
-        {
-            m_logger->warn("選択形状のインデックスが取得できないため、ジオメトリ詳細ログを出力しません。");
-        }
+                .arg(
+                    geometryElementKindDisplayName(
+                        currentSelection.elementKind))
+                .arg(currentSelection.elementIndex)
+                .arg(currentSelection.sourceDisplayObjectId));
     }
 
     void AppLogReporter::logStepLoaded(const QString& filePath) const

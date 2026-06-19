@@ -2,6 +2,7 @@
 #define APPLOGGER_H
 
 #include <QObject>
+
 #include "LogMessage.h"
 
 namespace OccQtCore

@@ -7,10 +7,11 @@
 #include <QMainWindow>
 
 #include "Core/DocumentData.h"
-#include "Core/SelectionInfo.h"
 
 #include "Feature/HoleRecognitionModel.h"
 #include "Feature/HoleRecognitionWorkingData.h"
+
+#include "Interaction/SelectionTypes.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -72,7 +73,7 @@ private:
     OccQtCore::LogPanel* m_logPanel = nullptr;
     OccQtCore::OccView* m_occView = nullptr;
     OccQtCore::DocumentData m_document;
-    OccQtCore::SelectionInfo m_selectionInfo;
+    OccQtCore::CurrentSelection m_currentSelection;
     QString m_lastOpenDirectory;
 
     HoleDebugPanel* m_holeDebugPanel = nullptr;

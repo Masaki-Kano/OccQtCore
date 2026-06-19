@@ -6,9 +6,10 @@
 #include <TopoDS_Shape.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 
-#include "Core/PickResult.h"
 #include "Geometry/GeometryTypes.h"
 #include "Geometry/GeometryGraph.h"
+
+#include "Interaction/SelectionTypes.h"
 
 namespace OccQtCore
 {
@@ -41,8 +42,6 @@ namespace OccQtCore
         int findWireIndex(const TopoDS_Shape& shape) const;
         int findEdgeIndex(const TopoDS_Shape& shape) const;
         int findVertexIndex(const TopoDS_Shape& shape) const;
-
-        int findElementIndex(const TopoDS_Shape& shape, PickedShapeType type) const;
 
         const GeometryGraph& graph() const;
         GeometryGraph& graph();

@@ -70,7 +70,7 @@ namespace OccQtCore
 
         result.hasShape = true;
         result.shape = pickedShape;
-        result.type =
+        result.elementKind =
             toPickedShapeType(
                 pickedShape.ShapeType());
 
@@ -82,34 +82,34 @@ namespace OccQtCore
         return result;
     }
 
-    PickedShapeType OccPickController::toPickedShapeType(
+    GeometryElementKind OccPickController::toPickedShapeType(
         TopAbs_ShapeEnum shapeType) const
     {
         switch (shapeType)
         {
         case TopAbs_VERTEX:
-            return PickedShapeType::Vertex;
+            return GeometryElementKind::Vertex;
 
         case TopAbs_EDGE:
-            return PickedShapeType::Edge;
+            return GeometryElementKind::Edge;
 
         case TopAbs_FACE:
-            return PickedShapeType::Face;
+            return GeometryElementKind::Face;
 
         case TopAbs_WIRE:
-            return PickedShapeType::Wire;
+            return GeometryElementKind::Wire;
 
         case TopAbs_SHELL:
-            return PickedShapeType::Shell;
+            return GeometryElementKind::Shell;
 
         case TopAbs_SOLID:
-            return PickedShapeType::Solid;
+            return GeometryElementKind::Solid;
 
         case TopAbs_COMPOUND:
-            return PickedShapeType::Compound;
+            return GeometryElementKind::Compound;
 
         default:
-            return PickedShapeType::Unknown;
+            return GeometryElementKind::Unknown;
         }
     }
 

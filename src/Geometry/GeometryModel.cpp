@@ -208,24 +208,6 @@ namespace OccQtCore
         return -1;
     }
 
-    int GeometryModel::findElementIndex(const TopoDS_Shape& shape, PickedShapeType type) const
-    {
-        switch (type)
-        {
-        case PickedShapeType::Face:
-            return findFaceIndex(shape);
-
-        case PickedShapeType::Edge:
-            return findEdgeIndex(shape);
-
-        case PickedShapeType::Vertex:
-            return findVertexIndex(shape);
-
-        default:
-            return -1;
-        }
-    }
-
     const GeometryGraph& GeometryModel::graph() const
     {
         return m_graph;

@@ -3,7 +3,7 @@
 
 #include <QString>
 
-#include "Core/SelectionInfo.h"
+#include "Interaction/SelectionTypes.h"
 #include "Log/HoleRecognitionLogReporter.h"
 #include "Log/GeometryLogReporter.h"
 
@@ -21,7 +21,7 @@ namespace OccQtCore
         // Operation logs
         // 操作・イベントログ
         // ============================================================
-        void logSelection(const SelectionInfo& selectionInfo) const;
+        void logSelection(const CurrentSelection& selectionInfo) const;
         void logStepLoaded(const QString& filePath) const;
         void logStepLoadFailed(const QString& errorMessage) const;
 

@@ -152,9 +152,4 @@ namespace OccQtCore::LogFormatUtil
     {
         return formatXyz(direction.X(), direction.Y(), direction.Z(), 6);
     }
-
-    QString formatPickedShapeType(PickedShapeType type)
-    {
-        return pickedShapeTypeDisplayName(type);
-    }
 }

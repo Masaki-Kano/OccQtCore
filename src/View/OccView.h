@@ -16,7 +16,7 @@
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 
-#include "Core/PickResult.h"
+#include "Interaction/SelectionTypes.h"
 #include "View/AisDisplayManager.h"
 #include "View/DisplayObjectRegistry.h"
 #include "View/DisplayStyle.h"

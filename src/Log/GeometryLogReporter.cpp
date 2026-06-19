@@ -66,7 +66,7 @@ namespace OccQtCore
 
         switch (report.type)
         {
-        case PickedShapeType::Face:
+        case GeometryElementKind::Face:
             if (report.outputTree)
             {
                 logFaceTreeDetails(report.model, report.elementIndex);
@@ -77,7 +77,7 @@ namespace OccQtCore
             }
             break;
 
-        case PickedShapeType::Wire:
+        case GeometryElementKind::Wire:
             if (report.outputTree)
             {
                 logWireTreeDetails(report.model, report.elementIndex);
@@ -88,18 +88,18 @@ namespace OccQtCore
             }
             break;
 
-        case PickedShapeType::Edge:
+        case GeometryElementKind::Edge:
             logEdgeDetails(report.model, report.elementIndex);
             break;
 
-        case PickedShapeType::Vertex:
+        case GeometryElementKind::Vertex:
             logVertexDetails(report.model, report.elementIndex);
             break;
 
-        case PickedShapeType::Unknown:
-        case PickedShapeType::Shell:
-        case PickedShapeType::Solid:
-        case PickedShapeType::Compound:
+        case GeometryElementKind::Unknown:
+        case GeometryElementKind::Shell:
+        case GeometryElementKind::Solid:
+        case GeometryElementKind::Compound:
         default:
             break;
         }

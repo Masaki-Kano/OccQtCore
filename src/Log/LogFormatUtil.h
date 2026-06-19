@@ -8,8 +8,6 @@
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 
-#include "Core/PickResult.h"
-
 namespace OccQtCore
 {
     class GeometryModel;
@@ -25,8 +23,6 @@ namespace OccQtCore
         QString formatEdgeIndex(const GeometryModel& model, int edgeIndex);
         QString formatPoint(const gp_Pnt& point);
         QString formatDirection(const gp_Dir& direction);
-        QString formatPickedShapeType(PickedShapeType type);
-
     }
 }
 

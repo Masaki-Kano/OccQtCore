@@ -1,7 +1,7 @@
 #ifndef GEOMETRYLOGREPORTER_H
 #define GEOMETRYLOGREPORTER_H
 
-#include "Core/PickResult.h"
+#include "Interaction/SelectionTypes.h"
 #include "Geometry//GeometryTypes.h"
 
 namespace OccQtCore
@@ -23,7 +23,7 @@ namespace OccQtCore
     {
         const GeometryModel& model;
 
-        PickedShapeType type = PickedShapeType::Unknown;
+        GeometryElementKind type = GeometryElementKind::Unknown;
         int elementIndex = -1;
 
         bool outputTree = false;
