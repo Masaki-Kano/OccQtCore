@@ -43,7 +43,7 @@ namespace OccQtCore
     {
         QWidget::showEvent(event);
 
-        if (!m_initialized)
+        if (!isInitialized())
         {
             initializeOcc();
         }
@@ -51,7 +51,7 @@ namespace OccQtCore
         if (!m_view.IsNull())
         {
             m_view->MustBeResized();
-            m_view->Redraw();
+            redraw();
         }
     }
 
@@ -62,7 +62,7 @@ namespace OccQtCore
         if (!m_view.IsNull())
         {
             m_view->MustBeResized();
-            m_view->Redraw();
+            redraw();
         }
     }
 
@@ -72,7 +72,7 @@ namespace OccQtCore
 
         if (!m_view.IsNull())
         {
-            m_view->Redraw();
+            redraw();
         }
     }
 
@@ -91,14 +91,20 @@ namespace OccQtCore
 
         if (event->button() == Qt::RightButton)
         {
-            beginRotate(pos);
+            m_mouseState.mode = MouseMode::Rotate;
+
+            if (m_cameraController)
+            {
+                m_cameraController->beginRotate(pos);
+            }
+
             event->accept();
             return;
         }
 
         if (event->button() == Qt::MiddleButton)
         {
-            beginPan(pos);
+            m_mouseState.mode = MouseMode::Pan;
             event->accept();
             return;
         }
@@ -119,12 +125,25 @@ namespace OccQtCore
         switch (m_mouseState.mode)
         {
         case MouseMode::Rotate:
-            updateRotate(pos);
+            if (m_cameraController)
+            {
+                m_cameraController->rotateTo(pos);
+                redraw();
+            }
+
             event->accept();
             break;
 
         case MouseMode::Pan:
-            updatePan(pos);
+            if (m_cameraController)
+            {
+                const QPoint delta =
+                    pos - m_mouseState.lastPos;
+
+                m_cameraController->panBy(delta);
+                redraw();
+            }
+
             event->accept();
             break;
 
@@ -155,7 +174,7 @@ namespace OccQtCore
         if (event->button() == Qt::RightButton ||
             event->button() == Qt::MiddleButton)
         {
-            endMouseOperation();
+            m_mouseState.mode = MouseMode::None;
             event->accept();
             return;
         }
@@ -180,15 +199,22 @@ namespace OccQtCore
         }
 
         const double zoomFactor =
-            (wheelDelta > 0) ? ZoomStepFactor : (1.0 / ZoomStepFactor);
+            (wheelDelta > 0)
+                ? ZoomStepFactor
+                : (1.0 / ZoomStepFactor);
 
-        zoomView(zoomFactor);
+        if (m_cameraController)
+        {
+            m_cameraController->zoomBy(zoomFactor);
+            redraw();
+        }
+
         event->accept();
     }
 
     void OccView::initializeOcc()
     {
-        if (m_initialized)
+        if (isInitialized())
         {
             return;
         }
@@ -220,7 +246,7 @@ namespace OccQtCore
             V3d_ZBUFFER);
 
         m_view->MustBeResized();
-        m_view->Redraw();
+        redraw();
 
         m_aisDisplayManager =
             std::make_unique<AisDisplayManager>(m_context);
@@ -231,75 +257,24 @@ namespace OccQtCore
                 m_view,
                 m_aisDisplayManager.get());
 
-        m_initialized = true;
+        m_cameraController =
+            std::make_unique<OccCameraController>(m_view);
     }
 
     bool OccView::isInitialized() const
     {
-        return m_initialized
-               && !m_context.IsNull()
-               && !m_view.IsNull();
-    }
-
-    void OccView::beginRotate(const QPoint& pos)
-    {
-        m_mouseState.mode = MouseMode::Rotate;
-        m_view->StartRotation(pos.x(), pos.y());
-    }
-
-    void OccView::beginPan(const QPoint& pos)
-    {
-        Q_UNUSED(pos);
-
-        m_mouseState.mode = MouseMode::Pan;
-    }
-
-    void OccView::updateRotate(const QPoint& pos)
-    {
-        if (m_view.IsNull())
-        {
-            return;
-        }
-
-        m_view->Rotation(pos.x(), pos.y());
-        redraw();
-    }
-
-    void OccView::updatePan(const QPoint& pos)
-    {
-        if (m_view.IsNull())
-        {
-            return;
-        }
-
-        const QPoint delta = pos - m_mouseState.lastPos;
-
-        m_view->Pan(delta.x(), -delta.y());
-        redraw();
-    }
-
-    void OccView::endMouseOperation()
-    {
-        m_mouseState.mode = MouseMode::None;
-    }
-
-    void OccView::zoomView(double factor)
-    {
-        if (m_view.IsNull())
-        {
-            return;
-        }
-
-        m_view->SetZoom(factor);
-        redraw();
+        return !m_context.IsNull()
+            && !m_view.IsNull()
+            && m_aisDisplayManager != nullptr
+            && m_pickController != nullptr
+            && m_cameraController != nullptr;
     }
 
     void OccView::setShapeDisplayMode(AIS_DisplayMode displayMode)
     {
         m_shapeStyle.displayMode = displayMode;
 
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return;
         }
@@ -323,8 +298,7 @@ namespace OccQtCore
 
     void OccView::pickAt(const QPoint& pos)
     {
-        if (!isInitialized() ||
-            !m_pickController)
+        if (!isInitialized())
         {
             return;
         }
@@ -361,8 +335,7 @@ namespace OccQtCore
             initializeOcc();
         }
 
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return -1;
         }
@@ -395,8 +368,7 @@ namespace OccQtCore
             initializeOcc();
         }
 
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return {};
         }
@@ -419,8 +391,7 @@ namespace OccQtCore
 
     void OccView::removeObject(DisplayObjectId id)
     {
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return;
         }
@@ -431,8 +402,7 @@ namespace OccQtCore
 
     void OccView::clearLayer(DisplayLayer layer)
     {
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return;
         }
@@ -444,8 +414,7 @@ namespace OccQtCore
     void OccView::clearLayers(
         const std::vector<DisplayLayer>& layers)
     {
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return;
         }
@@ -456,7 +425,7 @@ namespace OccQtCore
 
     void OccView::clearAll()
     {
-        if (!m_aisDisplayManager)
+        if (!isInitialized())
         {
             return;
         }
@@ -467,59 +436,57 @@ namespace OccQtCore
 
     void OccView::fitAll()
     {
-        if (m_view.IsNull())
+        if (!isInitialized())
         {
             return;
         }
 
-        m_view->MustBeResized();
-        m_view->FitAll();
-        m_view->ZFitAll();
-        m_view->Redraw();
+        m_cameraController->fitAll();
+        redraw();
     }
 
     void OccView::viewX()
     {
-        if (m_view.IsNull())
+        if (!isInitialized())
         {
             return;
         }
 
-        m_view->SetProj(V3d_Xpos);
-        fitAll();
+        m_cameraController->viewX();
+        redraw();
     }
 
     void OccView::viewY()
     {
-        if (m_view.IsNull())
+        if (!isInitialized())
         {
             return;
         }
 
-        m_view->SetProj(V3d_Ypos);
-        fitAll();
+        m_cameraController->viewY();
+        redraw();
     }
 
     void OccView::viewZ()
     {
-        if (m_view.IsNull())
+        if (!isInitialized())
         {
             return;
         }
 
-        m_view->SetProj(V3d_Zpos);
-        fitAll();
+        m_cameraController->viewZ();
+        redraw();
     }
 
     void OccView::viewIso()
     {
-        if (m_view.IsNull())
+        if (!isInitialized())
         {
             return;
         }
 
-        m_view->SetProj(V3d_XposYnegZpos);
-        fitAll();
+        m_cameraController->viewIso();
+        redraw();
     }
 
     void OccView::setShadedMode()
@@ -536,8 +503,7 @@ namespace OccQtCore
     {
         m_shapeStyle.color = color;
 
-        if (!isInitialized() ||
-            !m_aisDisplayManager)
+        if (!isInitialized())
         {
             return;
         }

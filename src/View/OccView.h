@@ -22,6 +22,7 @@
 #include "View/DisplayStyle.h"
 #include "View/DisplayTypes.h"
 #include "View/OccPickController.h"
+#include "View/OccCameraController.h"
 
 class QMouseEvent;
 class QWheelEvent;
@@ -92,15 +93,6 @@ namespace OccQtCore
         void initializeOcc();
         bool isInitialized() const;
 
-        void beginRotate(const QPoint& pos);
-        void beginPan(const QPoint& pos);
-
-        void updateRotate(const QPoint& pos);
-        void updatePan(const QPoint& pos);
-
-        void endMouseOperation();
-        void zoomView(double factor);
-
         void setShapeDisplayMode(AIS_DisplayMode displayMode);
 
         bool isClickOperation(const QPoint& releasePos) const;
@@ -130,13 +122,12 @@ namespace OccQtCore
 
         std::unique_ptr<AisDisplayManager> m_aisDisplayManager;
         std::unique_ptr<OccPickController> m_pickController;
+        std::unique_ptr<OccCameraController> m_cameraController;
 
         MouseState m_mouseState;
 
         DisplayStyle m_shapeStyle =
             DisplayStyle::preset(DisplayStyle::Preset::DefaultShape);
-
-        bool m_initialized = false;
     };
 }
 

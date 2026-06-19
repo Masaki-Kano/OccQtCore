@@ -116,6 +116,8 @@ qt_add_executable(OccQtCore
     src/View/AisDisplayManager.cpp
     src/View/OccPickController.h
     src/View/OccPickController.cpp
+    src/View/OccCameraController.h
+    src/View/OccCameraController.cpp
 
 )
 
