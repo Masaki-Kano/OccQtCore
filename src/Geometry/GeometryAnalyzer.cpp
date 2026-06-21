@@ -21,6 +21,8 @@ namespace OccQtCore::GeometryAnalyzer
             return info;
         }
 
+        BRepAdaptor_Surface surface(face);
+
         info.kind = detectSurfaceKind(face);
 
         // 面積
@@ -28,8 +30,22 @@ namespace OccQtCore::GeometryAnalyzer
         BRepGProp::SurfaceProperties(face, props);
         info.area = props.Mass();
 
-        // UV範囲
+        // トリム後のUV範囲
         BRepTools::UVBounds(face, info.uMin, info.uMax, info.vMin, info.vMax);
+
+        // 支持曲面の周期情報
+        info.isUPeriodic = surface.IsUPeriodic();
+        info.isVPeriodic = surface.IsVPeriodic();
+
+        if (info.isUPeriodic)
+        {
+            info.uPeriod = surface.UPeriod();
+        }
+
+        if (info.isVPeriodic)
+        {
+            info.vPeriod = surface.VPeriod();
+        }
 
         // 種別情報
         switch (info.kind)
@@ -77,7 +93,12 @@ namespace OccQtCore::GeometryAnalyzer
         info.firstParameter = curve.FirstParameter();
         info.lastParameter = curve.LastParameter();
 
-        // 長さ
+        // TopoDSとしての閉性
+        info.isClosed = edge.Closed();
+
+        // 円錐頂点や球面極などの縮退Edge
+        info.isDegenerated = BRep_Tool::Degenerated(edge);
+
         GProp_GProps props;
         BRepGProp::LinearProperties(edge, props);
         info.length = props.Mass();
@@ -256,6 +277,8 @@ namespace OccQtCore::GeometryAnalyzer
 
         ConeInfo info;
         info.axis = cone.Axis();
+        info.apex = cone.Apex();
+        info.hasApex = true;
         info.semiAngle = cone.SemiAngle();
         info.refRadius = cone.RefRadius();
 
@@ -349,8 +372,7 @@ namespace OccQtCore::GeometryAnalyzer
         const gp_Circ circle = curve.Circle();
 
         CircleInfo info;
-        info.center = circle.Location();
-        info.axis = circle.Axis();
+        info.position = circle.Position();
         info.radius = circle.Radius();
 
         return info;
@@ -373,8 +395,7 @@ namespace OccQtCore::GeometryAnalyzer
         const gp_Elips ellipse = curve.Ellipse();
 
         EllipseInfo info;
-        info.center = ellipse.Location();
-        info.axis = ellipse.Axis();
+        info.position = ellipse.Position();
         info.majorRadius = ellipse.MajorRadius();
         info.minorRadius = ellipse.MinorRadius();
 

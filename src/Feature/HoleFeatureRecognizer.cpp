@@ -17,17 +17,10 @@ namespace OccQtCore::Feature
     }
 
     HoleRecognitionResult HoleFeatureRecognizer::recognizeCandidates(
-        const GeometryModel& model,
-        HoleRecognitionWorkingData* workingData) const
+        const GeometryModel& model) const
     {
-        if (workingData != nullptr)
-        {
-            workingData->clear();
-        }
-
         HoleContextTraceExplorer explorer(
-            model,
-            workingData);
+            model);
 
         return explorer.explore();
     }

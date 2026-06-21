@@ -1,6 +1,8 @@
 #ifndef GEOMETRYGRAPH_H
 #define GEOMETRYGRAPH_H
 
+#include "Geometry/GeometryTypes.h"
+
 #include <vector>
 
 namespace OccQtCore
@@ -9,25 +11,58 @@ namespace OccQtCore
     {
     public:
         void clear();
-        void resize(int faceCount, int wireCount, int edgeCount, int vertexCount);
 
-        void addFaceWireRelation(int faceIndex, int wireIndex);
-        void addWireFaceRelation(int wireIndex, int faceIndex);
+        void resize(
+            int faceCount,
+            int wireCount,
+            int edgeCount,
+            int vertexCount);
 
-        void addWireEdgeRelation(int wireIndex, int edgeIndex);
-        void addEdgeWireRelation(int edgeIndex, int wireIndex);
+        void addFaceWireRelation(
+            int faceIndex,
+            int wireIndex,
+            TopAbs_Orientation orientation,
+            bool isOuter,
+            bool isInner);
 
-        void addEdgeVertexRelation(int edgeIndex, int vertexIndex);
-        void addVertexEdgeRelation(int vertexIndex, int edgeIndex);
+        void addWireFaceRelation(
+            int wireIndex,
+            int faceIndex);
 
-        const std::vector<int>& wiresOfFace(int faceIndex) const;
-        const std::vector<int>& facesOfWire(int wireIndex) const;
+        void addWireEdgeRelation(
+            int wireIndex,
+            int edgeIndex,
+            TopAbs_Orientation orientation);
 
-        const std::vector<int>& edgesOfWire(int wireIndex) const;
-        const std::vector<int>& wiresOfEdge(int edgeIndex) const;
+        void addEdgeWireRelation(
+            int edgeIndex,
+            int wireIndex);
 
-        const std::vector<int>& verticesOfEdge(int edgeIndex) const;
-        const std::vector<int>& edgesOfVertex(int vertexIndex) const;
+        void addEdgeVertexRelation(
+            int edgeIndex,
+            int vertexIndex);
+
+        void addVertexEdgeRelation(
+            int vertexIndex,
+            int edgeIndex);
+
+        const std::vector<OrientedWireRef>&
+        wireRefsOfFace(int faceIndex) const;
+
+        const std::vector<int>&
+        facesOfWire(int wireIndex) const;
+
+        const std::vector<OrientedEdgeRef>&
+        edgeRefsOfWire(int wireIndex) const;
+
+        const std::vector<int>&
+        wiresOfEdge(int edgeIndex) const;
+
+        const std::vector<int>&
+        verticesOfEdge(int edgeIndex) const;
+
+        const std::vector<int>&
+        edgesOfVertex(int vertexIndex) const;
 
         int faceCount() const;
         int wireCount() const;
@@ -35,10 +70,10 @@ namespace OccQtCore
         int vertexCount() const;
 
     private:
-        std::vector<std::vector<int>> m_faceToWires;
+        std::vector<std::vector<OrientedWireRef>> m_faceToWires;
         std::vector<std::vector<int>> m_wireToFaces;
 
-        std::vector<std::vector<int>> m_wireToEdges;
+        std::vector<std::vector<OrientedEdgeRef>> m_wireToEdges;
         std::vector<std::vector<int>> m_edgeToWires;
 
         std::vector<std::vector<int>> m_edgeToVertices;

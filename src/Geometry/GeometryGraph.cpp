@@ -8,9 +8,21 @@ namespace
         return index >= 0 && index < count;
     }
 
-    const std::vector<int>& emptyList()
+    const std::vector<int>& emptyIndexList()
     {
         static const std::vector<int> empty;
+        return empty;
+    }
+
+    const std::vector<OccQtCore::OrientedWireRef>& emptyWireRefList()
+    {
+        static const std::vector<OccQtCore::OrientedWireRef> empty;
+        return empty;
+    }
+
+    const std::vector<OccQtCore::OrientedEdgeRef>& emptyEdgeRefList()
+    {
+        static const std::vector<OccQtCore::OrientedEdgeRef> empty;
         return empty;
     }
 
@@ -20,7 +32,7 @@ namespace
     {
         if (!isValidIndex(index, static_cast<int>(lists.size())))
         {
-            return emptyList();
+            return emptyIndexList();
         }
 
         return lists[static_cast<std::size_t>(index)];
@@ -31,13 +43,20 @@ namespace
         int fromIndex,
         int toIndex)
     {
-        if (!isValidIndex(fromIndex, static_cast<int>(relations.size())))
+        if (!isValidIndex(
+                fromIndex,
+                static_cast<int>(relations.size())))
+        {
+            return;
+        }
+
+        if (toIndex < 0)
         {
             return;
         }
 
         OccQtCore::CollectionUtil::addUnique(
-            relations[fromIndex],
+            relations[static_cast<std::size_t>(fromIndex)],
             toIndex);
     }
 }
@@ -71,9 +90,40 @@ namespace OccQtCore
         m_vertexToEdges.assign(static_cast<std::size_t>(vertexCount), {});
     }
 
-    void GeometryGraph::addFaceWireRelation(int faceIndex, int wireIndex)
+    void GeometryGraph::addFaceWireRelation(
+        int faceIndex,
+        int wireIndex,
+        TopAbs_Orientation orientation,
+        bool isOuter,
+        bool isInner)
     {
-        addRelation(m_faceToWires, faceIndex, wireIndex);
+        if (!isValidIndex(faceIndex, static_cast<int>(m_faceToWires.size())))
+        {
+            return;
+        }
+
+        if (!isValidIndex(wireIndex, static_cast<int>(m_wireToFaces.size())))
+        {
+            return;
+        }
+
+        auto& refs = m_faceToWires[static_cast<std::size_t>(faceIndex)];
+
+        for (const auto& ref : refs)
+        {
+            if (ref.wireIndex == wireIndex)
+            {
+                return;
+            }
+        }
+
+        OrientedWireRef ref;
+        ref.wireIndex = wireIndex;
+        ref.orientation = orientation;
+        ref.isOuter = isOuter;
+        ref.isInner = isInner;
+
+        refs.push_back(ref);
     }
 
     void GeometryGraph::addWireFaceRelation(int wireIndex, int faceIndex)
@@ -81,21 +131,31 @@ namespace OccQtCore
         addRelation(m_wireToFaces, wireIndex, faceIndex);
     }
 
-    void GeometryGraph::addWireEdgeRelation(int wireIndex, int edgeIndex)
+    void GeometryGraph::addWireEdgeRelation(int wireIndex, int edgeIndex, TopAbs_Orientation orientation)
     {
-        // Wire -> Edge は輪郭順序が意味をもつ可能性があるため、
-        // addUniqueではなく登録順を保持する
-        if (!isValidIndex(wireIndex, static_cast<int>(m_wireToEdges.size())))
+        if (!isValidIndex(
+                wireIndex,
+                static_cast<int>(m_wireToEdges.size())))
         {
             return;
         }
 
-        if (edgeIndex < 0)
+        if (!isValidIndex(
+                edgeIndex,
+                static_cast<int>(m_edgeToWires.size())))
         {
             return;
         }
 
-        m_wireToEdges[static_cast<std::size_t>(wireIndex)].push_back(edgeIndex);
+        OrientedEdgeRef ref;
+        ref.edgeIndex = edgeIndex;
+        ref.orientation = orientation;
+
+        // Wire内の順序・重複・向きをそのまま保持する。
+        // シームEdgeは同一Wire内に複数回現れ得る。
+        m_wireToEdges[
+            static_cast<std::size_t>(wireIndex)]
+            .push_back(ref);
     }
 
     void GeometryGraph::addEdgeWireRelation(int edgeIndex, int wireIndex)
@@ -113,34 +173,64 @@ namespace OccQtCore
         addRelation(m_vertexToEdges, vertexIndex, edgeIndex);
     }
 
-    const std::vector<int>& GeometryGraph::wiresOfFace(int faceIndex) const
+    const std::vector<OrientedWireRef>&
+    GeometryGraph::wireRefsOfFace(int faceIndex) const
     {
-        return listOrEmpty(m_faceToWires, faceIndex);
+        if (!isValidIndex(
+                faceIndex,
+                static_cast<int>(m_faceToWires.size())))
+        {
+            return emptyWireRefList();
+        }
+
+        return m_faceToWires[
+            static_cast<std::size_t>(faceIndex)];
     }
 
-    const std::vector<int>& GeometryGraph::facesOfWire(int wireIndex) const
+    const std::vector<int>&
+    GeometryGraph::facesOfWire(int wireIndex) const
     {
-        return listOrEmpty(m_wireToFaces, wireIndex);
+        return listOrEmpty(
+            m_wireToFaces,
+            wireIndex);
     }
 
-    const std::vector<int>& GeometryGraph::edgesOfWire(int wireIndex) const
+    const std::vector<OrientedEdgeRef>&
+    GeometryGraph::edgeRefsOfWire(int wireIndex) const
     {
-        return listOrEmpty(m_wireToEdges, wireIndex);
+        if (!isValidIndex(
+                wireIndex,
+                static_cast<int>(m_wireToEdges.size())))
+        {
+            return emptyEdgeRefList();
+        }
+
+        return m_wireToEdges[
+            static_cast<std::size_t>(wireIndex)];
     }
 
-    const std::vector<int>& GeometryGraph::wiresOfEdge(int edgeIndex) const
+    const std::vector<int>&
+    GeometryGraph::wiresOfEdge(int edgeIndex) const
     {
-        return listOrEmpty(m_edgeToWires, edgeIndex);
+        return listOrEmpty(
+            m_edgeToWires,
+            edgeIndex);
     }
 
-    const std::vector<int>& GeometryGraph::verticesOfEdge(int edgeIndex) const
+    const std::vector<int>&
+    GeometryGraph::verticesOfEdge(int edgeIndex) const
     {
-        return listOrEmpty(m_edgeToVertices, edgeIndex);
+        return listOrEmpty(
+            m_edgeToVertices,
+            edgeIndex);
     }
 
-    const std::vector<int>& GeometryGraph::edgesOfVertex(int vertexIndex) const
+    const std::vector<int>&
+    GeometryGraph::edgesOfVertex(int vertexIndex) const
     {
-        return listOrEmpty(m_vertexToEdges, vertexIndex);
+        return listOrEmpty(
+            m_vertexToEdges,
+            vertexIndex);
     }
 
     int GeometryGraph::faceCount() const

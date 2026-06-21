@@ -105,21 +105,25 @@ namespace OccQtCore::Feature
                 continue;
             }
 
-            const auto wireIndices =
-                m_model.graph().wiresOfFace(faceIndex);
+            const auto wireRefs =
+                m_model.graph().wireRefsOfFace(faceIndex);
 
-            for (const int wireIndex : wireIndices)
+            for (const auto& wireRef : wireRefs)
             {
+                const int wireIndex = wireRef.wireIndex;
+
                 if (!TopologyQuery::isValidWireIndex(m_model, wireIndex))
                 {
                     continue;
                 }
 
-                const auto edgeIndices =
-                    m_model.graph().edgesOfWire(wireIndex);
+                const auto edgeRefs =
+                    m_model.graph().edgeRefsOfWire(wireIndex);
 
-                for (const int edgeIndex : edgeIndices)
+                for (const auto& edgeRef : edgeRefs)
                 {
+                    const int edgeIndex = edgeRef.edgeIndex;
+
                     if (!isPortCandidateEdge(group, edgeIndex))
                     {
                         continue;

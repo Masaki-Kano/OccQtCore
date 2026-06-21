@@ -2,7 +2,6 @@
 #define HOLECONTEXTGEOMETRYGROUPER_H
 
 #include "Feature/HoleRecognitionModel.h"
-#include "Feature/HoleRecognitionWorkingData.h"
 
 #include <gp_Pnt.hxx>
 #include <gp_Dir.hxx>

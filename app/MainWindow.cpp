@@ -450,8 +450,7 @@ void MainWindow::buildHoleDebugData()
 
     m_holeDebugResult =
         recognizer.recognizeCandidates(
-            geometryModel,
-            &m_holeDebugWorkingData);
+            geometryModel);
 
     if (m_holeDebugPanel)
     {

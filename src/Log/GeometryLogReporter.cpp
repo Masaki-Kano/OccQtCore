@@ -10,6 +10,33 @@
 namespace
 {
     namespace LF = OccQtCore::LogFormatUtil;
+
+    std::vector<int> collectWireIndices(
+        const std::vector<OccQtCore::OrientedWireRef>& refs)
+    {
+        std::vector<int> result;
+        result.reserve(refs.size());
+
+        for (const auto& ref : refs)
+        {
+            result.push_back(ref.wireIndex);
+        }
+
+        return result;
+    }
+
+    std::vector<int> collectEdgeIndices(const std::vector<OccQtCore::OrientedEdgeRef>& refs)
+    {
+        std::vector<int> result;
+        result.reserve(refs.size());
+
+        for (const auto& ref : refs)
+        {
+            result.push_back(ref.edgeIndex);
+        }
+
+        return result;
+    }
 }
 
 namespace OccQtCore
@@ -109,11 +136,12 @@ namespace OccQtCore
     {
         m_logger->info("===== 形状概要 =====");
 
-        m_logger->info(QString("要素数: Face=%1, Wire=%2, Edge=%4, Vertex=%5")
-                        .arg(model.faceCount())
-                        .arg(model.wireCount())
-                        .arg(model.edgeCount())
-                        .arg(model.vertexCount()));
+        m_logger->info(
+            QString("要素数: Face=%1, Wire=%2, Edge=%3, Vertex=%4")
+                .arg(model.faceCount())
+                .arg(model.wireCount())
+                .arg(model.edgeCount())
+                .arg(model.vertexCount()));
     }
 
     void GeometryLogReporter::logTopologySummary(const GeometryModel& model) const
@@ -153,22 +181,58 @@ namespace OccQtCore
 
         if (faceData == nullptr)
         {
-            m_logger->warn(QString("Face[%1]: 詳細情報を取得できません。 ").arg(faceIndex));
+            m_logger->warn(
+                QString("Face[%1]: 詳細情報を取得できません。")
+                    .arg(faceIndex));
             return;
         }
 
         const auto& graph = model.graph();
-        const auto& wireIndices = graph.wiresOfFace(faceIndex);
-        const auto& adjacentFaceIndices = TopologyQuery::adjacentFacesOfFace(model, faceIndex);
+        const auto& wireRefs = graph.wireRefsOfFace(faceIndex);
+        const auto wireIndices = collectWireIndices(wireRefs);
+
+        const auto adjacentFaceIndices =
+            TopologyQuery::adjacentFacesOfFace(model, faceIndex);
 
         m_logger->info(
-            QString("Face[%1]: 種別=%2, 面積=%3, Wire数=%4, Wires=[%5], 隣接Face=[%6]")
+            QString(
+                "Face[%1]: 種別=%2, Orientation=%3, 面積=%4, "
+                "Wire数=%5, Wires=[%6], 隣接Face=[%7]")
                 .arg(faceIndex)
                 .arg(surfaceKindDisplayName(faceData->info.kind))
+                .arg(orientationDisplayName(faceData->orientation))
                 .arg(faceData->info.area, 0, 'f', 3)
-                .arg(wireIndices.size())
+                .arg(wireRefs.size())
                 .arg(LF::formatWireIndexList(model, wireIndices))
-                .arg(LF::formatFaceIndexList(model, adjacentFaceIndices)));
+                .arg(LF::formatFaceIndexList(
+                    model,
+                    adjacentFaceIndices)));
+
+        m_logger->info(
+            QString(
+                "  UV: U=(%1, %2), V=(%3, %4), "
+                "UPeriodic=%5, UPeriod=%6, "
+                "VPeriodic=%7, VPeriod=%8")
+                .arg(faceData->info.uMin, 0, 'f', 6)
+                .arg(faceData->info.uMax, 0, 'f', 6)
+                .arg(faceData->info.vMin, 0, 'f', 6)
+                .arg(faceData->info.vMax, 0, 'f', 6)
+                .arg(faceData->info.isUPeriodic ? "true" : "false")
+                .arg(faceData->info.uPeriod, 0, 'f', 6)
+                .arg(faceData->info.isVPeriodic ? "true" : "false")
+                .arg(faceData->info.vPeriod, 0, 'f', 6));
+
+        for (const auto& wireRef : wireRefs)
+        {
+            m_logger->info(
+                QString(
+                    "  Face-Wire: Wire[%1], Orientation=%2, "
+                    "Outer=%3, Inner=%4")
+                    .arg(wireRef.wireIndex)
+                    .arg(orientationDisplayName(wireRef.orientation))
+                    .arg(wireRef.isOuter ? "true" : "false")
+                    .arg(wireRef.isInner ? "true" : "false"));
+        }
 
         logFaceSurfaceDetails(faceData->info);
     }
@@ -238,11 +302,19 @@ namespace OccQtCore
 
     void GeometryLogReporter::logConeDetails(const ConeInfo& info) const
     {
-        m_logger->info(QString(" Cone: SemiAngle=%1, RefRadius=%2, AxisOrigin=%3, AxisDir=%4")
-                        .arg(info.semiAngle, 0, 'f', 6)
-                        .arg(info.refRadius, 0, 'f', 3)
-                        .arg(LF::formatPoint(info.axis.Location()))
-                        .arg(LF::formatDirection(info.axis.Direction())));
+        m_logger->info(
+            QString(
+                " Cone: SemiAngle=%1, RefRadius=%2, "
+                "AxisOrigin=%3, AxisDir=%4, Apex=%5")
+                .arg(info.semiAngle, 0, 'f', 6)
+                .arg(info.refRadius, 0, 'f', 3)
+                .arg(LF::formatPoint(info.axis.Location()))
+                .arg(LF::formatDirection(
+                    info.axis.Direction()))
+                .arg(
+                    info.hasApex
+                        ? LF::formatPoint(info.apex)
+                        : QString("なし")));
     }
 
     void GeometryLogReporter::logSphereDetails(const SphereInfo& info) const
@@ -269,22 +341,37 @@ namespace OccQtCore
 
         if (wireData == nullptr)
         {
-            m_logger->warn(QString("Wire[%1]: 詳細情報を取得できません。").arg(wireIndex));
+            m_logger->warn(
+                QString("Wire[%1]: 詳細情報を取得できません。")
+                    .arg(wireIndex));
             return;
         }
 
         const auto& graph = model.graph();
         const auto& faceIndices = graph.facesOfWire(wireIndex);
-        const auto& edgeIndices = graph.edgesOfWire(wireIndex);
+        const auto& edgeRefs = graph.edgeRefsOfWire(wireIndex);
+        const auto edgeIndices = collectEdgeIndices(edgeRefs);
 
         m_logger->info(
-            QString("  Wire[%1]: Outer=%2, Inner=%3, Closed=%4, Faces=[%5], Edges=[%6]")
+            QString(
+                "  Wire[%1]: Orientation=%2, Closed=%3, "
+                "EdgeCount=%4, Faces=[%5], Edges=[%6]")
                 .arg(wireIndex)
-                .arg(wireData->info.isOuter ? "true" : "false")
-                .arg(wireData->info.isInner ? "true" : "false")
+                .arg(orientationDisplayName(wireData->orientation))
                 .arg(wireData->info.isClosed ? "true" : "false")
+                .arg(wireData->info.edgeCount)
                 .arg(LF::formatFaceIndexList(model, faceIndices))
                 .arg(LF::formatEdgeIndexList(model, edgeIndices)));
+
+        for (const auto& edgeRef : edgeRefs)
+        {
+            m_logger->info(
+                QString(
+                    "    Wire-Edge: Edge[%1], Orientation=%2")
+                    .arg(edgeRef.edgeIndex)
+                    .arg(orientationDisplayName(
+                        edgeRef.orientation)));
+        }
     }
 
     void GeometryLogReporter::logEdgeDetails(const GeometryModel& model, int edgeIndex) const
@@ -293,20 +380,32 @@ namespace OccQtCore
 
         if (edgeData == nullptr)
         {
-            m_logger->warn(QString("Edge[%1]: 詳細情報を取得できません。").arg(edgeIndex));
+            m_logger->warn(
+                QString("Edge[%1]: 詳細情報を取得できません。")
+                    .arg(edgeIndex));
+            return;
         }
 
         const auto& graph = model.graph();
         const auto& faceIndices = TopologyQuery::facesOfEdge(model, edgeIndex);
 
         m_logger->info(
-            QString("    Edge[%1]: 種別=%2, 長さ=%3, Faces=[%4], Wires=[%5], Vertices=[%6], Param=(%7, %8)")
+            QString(
+                "    Edge[%1]: 種別=%2, Orientation=%3, 長さ=%4, "
+                "Closed=%5, Degenerated=%6, Faces=[%7], "
+                "Wires=[%8], Vertices=[%9], Param=(%10, %11)")
                 .arg(edgeIndex)
                 .arg(curveKindDisplayName(edgeData->info.kind))
+                .arg(orientationDisplayName(edgeData->orientation))
                 .arg(edgeData->info.length, 0, 'f', 3)
+                .arg(edgeData->info.isClosed ? "true" : "false")
+                .arg(edgeData->info.isDegenerated ? "true" : "false")
                 .arg(LF::formatFaceIndexList(model, faceIndices))
-                .arg(LF::formatWireIndexList(model, graph.wiresOfEdge(edgeIndex)))
-                .arg(LF::formatIndexList(graph.verticesOfEdge(edgeIndex)))
+                .arg(LF::formatWireIndexList(
+                    model,
+                    graph.wiresOfEdge(edgeIndex)))
+                .arg(LF::formatIndexList(
+                    graph.verticesOfEdge(edgeIndex)))
                 .arg(edgeData->info.firstParameter, 0, 'f', 3)
                 .arg(edgeData->info.lastParameter, 0, 'f', 3));
 
@@ -362,21 +461,31 @@ namespace OccQtCore
         const CircleInfo& info) const
     {
         m_logger->info(
-            QString("      Circle: Radius=%1, Center=%2, AxisDir=%3")
+            QString(
+                "      Circle: Radius=%1, Center=%2, "
+                "AxisDir=%3, XDir=%4")
                 .arg(info.radius, 0, 'f', 3)
-                .arg(LF::formatPoint(info.center))
-                .arg(LF::formatDirection(info.axis.Direction())));
+                .arg(LF::formatPoint(info.position.Location()))
+                .arg(LF::formatDirection(
+                    info.position.Direction()))
+                .arg(LF::formatDirection(
+                    info.position.XDirection())));
     }
 
     void GeometryLogReporter::logEllipseDetails(
         const EllipseInfo& info) const
     {
         m_logger->info(
-            QString("      Ellipse: MajorR=%1, MinorR=%2, Center=%3, AxisDir=%4")
+            QString(
+                "      Ellipse: MajorR=%1, MinorR=%2, "
+                "Center=%3, AxisDir=%4, MajorDir=%5")
                 .arg(info.majorRadius, 0, 'f', 3)
                 .arg(info.minorRadius, 0, 'f', 3)
-                .arg(LF::formatPoint(info.center))
-                .arg(LF::formatDirection(info.axis.Direction())));
+                .arg(LF::formatPoint(info.position.Location()))
+                .arg(LF::formatDirection(
+                    info.position.Direction()))
+                .arg(LF::formatDirection(
+                    info.position.XDirection())));
     }
 
     void GeometryLogReporter::logVertexDetails(
@@ -417,11 +526,13 @@ namespace OccQtCore
         logFaceDetails(model, faceIndex);
 
         const auto& graph = model.graph();
-        const auto wireIndices = graph.wiresOfFace(faceIndex);
 
-        for (int wireIndex : wireIndices)
+        for (const auto& wireRef :
+             graph.wireRefsOfFace(faceIndex))
         {
-            logWireTreeDetails(model, wireIndex);
+            logWireTreeDetails(
+                model,
+                wireRef.wireIndex);
         }
     }
 
@@ -432,11 +543,13 @@ namespace OccQtCore
         logWireDetails(model, wireIndex);
 
         const auto& graph = model.graph();
-        const auto edgeIndices = graph.edgesOfWire(wireIndex);
 
-        for (int edgeIndex : edgeIndices)
+        for (const auto& edgeRef :
+             graph.edgeRefsOfWire(wireIndex))
         {
-            logEdgeDetails(model, edgeIndex);
+            logEdgeDetails(
+                model,
+                edgeRef.edgeIndex);
         }
     }
 }

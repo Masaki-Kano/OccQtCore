@@ -28,10 +28,8 @@ namespace OccQtCore::Feature
     }
 
     HoleContextTraceExplorer::HoleContextTraceExplorer(
-        const GeometryModel& model,
-        HoleRecognitionWorkingData* workingData)
+        const GeometryModel& model)
         : m_model(model)
-        , m_workingData(workingData)
     {
     }
 

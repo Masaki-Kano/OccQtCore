@@ -84,7 +84,7 @@ namespace OccQtCore::SurfaceUtil
     bool isSameCylinderAxisAndRadius(
         const gp_Pnt& lhsAxisPoint,
         const gp_Dir& lhsAxisDirection,
-        double lhsRadisu,
+        double lhsRadius,
         const gp_Pnt& rhsAxisPoint,
         const gp_Dir& rhsAxisDirection,
         double rhsRadius,
@@ -103,8 +103,8 @@ namespace OccQtCore::SurfaceUtil
      * @return パラメータ範囲の幅。
      */
     double parameterSpan(
-        double uMin,
-        double uMax);
+        double min,
+        double max);
 
     /**
     * @brief 円筒Faceの向きが内向きか判定する

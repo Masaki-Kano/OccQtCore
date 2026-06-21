@@ -220,20 +220,24 @@ namespace OccQtCore
 
     void GeometryModel::buildFaces(const TopTools_IndexedMapOfShape& faceMap)
     {
-        m_faces.reserve(static_cast<std::size_t>(faceMap.Extent()));
+        m_faces.reserve(
+            static_cast<std::size_t>(faceMap.Extent()));
 
-        for (int mapIndex = 1; mapIndex <= faceMap.Extent(); ++mapIndex)
+        for (int mapIndex = 1;
+             mapIndex <= faceMap.Extent();
+             ++mapIndex)
         {
             const int index = mapIndex - 1;
-            const TopoDS_Face face = TopoDS::Face(faceMap.FindKey(mapIndex));
+            const TopoDS_Face face =
+                TopoDS::Face(faceMap.FindKey(mapIndex));
 
             FaceData data;
             data.index = index;
             data.shape = face;
-
+            data.orientation = face.Orientation();
             data.info = GeometryAnalyzer::analyzeFace(face);
 
-            m_faces.push_back(data);
+            m_faces.push_back(std::move(data));
         }
     }
 
@@ -249,8 +253,19 @@ namespace OccQtCore
             WireData data;
             data.index = index;
             data.shape = wire;
-
+            data.orientation = wire.Orientation();
             data.info.isClosed = BRep_Tool::IsClosed(wire);
+
+            int edgeCount = 0;
+
+            for (TopExp_Explorer edgeExp(wire, TopAbs_EDGE);
+                 edgeExp.More();
+                 edgeExp.Next())
+            {
+                ++edgeCount;
+            }
+
+            data.info.edgeCount = edgeCount;
 
             m_wires.push_back(data);
         }
@@ -268,6 +283,7 @@ namespace OccQtCore
             EdgeData data;
             data.index = index;
             data.shape = edge;
+            data.orientation = edge.Orientation();
 
             data.info = GeometryAnalyzer::analyzeEdge(edge);
 
@@ -287,6 +303,7 @@ namespace OccQtCore
             VertexData data;
             data.index = index;
             data.shape = vertex;
+            data.orientation = vertex.Orientation();
 
             data.info = GeometryAnalyzer::analyzeVertex(vertex);
 
@@ -328,14 +345,13 @@ namespace OccQtCore
                 const bool isOuter = hasOuterWire && wire.IsSame(outerWire);
                 const bool isInner = hasOuterWire && !isOuter;
 
-                if (wireIndex >= 0 && wireIndex < wireCount())
-                {
-                    auto& wireData = m_wires[static_cast<std::size_t>(wireIndex)];
-                    wireData.info.isOuter = isOuter;
-                    wireData.info.isInner = isInner;
-                }
+                m_graph.addFaceWireRelation(
+                    faceIndex,
+                    wireIndex,
+                    wire.Orientation(),
+                    isOuter,
+                    isInner);
 
-                m_graph.addFaceWireRelation(faceIndex, wireIndex);
                 m_graph.addWireFaceRelation(wireIndex, faceIndex);
 
                 for (TopExp_Explorer edgeExp(wire, TopAbs_EDGE);
@@ -352,7 +368,10 @@ namespace OccQtCore
 
                     const int edgeIndex = edgeMapIndex - 1;
 
-                    m_graph.addWireEdgeRelation(wireIndex, edgeIndex);
+                    m_graph.addWireEdgeRelation(
+                        wireIndex,
+                        edgeIndex,
+                        edge.Orientation());
                     m_graph.addEdgeWireRelation(edgeIndex, wireIndex);
                 }
             }

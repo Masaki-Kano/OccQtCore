@@ -9,12 +9,19 @@ namespace OccQtCore
 
     namespace TopologyQuery
     {
-        struct FaceGroupBoundaryConnection
+        /**
+         * @brief Face集合から外部Faceへ出る境界接続
+         */
+        struct FaceBoundaryConnection
         {
             int sourceFaceIndex = -1;
             int boundaryEdgeIndex = -1;
             int adjacentFaceIndex = -1;
         };
+
+        //==================================================
+        // Index validation
+        //==================================================
 
         bool isValidFaceIndex(
             const GeometryModel& model,
@@ -32,22 +39,16 @@ namespace OccQtCore
             const GeometryModel& model,
             int vertexIndex);
 
-        /**
-         * @brief 2つのFaceが共通Edgeを持つか判定する
-         * @param model 対象ジオメトリモデル
-         * @param lhsFaceIndex 比較元Faceインデックス
-         * @param rhsFaceIndex 比較先Faceインデックス
-         * @return
-         */
-        bool hasSharedEdge(
-            const GeometryModel& model,
-            int lhsFaceIndex,
-            int rhsFaceIndex);
+        //==================================================
+        // Single-element queries
+        //==================================================
 
         /**
          * @brief Faceに属するEdgeを取得する
          *
          * Face -> Wire -> Edge の合成問い合わせ。
+         * 同一EdgeがFace内で複数使用されていても、
+         * 戻り値は一意化される。
          */
         std::vector<int> edgesOfFace(
             const GeometryModel& model,
@@ -62,24 +63,55 @@ namespace OccQtCore
             const GeometryModel& model,
             int edgeIndex);
 
+        /**
+         * @brief Faceに属するVertexを取得する
+         *
+         * Face -> Edge -> Vertex の合成問い合わせ。
+         */
         std::vector<int> verticesOfFace(
             const GeometryModel& model,
             int faceIndex);
 
         /**
-         * @brief Edgeに接続しているFaceを取得する
+         * @brief Face内におけるEdgeの使用回数を取得する
          *
-         * excludeFaceIndex が指定された場合、そのFaceは除外する。
+         * シームEdgeなど、同一Edgeが同じFace内で
+         * 複数回使用されている場合は二つ以上を返す。
+         */
+        int edgeUseCountInFace(
+            const GeometryModel& model,
+            int faceIndex,
+            int edgeIndex);
+
+        //==================================================
+        // Face-to-Face relation queries
+        //==================================================
+
+        /**
+         * @brief 2つのFaceが共有するEdgeを取得する
+         */
+        std::vector<int> sharedEdgesOfFace(
+            const GeometryModel& model,
+            int lhsFaceIndex,
+            int rhsFaceIndex);
+
+        /**
+         * @brief 2つのFaceが共通のEdgeをもつか判定する
+         */
+        bool hasSharedEdge(
+            const GeometryModel& model,
+            int lhsFaceIndex,
+            int rhsFaceIndex);
+
+        /**
+         * @brief Faceに隣接しているFaceを取得する
+         *
+         * Face -> Edge -> Face の合成問い合わせ。
          */
         std::vector<int> adjacentFacesOfEdge(
             const GeometryModel& model,
             int edgeIndex,
             int excludeFaceIndex = -1);
-
-        std::vector<int> adjacentFacesOfEdgeExcludingFaces(
-            const GeometryModel& model,
-            int edgeIndex,
-            const std::vector<int>& excludeFaceIndices);
 
         /**
          * @brief Faceに隣接しているFaceを取得する
@@ -91,12 +123,54 @@ namespace OccQtCore
             int faceIndex);
 
         /**
-         * @brief Face群の外側境界接続を取得する
+         * @brief Edgeに接続しているFaceから、
+         *        指定されたFace集合を除外して取得する
+         */
+        std::vector<int> adjacentFacesOfEdgeExcludingFaces(
+            const GeometryModel& model,
+            int edgeIndex,
+            const std::vector<int>& excludeFaceIndices);
+
+        //==================================================
+        // Face-set queries
+        //==================================================
+
+        /**
+         * @brief Face集合に属するEdgeを取得する
          *
-         * 指定されたFace群から外側へ出る
+         * 戻り値は一意化される
+         */
+        std::vector<int> edgesOfFaces(
+            const GeometryModel& model,
+            const std::vector<int>& faceIndices);
+
+        /**
+         * @brief Face集合の境界Edgeを取得する
+         *
+         * Face集合の内側だけで完結するEdgeは除外し、
+         * 集合の外側に露出するEdgeを返す。
+         *
+         * シームEdgeについてはFace内使用回数も考慮する
+         */
+        std::vector<int> boundaryEdgesOfFaces(
+            const GeometryModel& model,
+            const std::vector<int>& faceIndices);
+
+        /**
+         * @brief Face集合に隣接する外部Faceを取得する
+         *
+         * faceIndicesに含まれるFaceは戻り値から除外される。
+         */
+        std::vector<int> adjacentFacesOfFaces(
+            const GeometryModel& model,
+            const std::vector<int>& faceIndices);
+
+        /**
+         * @brief Face集合から外部Faceへ出る境界接続を取得する
+         *
          * sourceFace / boundaryEdge / adjacentFace の組を返す。
          */
-        std::vector<FaceGroupBoundaryConnection> collectBoundaryConnectionsOfFaceGroup(
+        std::vector<FaceBoundaryConnection> boundaryConnectionsOfFace(
             const GeometryModel& model,
             const std::vector<int>& faceIndices);
     }

@@ -102,6 +102,4 @@ namespace OccQtCore
     {
         m_holeRecognitionReporter.logHoleRecognition(report);
     }
-
-
 }

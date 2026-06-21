@@ -107,7 +107,7 @@ qt_add_executable(OccQtCore
     src/Feature/HoleContextConnectionPolicy.cpp
 
 
-    src/Feature/HoleRecognitionWorkingData.h
+
     src/Feature/HoleContextQuery.h
     src/Feature/HoleContextQuery.cpp
     src/View/DisplayObjectRegistry.h
@@ -119,6 +119,18 @@ qt_add_executable(OccQtCore
     src/View/OccCameraController.h
     src/View/OccCameraController.cpp
     src/Interaction/SelectionTypes.h
+    src/Geometry/SurfaceQuery.h
+    src/Geometry/SurfaceQuery.cpp
+    src/Feature/HoleElement.h
+    src/Feature/HoleElementGraph.h
+    src/Feature/HoleElementConnection.h
+    src/Feature/HoleElementGraph.cpp
+    src/Feature/HoleElementBuilder.h
+    src/Feature/HoleElementBuilder.cpp
+    src/Feature/HoleElementGraphBuilder.h
+    src/Feature/HoleElementGraphBuilder.cpp
+
+
 
 )
 

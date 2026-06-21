@@ -2,7 +2,6 @@
 #define HOLECONTEXTTRACEEXPLORER_H
 
 #include "Feature/HoleRecognitionModel.h"
-#include "Feature/HoleRecognitionWorkingData.h"
 
 #include <set>
 #include <vector>
@@ -26,8 +25,7 @@ namespace OccQtCore::Feature
     {
         public:
             explicit HoleContextTraceExplorer(
-                const GeometryModel& model,
-                HoleRecognitionWorkingData* workingData = nullptr);
+                const GeometryModel& model);
 
             HoleRecognitionResult explore() const;
 
@@ -65,7 +63,6 @@ namespace OccQtCore::Feature
 
         private:
             const GeometryModel& m_model;
-            HoleRecognitionWorkingData* m_workingData = nullptr;
     };
 }
 

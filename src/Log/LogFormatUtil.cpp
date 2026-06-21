@@ -88,6 +88,28 @@ namespace OccQtCore::LogFormatUtil
             });
     }
 
+    QString formatWireRefList(
+        const GeometryModel& model,
+        const std::vector<OrientedWireRef>& wireRefs)
+    {
+        if (wireRefs.empty())
+        {
+            return "なし";
+        }
+
+        QStringList texts;
+        texts.reserve(
+            static_cast<qsizetype>(wireRefs.size()));
+
+        for (const auto& wireRef : wireRefs)
+        {
+            texts.append(
+                formatWireRef(model, wireRef));
+        }
+
+        return texts.join(", ");
+    }
+
     QString formatEdgeIndexList(const GeometryModel& model, const std::vector<int>& edgeIndices)
     {
         return joinIndexTexts(
@@ -113,19 +135,48 @@ namespace OccQtCore::LogFormatUtil
             .arg(kindText);
     }
 
-    QString formatWireIndex(const GeometryModel& model, int wireIndex)
+    QString formatWireIndex(
+        const GeometryModel& model,
+        int wireIndex)
     {
         QString kindText = "Invalid";
 
         const auto* wireData = model.wireAt(wireIndex);
+
         if (wireData != nullptr)
         {
-            kindText = formatWireKind(wireData->info.isOuter, wireData->info.isInner, wireData->info.isClosed);
+            kindText = wireData->info.isClosed
+                           ? "Closed"
+                           : "Open";
         }
 
         return QString("%1:%2")
             .arg(wireIndex)
             .arg(kindText);
+    }
+
+    QString formatWireRef(
+        const GeometryModel& model,
+        const OrientedWireRef& wireRef)
+    {
+        QString kindText = "Invalid";
+
+        const auto* wireData =
+            model.wireAt(wireRef.wireIndex);
+
+        if (wireData != nullptr)
+        {
+            kindText = formatWireKind(
+                wireRef.isOuter,
+                wireRef.isInner,
+                wireData->info.isClosed);
+        }
+
+        return QString("%1:%2/%3")
+            .arg(wireRef.wireIndex)
+            .arg(kindText)
+            .arg(orientationDisplayName(
+                wireRef.orientation));
     }
 
     QString formatEdgeIndex(const GeometryModel& model, int edgeIndex)

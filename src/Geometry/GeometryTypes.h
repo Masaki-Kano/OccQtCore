@@ -1,7 +1,6 @@
 #ifndef GEOMETRYTYPES_H
 #define GEOMETRYTYPES_H
 
-#include <vector>
 #include <optional>
 
 #include <TopoDS_Face.hxx>
@@ -9,9 +8,12 @@
 #include <TopoDS_Wire.hxx>
 #include <TopoDS_Vertex.hxx>
 
+#include <TopAbs_Orientation.hxx>
+
+#include <gp_Ax1.hxx>
+#include <gp_Ax2.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Dir.hxx>
-#include <gp_Ax1.hxx>
 
 namespace OccQtCore
 {
@@ -56,6 +58,11 @@ namespace OccQtCore
     struct ConeInfo
     {
         gp_Ax1 axis;
+
+        // 同一支持円錐判定をしやすくなるため保持
+        gp_Pnt apex;
+        bool hasApex = false;
+
         double semiAngle = 0.0;
         double refRadius = 0.0;
     };
@@ -81,35 +88,18 @@ namespace OccQtCore
 
     struct CircleInfo
     {
-        gp_Pnt center;
-        gp_Ax1 axis;
+        // 中心、法線、面内方向を保持
+        gp_Ax2 position;
         double radius = 0.0;
     };
 
     struct EllipseInfo
     {
-        gp_Pnt center;
-        gp_Ax1 axis;
+        // 長軸方向まで保持
+        gp_Ax2 position;
+
         double majorRadius = 0.0;
         double minorRadius = 0.0;
-    };
-
-    struct WireInfo
-    {
-        bool isClosed = false;
-
-        // Face内での境界種別
-        bool isOuter = false;
-        bool isInner = false;
-
-        int edgeCount = 0;
-    };
-
-    struct WireData
-    {
-        int index = -1;
-        TopoDS_Wire shape;
-        WireInfo info;
     };
 
     struct FaceInfo
@@ -123,11 +113,24 @@ namespace OccQtCore
         double vMin = 0.0;
         double vMax = 0.0;
 
+        // 支持曲面の周期情報
+        bool isUPeriodic = false;
+        bool isVPeriodic = false;
+
+        double uPeriod = 0.0;
+        double vPeriod = 0.0;
+
         std::optional<PlaneInfo> plane;
         std::optional<CylinderInfo> cylinder;
         std::optional<ConeInfo> cone;
         std::optional<SphereInfo> sphere;
         std::optional<TorusInfo> torus;
+    };
+
+    struct WireInfo
+    {
+        bool isClosed = false;
+        int edgeCount = 0;
     };
 
     struct EdgeInfo
@@ -138,6 +141,9 @@ namespace OccQtCore
 
         double firstParameter = 0.0;
         double lastParameter = 0.0;
+
+        bool isClosed = false;
+        bool isDegenerated = false;
 
         std::optional<LineInfo> line;
         std::optional<CircleInfo> circle;
@@ -154,13 +160,33 @@ namespace OccQtCore
     {
         int index = -1;
         TopoDS_Face shape;
+
+        // TopoDS_Faceとしての向き
+        // 支持曲面の法線方向と組み合わせて内向き・外向きを導出する
+        TopAbs_Orientation orientation = TopAbs_FORWARD;
+
         FaceInfo info;
+    };
+
+    struct WireData
+    {
+        int index = -1;
+        TopoDS_Wire shape;
+
+        TopAbs_Orientation orientation = TopAbs_FORWARD;
+
+        WireInfo info;
     };
 
     struct EdgeData
     {
         int index = -1;
         TopoDS_Edge shape;
+
+        // Edge単体としての向き
+        // Wire内での向きはOrientedEdgeRef側で保持する
+        TopAbs_Orientation orientation = TopAbs_FORWARD;
+
         EdgeInfo info;
     };
 
@@ -168,7 +194,29 @@ namespace OccQtCore
     {
         int index = -1;
         TopoDS_Vertex shape;
+
+        TopAbs_Orientation orientation = TopAbs_FORWARD;
+
         VertexInfo info;
+    };
+
+    // Wire内におけるEdgeの参照。
+    // Edgeの登録順だけでなく、そのWire内での向きも保持する
+    struct OrientedEdgeRef
+    {
+        int edgeIndex = -1;
+        TopAbs_Orientation orientation = TopAbs_FORWARD;
+    };
+
+    // Face内におけるWireの参照。
+    // Outer / Inner判定を将来的にFace-Wire関係側へ移せるようにする
+    struct OrientedWireRef
+    {
+        int wireIndex = -1;
+        TopAbs_Orientation orientation = TopAbs_FORWARD;
+
+        bool isOuter = false;
+        bool isInner = false;
     };
 
     inline const char* surfaceKindDisplayName(SurfaceKind kind)
@@ -222,6 +270,27 @@ namespace OccQtCore
             return "その他";
         default:
             return "不明";
+        }
+    }
+
+    inline const char* orientationDisplayName(TopAbs_Orientation orientation)
+    {
+        switch (orientation)
+        {
+        case TopAbs_FORWARD:
+            return "FORWARD";
+
+        case TopAbs_REVERSED:
+            return "REVERSED";
+
+        case TopAbs_INTERNAL:
+            return "INTERNAL";
+
+        case TopAbs_EXTERNAL:
+            return "EXTERNAL";
+
+        default:
+            return "UNKNOWN";
         }
     }
 }

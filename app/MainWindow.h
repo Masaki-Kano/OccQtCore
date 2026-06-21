@@ -9,7 +9,6 @@
 #include "Core/DocumentData.h"
 
 #include "Feature/HoleRecognitionModel.h"
-#include "Feature/HoleRecognitionWorkingData.h"
 
 #include "Interaction/SelectionTypes.h"
 
@@ -78,6 +77,5 @@ private:
 
     HoleDebugPanel* m_holeDebugPanel = nullptr;
     OccQtCore::Feature::HoleRecognitionResult m_holeDebugResult;
-    OccQtCore::Feature::HoleRecognitionWorkingData m_holeDebugWorkingData;
 };
 #endif // MAINWINDOW_H

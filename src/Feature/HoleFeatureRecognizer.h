@@ -2,7 +2,6 @@
 #define HOLEFEATURERECOGNIZER_H
 
 #include "Feature/HoleRecognitionModel.h"
-#include "Feature/HoleRecognitionWorkingData.h"
 
 namespace OccQtCore
 {
@@ -23,8 +22,7 @@ namespace OccQtCore::Feature
         HoleRecognitionResult recognize(const GeometryModel& model) const;
 
         HoleRecognitionResult recognizeCandidates(
-            const GeometryModel& model,
-            HoleRecognitionWorkingData* workingData = nullptr) const;
+            const GeometryModel& model) const;
 
     };
 }
